@@ -14,7 +14,7 @@ const helpLinks = [
 ];
 
 const companyLinks = [
-  { label: "About Meridian", href: "/about" },
+  { label: "About Baruashop", href: "/about" },
   { label: "Careers", href: "/careers" },
   { label: "Press", href: "/press" },
   { label: "Sustainability", href: "/sustainability" },
@@ -112,10 +112,10 @@ export function Footer() {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <ShoppingBag className="h-4 w-4" />
             </span>
-            <span className="text-lg font-bold text-background">Meridian</span>
+            <span className="text-lg font-bold text-background">Baruashop</span>
           </Link>
           <p className="text-xs text-background/60">
-            © {new Date().getFullYear()} Meridian Commerce, Inc. All rights reserved.
+            © {new Date().getFullYear()} Baruashop Commerce, Inc. All rights reserved.
           </p>
         </div>
       </div>

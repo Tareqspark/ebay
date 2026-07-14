@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
   const current = resolved.grandchild ?? resolved.child ?? resolved.top;
   return {
     title: current.name,
-    description: `Shop ${current.name} at Meridian. ${resolved.top.description}`,
+    description: `Shop ${current.name} at Baruashop. ${resolved.top.description}`,
   };
 }
 
