@@ -21,6 +21,8 @@ import {
 import { CATEGORIES } from "@/app/data/categories";
 
 const featuredCategories = getFeaturedCategories().slice(0, 6);
+const categoryScopeItems: Record<string, string> = { all: "All Categories" };
+for (const c of CATEGORIES) categoryScopeItems[c.slug] = c.name;
 
 export function SearchBar({ className }: { className?: string }) {
   const router = useRouter();
@@ -62,7 +64,7 @@ export function SearchBar({ className }: { className?: string }) {
         }}
         className="flex h-11 w-full items-stretch overflow-hidden rounded-lg border border-border bg-background shadow-sm ring-primary/20 focus-within:ring-2"
       >
-        <Select value={scope} onValueChange={(v) => setScope(v ?? "all")}>
+        <Select value={scope} onValueChange={(v) => setScope(v ?? "all")} items={categoryScopeItems}>
           <SelectTrigger className="hidden w-[168px] shrink-0 rounded-none border-0 border-r border-border bg-muted/50 text-xs font-medium sm:flex">
             <SelectValue placeholder="All Categories" />
           </SelectTrigger>

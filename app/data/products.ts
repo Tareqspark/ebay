@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE. Do not edit directly.
-// Source logic lives in scripts/generate-products.mjs — run
+// Source logic lives in scripts/product-data.mjs — run
 // `node scripts/generate-products.mjs` to regenerate.
 import type { Product } from "@/lib/types";
 

@@ -32,6 +32,7 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "rating", label: "Customer Rating" },
   { value: "newest", label: "Newest Arrivals" },
 ];
+const sortItems: Record<string, string> = Object.fromEntries(SORT_OPTIONS.map((o) => [o.value, o.label]));
 
 const PAGE_SIZE = 24;
 
@@ -184,7 +185,7 @@ export function ProductExplorer({ products, brands }: ProductExplorerProps) {
                 {filterPanel}
               </SheetContent>
             </Sheet>
-            <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
+            <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)} items={sortItems}>
               <SelectTrigger className="h-9 w-[180px] text-sm">
                 <SelectValue />
               </SelectTrigger>
