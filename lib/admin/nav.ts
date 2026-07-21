@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
   Boxes,
+  Container,
   CreditCard,
   FileText,
   FolderTree,
@@ -84,11 +85,9 @@ export const ADMIN_NAV: AdminNavGroup[] = [
         icon: Boxes,
         children: [
           { label: "Overview", href: "/admin/supplier" },
-          { label: "CJ Catalog", href: "/admin/supplier/cj-catalog" },
           { label: "Import Queue", href: "/admin/supplier/queue" },
           { label: "Import History", href: "/admin/supplier/history" },
           { label: "Failed Imports", href: "/admin/supplier/failed" },
-          { label: "After-Sales", href: "/admin/supplier/after-sales" },
           { label: "Field Mapping", href: "/admin/supplier/mapping" },
           { label: "Logs", href: "/admin/supplier/logs" },
         ],
@@ -96,6 +95,24 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { label: "Payments", href: "/admin/payments", icon: CreditCard },
       { label: "Shipping", href: "/admin/shipping", icon: Truck },
       { label: "Content", href: "/admin/content", icon: FileText },
+    ],
+  },
+  {
+    label: "Sourcing",
+    items: [
+      {
+        label: "CJdropshipping",
+        href: "/admin/cj",
+        icon: Container,
+        children: [
+          { label: "Overview", href: "/admin/cj" },
+          { label: "Catalog", href: "/admin/cj/catalog" },
+          { label: "Orders", href: "/admin/cj/orders" },
+          { label: "After-Sales", href: "/admin/cj/after-sales" },
+          { label: "Sourcing Requests", href: "/admin/cj/sourcing" },
+          { label: "Settings", href: "/admin/cj/settings" },
+        ],
+      },
     ],
   },
   {
@@ -110,7 +127,6 @@ export const ADMIN_NAV: AdminNavGroup[] = [
           { label: "Users & Permissions", href: "/admin/settings/users" },
           { label: "Taxes", href: "/admin/settings/taxes" },
           { label: "Shipping", href: "/admin/settings/shipping" },
-          { label: "CJdropshipping", href: "/admin/settings/cj" },
           { label: "Payments", href: "/admin/settings/payments" },
           { label: "Notifications", href: "/admin/settings/notifications" },
           { label: "Email", href: "/admin/settings/email" },

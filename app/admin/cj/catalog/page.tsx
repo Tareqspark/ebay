@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/admin/shared/page-header";
-import { SupplierTabs } from "@/components/admin/supplier/supplier-tabs";
+import { CjTabs } from "@/components/admin/cj/cj-tabs";
 import { CjCatalogTable } from "@/components/admin/cj/cj-catalog-table";
 import { CATEGORIES, CJ_SHIPPING_LINES } from "@/lib/admin/data";
 import { getCjCatalogTotal } from "@/lib/admin/cj-catalog";
@@ -14,10 +14,10 @@ export default function AdminCjCatalogPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title="Supplier"
+        title="CJdropshipping"
         description={`Browse and import from CJdropshipping's live catalog — ${total.toLocaleString()} products available`}
       />
-      <SupplierTabs />
+      <CjTabs />
       <CjCatalogTable categoryOptions={categoryOptions} shippingLines={CJ_SHIPPING_LINES} />
     </div>
   );

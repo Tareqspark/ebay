@@ -4,15 +4,15 @@ import { usePathname, useRouter } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const TABS = [
-  { href: "/admin/supplier", label: "Overview" },
-  { href: "/admin/supplier/queue", label: "Import Queue" },
-  { href: "/admin/supplier/history", label: "Import History" },
-  { href: "/admin/supplier/failed", label: "Failed Imports" },
-  { href: "/admin/supplier/mapping", label: "Field Mapping" },
-  { href: "/admin/supplier/logs", label: "Logs" },
+  { href: "/admin/cj", label: "Overview" },
+  { href: "/admin/cj/catalog", label: "Catalog" },
+  { href: "/admin/cj/orders", label: "Orders" },
+  { href: "/admin/cj/after-sales", label: "After-Sales" },
+  { href: "/admin/cj/sourcing", label: "Sourcing Requests" },
+  { href: "/admin/cj/settings", label: "Settings" },
 ];
 
-export function SupplierTabs() {
+export function CjTabs() {
   const pathname = usePathname();
   const router = useRouter();
 
