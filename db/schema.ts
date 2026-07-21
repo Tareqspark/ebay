@@ -107,6 +107,17 @@ export const orders = mysqlTable(
     totalCents: int("total_cents").notNull(),
     paymentMethod: varchar("payment_method", { length: 60 }).notNull().default("card"),
     stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 191 }),
+    // Fulfillment tracking — set by admin ops after the order is placed, not
+    // at checkout time. Self-fulfillment fields vs. CJ fields are two
+    // parallel tracks on one order, mirroring the pre-existing admin Order
+    // model (a mixed order can have both).
+    trackingNumber: varchar("tracking_number", { length: 191 }),
+    carrier: varchar("carrier", { length: 191 }),
+    supplierId: varchar("supplier_id", { length: 191 }),
+    cjSyncStatus: mysqlEnum("cj_sync_status", ["not_sent", "queued", "processing", "shipped"]),
+    cjOrderId: varchar("cj_order_id", { length: 191 }),
+    cjTrackingNumber: varchar("cj_tracking_number", { length: 191 }),
+    cjShippingLineId: varchar("cj_shipping_line_id", { length: 191 }),
     shippingAddress: json("shipping_address").notNull().$type<{
       name: string;
       line1: string;
