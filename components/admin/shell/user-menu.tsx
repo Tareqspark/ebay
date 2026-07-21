@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -26,10 +27,12 @@ export function UserMenu() {
         }
       />
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>
-          <p className="font-medium text-foreground">Priya Patel</p>
-          <p className="text-xs font-normal text-muted-foreground">priya@baruashop.com</p>
-        </DropdownMenuLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>
+            <p className="font-medium text-foreground">Priya Patel</p>
+            <p className="text-xs font-normal text-muted-foreground">priya@baruashop.com</p>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem render={<Link href="/admin/settings/users"><User />Profile</Link>} />
         <DropdownMenuItem render={<Link href="/admin/settings"><Settings />Settings</Link>} />

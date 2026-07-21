@@ -22,6 +22,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -234,7 +235,9 @@ function ColumnVisibilityMenu<TData>({ table }: { table: TableInstance<TData> })
         }
       />
       <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         {hideableColumns.map((column) => (
           <DropdownMenuCheckboxItem
