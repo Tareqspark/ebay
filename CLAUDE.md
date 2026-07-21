@@ -14,6 +14,16 @@ npx tsc --noEmit # type-check (no separate script defined)
 
 There is no test suite/runner configured in this repo.
 
+### Database & environment setup
+
+Accounts/cart/checkout/orders/reviews (`db/schema.ts`) run against a real MySQL database — everything else (catalog, taxonomy, `/admin`) is still the generated static data above. Local dev connects to a MacPorts MySQL 8 instance at `/opt/local/bin/mysql` that is **shared with other unrelated projects on this machine** — Baruashop only has access to its own `baruashop` database via a dedicated scoped user (`baruashop`@`localhost`), created once and never using root for app access. `.env.local` (gitignored) holds `DATABASE_URL` plus `AUTH_SECRET`/`AUTH_URL`, and empty placeholders for `STRIPE_SECRET_KEY`/`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`/`STRIPE_WEBHOOK_SECRET`/`SENDGRID_API_KEY`/`SENDGRID_FROM_EMAIL`.
+
+```bash
+npx drizzle-kit push    # apply db/schema.ts to the database (no migration files yet — see PRODUCT.md Database conventions)
+```
+
+**Stripe and SendGrid degrade gracefully when unconfigured**, on purpose — this isn't a bug: `lib/stripe.ts`'s `getStripe()` returns `null` (not a throw) when `STRIPE_SECRET_KEY` is unset, and `createPaymentIntentAction` (`lib/checkout-actions.ts`) turns that into a clear in-UI checkout error instead of a crash. `lib/sendgrid.ts`'s `sendEmail()` logs to the server console instead of sending when `SENDGRID_API_KEY` is unset, so the order-confirmation step of checkout still completes in dev without a SendGrid account. Don't "fix" either of these into a hard throw — that would break local dev for anyone without live keys.
+
 ### Regenerating data
 
 Category, brand, and product data are generated, not hand-authored. Never edit `app/data/categories.ts`, `app/data/brands.ts`, or `app/data/products.ts` directly — edit the corresponding `scripts/*-source.mjs` and re-run:
@@ -42,11 +52,12 @@ Three fixed levels, typed in `app/data/categories.ts`: `Category` (top, has `ico
 
 `Product.categorySlugPath` is `[topSlug, childSlug, grandchildSlug]`, matching the category tree slugs exactly. Query/derive helpers (filtering, sorting, brand rollups, price bounds, deals/flash-sale/trending/etc. selectors) live in `lib/products.ts` — extend there rather than filtering `PRODUCTS` inline in components.
 
-### RSC boundary gotchas (both bit us during the build — watch for them)
+### Runtime boundary gotchas (all bit us during the build — watch for them)
 
 1. **Icons are function references, not strings.** `Category.icon` is an actual `LucideIcon` component stored in the data. A Server Component may render it directly, but it can **not** be passed as a prop into a `"use client"` component (functions aren't serializable across that boundary — Next will throw at build time). When a client component needs an icon from a server parent, pass a pre-rendered node instead: `icon={<Tag className="h-5 w-5" />}`, not `icon={Tag}`. See `components/product/product-rail.tsx` (`icon?: ReactNode`) and its call sites in `app/page.tsx`. Same applies to any `Category`/`Product`-derived object containing an `icon` — strip it (see `HeroSlide` in `hero-banner.tsx`) before passing to a client component.
 2. **Recently-viewed avoids shipping the product catalog to the client.** `hooks/use-recently-viewed.ts` only stores product IDs in `localStorage`. The actual product objects are fetched from `app/api/products/route.ts` (`GET ?ids=a,b,c`) after mount. Follow this pattern for any new client-side feature that needs product data by ID — don't import `PRODUCTS` from `app/data/products.ts` into a `"use client"` file (it's ~2,800 items).
 3. **The CJ catalog is never `import`ed, only read from disk.** `lib/admin/cj-catalog.ts` loads the 50,000-item `data/cj-catalog.json` (~17MB) via `fs.readFileSync`, cached in module scope — it must stay a server-only module reached exclusively through `app/api/admin/cj-catalog/route.ts`. A plain `import`/`require` of that JSON (or of `cj-catalog.ts` from a `"use client"` file) would bundle the whole catalog for the browser. `components/admin/cj/cj-catalog-table.tsx` fetches one page at a time from that API route instead of using the app's normal fully-client-side `DataTable` pattern, which assumes the whole dataset already lives in the browser.
+4. **`middleware.ts` runs on the Edge runtime, which cannot load `mysql2`** (it uses Node's `net`/`tls`, unavailable at the edge). `auth.ts` (the full Auth.js config, with the Credentials provider's `db` lookup) is Node-only and must never be imported from `middleware.ts`. The fix already in place: `auth.config.ts` holds the edge-safe subset (pages/callbacks, no providers, no `@/db` import); `auth.ts` spreads it and adds the DB-touching Credentials provider for Server Components/Actions/the `/api/auth` route; `middleware.ts` constructs its own lightweight `NextAuth(authConfig)` instance directly, never importing `@/auth`. If you add anything to `auth.ts` that needs to also run in middleware, it has to go in `auth.config.ts` instead, not the other way around.
 
 ### shadcn is on Base UI, not Radix
 
