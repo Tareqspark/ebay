@@ -2,14 +2,15 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/admin/shared/page-header";
 import { KpiCard } from "@/components/admin/shared/kpi-card";
 import { ReviewsTable } from "@/components/admin/reviews/reviews-table";
-import { REVIEWS } from "@/lib/admin/reviews";
+import { getReviews } from "@/lib/admin/reviews";
 
 export const metadata: Metadata = { title: "Reviews" };
 
-export default function AdminReviewsPage() {
-  const pending = REVIEWS.filter((r) => r.status === "pending").length;
-  const approved = REVIEWS.filter((r) => r.status === "approved").length;
-  const avgRating = REVIEWS.reduce((s, r) => s + r.rating, 0) / REVIEWS.length;
+export default async function AdminReviewsPage() {
+  const reviews = await getReviews();
+  const pending = reviews.filter((r) => r.status === "pending").length;
+  const approved = reviews.filter((r) => r.status === "approved").length;
+  const avgRating = reviews.length > 0 ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;
 
   return (
     <div className="flex flex-col gap-4">
@@ -18,9 +19,9 @@ export default function AdminReviewsPage() {
         <KpiCard label="Pending" value={String(pending)} alert={pending > 0} />
         <KpiCard label="Approved" value={String(approved)} />
         <KpiCard label="Average rating" value={avgRating.toFixed(1)} />
-        <KpiCard label="Total reviews" value={String(REVIEWS.length)} />
+        <KpiCard label="Total reviews" value={String(reviews.length)} />
       </div>
-      <ReviewsTable initialReviews={REVIEWS} />
+      <ReviewsTable initialReviews={reviews} />
     </div>
   );
 }

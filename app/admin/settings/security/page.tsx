@@ -10,11 +10,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ApiKeysList } from "@/components/admin/settings/api-keys-list";
-import { API_KEYS } from "@/lib/admin/api-keys";
+import { getApiKeys } from "@/lib/admin/api-keys";
 
 export const metadata: Metadata = { title: "Security & API" };
 
-export default function AdminSecuritySettingsPage() {
+export default async function AdminSecuritySettingsPage() {
+  const apiKeys = await getApiKeys();
   return (
     <div className="flex max-w-2xl flex-col gap-4">
       <SettingsSection title="Account security" description="Protect admin access to your store">
@@ -36,7 +37,7 @@ export default function AdminSecuritySettingsPage() {
         </div>
       </SettingsSection>
 
-      <ApiKeysList initialKeys={API_KEYS} />
+      <ApiKeysList initialKeys={apiKeys} />
     </div>
   );
 }

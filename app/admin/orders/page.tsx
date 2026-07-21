@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/admin/shared/page-header";
 import { OrdersTable } from "@/components/admin/orders/orders-table";
-import { ORDERS } from "@/lib/admin/data";
+import { getOrders } from "@/lib/admin/data";
 
 export const metadata: Metadata = { title: "Orders" };
 
@@ -10,12 +10,12 @@ interface OrdersPageProps {
 }
 
 export default async function AdminOrdersPage({ searchParams }: OrdersPageProps) {
-  const { status, q } = await searchParams;
+  const [{ status, q }, orders] = await Promise.all([searchParams, getOrders()]);
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title="Orders" description={`${ORDERS.length.toLocaleString()} orders`} />
-      <OrdersTable initialOrders={ORDERS} initialStatusFilter={status} initialQuery={q} />
+      <PageHeader title="Orders" description={`${orders.length.toLocaleString()} orders`} />
+      <OrdersTable initialOrders={orders} initialStatusFilter={status} initialQuery={q} />
     </div>
   );
 }
