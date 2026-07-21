@@ -79,7 +79,7 @@ export async function peekCart(): Promise<CartSummary> {
 
 async function buildSummary(cartId: string): Promise<CartSummary> {
   const rows = await db.select().from(cartItems).where(eq(cartItems.cartId, cartId));
-  const products = getProductsByIds(rows.map((r) => r.productId));
+  const products = await getProductsByIds(rows.map((r) => r.productId));
   const productById = new Map(products.map((p) => [p.id, p]));
 
   const items: CartLine[] = rows

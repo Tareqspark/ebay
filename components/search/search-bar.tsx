@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Clock, Search, TrendingUp, X } from "lucide-react";
@@ -13,26 +13,38 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useRecentSearches } from "@/hooks/use-recent-searches";
-import {
-  POPULAR_SEARCHES,
-  getFeaturedCategories,
-  searchCategories,
-} from "@/lib/category-utils";
-import { CATEGORIES } from "@/app/data/categories";
+import { POPULAR_SEARCHES, type CategorySearchResult, type ClientCategory } from "@/lib/category-utils";
 
-const featuredCategories = getFeaturedCategories().slice(0, 6);
-const categoryScopeItems: Record<string, string> = { all: "All Categories" };
-for (const c of CATEGORIES) categoryScopeItems[c.slug] = c.name;
+interface SearchBarProps {
+  className?: string;
+  featuredCategories: ClientCategory[];
+  allCategories: { slug: string; name: string }[];
+}
 
-export function SearchBar({ className }: { className?: string }) {
+export function SearchBar({ className, featuredCategories, allCategories }: SearchBarProps) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState("all");
   const [open, setOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState<CategorySearchResult[]>([]);
   const { searches, addSearch, removeSearch } = useRecentSearches();
 
-  const suggestions = useMemo(() => searchCategories(query, 7), [query]);
+  const categoryScopeItems: Record<string, string> = { all: "All Categories" };
+  for (const c of allCategories) categoryScopeItems[c.slug] = c.name;
+
+  useEffect(() => {
+    if (!query) {
+      setSuggestions([]);
+      return;
+    }
+    const timeout = setTimeout(async () => {
+      const res = await fetch(`/api/categories/search?q=${encodeURIComponent(query)}&limit=7`);
+      const data = await res.json();
+      setSuggestions(data.results ?? []);
+    }, 250);
+    return () => clearTimeout(timeout);
+  }, [query]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -70,8 +82,8 @@ export function SearchBar({ className }: { className?: string }) {
           </SelectTrigger>
           <SelectContent className="max-h-80">
             <SelectItem value="all">All Categories</SelectItem>
-            {CATEGORIES.map((c) => (
-              <SelectItem key={c.id} value={c.slug}>
+            {allCategories.map((c) => (
+              <SelectItem key={c.slug} value={c.slug}>
                 {c.name}
               </SelectItem>
             ))}
@@ -201,20 +213,17 @@ export function SearchBar({ className }: { className?: string }) {
                   Suggested Categories
                 </p>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {featuredCategories.map((c) => {
-                    const Icon = c.icon;
-                    return (
-                      <Link
-                        key={c.id}
-                        href={`/category/${c.slug}`}
-                        onClick={() => setOpen(false)}
-                        className="flex items-center gap-2 rounded-md border border-border/70 px-2.5 py-2 text-xs text-foreground hover:border-primary hover:bg-primary/5"
-                      >
-                        <Icon className="h-4 w-4 text-primary" />
-                        <span className="truncate">{c.name}</span>
-                      </Link>
-                    );
-                  })}
+                  {featuredCategories.map((c) => (
+                    <Link
+                      key={c.id}
+                      href={`/category/${c.slug}`}
+                      onClick={() => setOpen(false)}
+                      className="flex items-center gap-2 rounded-md border border-border/70 px-2.5 py-2 text-xs text-foreground hover:border-primary hover:bg-primary/5"
+                    >
+                      {c.iconNode}
+                      <span className="truncate">{c.name}</span>
+                    </Link>
+                  ))}
                 </div>
               </div>
             </div>

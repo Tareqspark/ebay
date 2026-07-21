@@ -15,9 +15,8 @@ export async function generateMetadata({ searchParams }: SearchPageProps): Promi
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const { q = "" } = await searchParams;
-  const products = searchProducts(q, 200);
-  const categoryMatches = searchCategories(q, 6);
-  const brands = getBrandsInProducts(products);
+  const products = await searchProducts(q, 200);
+  const [categoryMatches, brands] = await Promise.all([searchCategories(q, 6), getBrandsInProducts(products)]);
 
   return (
     <div className="mx-auto flex max-w-[1440px] flex-col gap-8 px-4 py-6 sm:px-6 sm:py-8">

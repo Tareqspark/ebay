@@ -65,7 +65,7 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
   const rows = await db.select().from(cartItems).where(eq(cartItems.cartId, cartId));
   if (rows.length === 0) return null;
 
-  const products = getProductsByIds(rows.map((r) => r.productId));
+  const products = await getProductsByIds(rows.map((r) => r.productId));
   const productById = new Map(products.map((p) => [p.id, p]));
 
   const lineItems = rows

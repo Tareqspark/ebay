@@ -1,12 +1,16 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { categoryHref } from "@/lib/category-utils";
-import { getBrandsForCategory } from "@/app/data/brands";
-import type { Category } from "@/app/data/categories";
+import { categoryHref, type ClientCategory } from "@/lib/category-utils";
+import type { Brand } from "@/lib/types";
 
-export function MegaMenuPanel({ category, onNavigate }: { category: Category; onNavigate?: () => void }) {
-  const brands = getBrandsForCategory(category.slug, 8);
+interface MegaMenuPanelProps {
+  category: ClientCategory;
+  brands: Brand[];
+  onNavigate?: () => void;
+}
+
+export function MegaMenuPanel({ category, brands, onNavigate }: MegaMenuPanelProps) {
   const visibleChildren = category.children.slice(0, 6);
 
   return (

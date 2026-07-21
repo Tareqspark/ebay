@@ -15,6 +15,13 @@ export interface Product {
   slug: string;
   title: string;
   brandId: string;
+  /** Denormalized at the query layer (lib/products.ts) so client components
+   * (ProductCard, rendered inside client-side ProductRail/ProductExplorer)
+   * never need to fetch brand data themselves — see CLAUDE.md. Optional
+   * because the legacy generated app/data/products.ts array (being phased
+   * out as consumers move to the DB-backed lib/products.ts) predates this
+   * field; every DB-backed fetch function always populates it. */
+  brandName?: string;
   price: number;
   originalPrice?: number;
   currency: "USD";

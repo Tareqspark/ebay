@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Truck } from "lucide-react";
-import { getBrandById } from "@/app/data/brands";
 import { RatingStars } from "@/components/product/rating-stars";
 import { PriceDisplay } from "@/components/product/price-display";
 import { ProductBadges } from "@/components/product/product-badges";
@@ -16,8 +15,6 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, className, priority }: ProductCardProps) {
-  const brand = getBrandById(product.brandId);
-
   return (
     <Link
       href={`/product/${product.slug}`}
@@ -39,11 +36,9 @@ export function ProductCard({ product, className, priority }: ProductCardProps) 
         <WishlistButton className="absolute right-2 top-2" />
       </div>
       <div className="flex flex-1 flex-col gap-1.5 p-3">
-        {brand && (
-          <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            {brand.name}
-          </span>
-        )}
+        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {product.brandName ?? product.brandId}
+        </span>
         <h3 className="line-clamp-2 text-sm font-medium text-foreground">{product.title}</h3>
         <RatingStars rating={product.review.rating} count={product.review.count} />
         <div className="mt-auto pt-1">

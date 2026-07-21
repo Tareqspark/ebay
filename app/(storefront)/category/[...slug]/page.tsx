@@ -7,7 +7,7 @@ import { FeaturedCollections, type FeaturedCollectionItem } from "@/components/c
 import { BrandsRow } from "@/components/category/brands-row";
 import { ProductExplorer } from "@/components/product/product-explorer";
 import { categoryHref, resolveCategoryPath } from "@/lib/category-utils";
-import { getBrandsForCategory } from "@/app/data/brands";
+import { getBrandsForCategory } from "@/lib/brands";
 import { getBrandsInProducts, getProductsByCategoryPath } from "@/lib/products";
 
 interface CategoryPageProps {
@@ -16,7 +16,7 @@ interface CategoryPageProps {
 
 export async function generateMetadata({ params }: CategoryPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const resolved = resolveCategoryPath(slug);
+  const resolved = await resolveCategoryPath(slug);
   if (!resolved) return { title: "Category Not Found" };
 
   const current = resolved.grandchild ?? resolved.child ?? resolved.top;
@@ -28,12 +28,12 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
 
 export default async function CategoryPage({ params }: CategoryPageProps) {
   const { slug } = await params;
-  const resolved = resolveCategoryPath(slug);
+  const resolved = await resolveCategoryPath(slug);
   if (!resolved) notFound();
 
   const { top, child, grandchild, breadcrumbs } = resolved;
   const current = grandchild ?? child ?? top;
-  const products = getProductsByCategoryPath(slug);
+  const products = await getProductsByCategoryPath(slug);
 
   let subcategoryTitle = "Shop by Subcategory";
   let subItems: SubcategoryGridItem[] = [];
@@ -73,8 +73,8 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     tagline: `${top.name} Essentials`,
   }));
 
-  const brands = getBrandsInProducts(products);
-  const brandOptions = brands.length > 0 ? brands : getBrandsForCategory(top.slug);
+  const brands = await getBrandsInProducts(products);
+  const brandOptions = brands.length > 0 ? brands : await getBrandsForCategory(top.slug);
 
   return (
     <div className="mx-auto flex max-w-[1440px] flex-col gap-10 px-4 py-6 sm:px-6 sm:py-8">

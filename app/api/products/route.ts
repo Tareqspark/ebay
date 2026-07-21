@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProductsByIds } from "@/lib/products";
 
-export function GET(request: NextRequest) {
+export async function GET(request: NextRequest) {
   const idsParam = request.nextUrl.searchParams.get("ids") ?? "";
   const ids = idsParam.split(",").map((id) => id.trim()).filter(Boolean);
 
@@ -9,6 +9,6 @@ export function GET(request: NextRequest) {
     return NextResponse.json({ products: [] });
   }
 
-  const products = getProductsByIds(ids);
+  const products = await getProductsByIds(ids);
   return NextResponse.json({ products });
 }

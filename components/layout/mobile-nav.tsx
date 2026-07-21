@@ -1,19 +1,30 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Menu, Search, X } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { CategoryTree } from "@/components/category/category-tree";
-import { buildCategoryTree, searchCategories } from "@/lib/category-utils";
+import type { CategorySearchResult, CategoryTreeNode } from "@/lib/category-utils";
 
-const tree = buildCategoryTree();
-
-export function MobileNav() {
+export function MobileNav({ tree }: { tree: CategoryTreeNode[] }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const results = useMemo(() => (query ? searchCategories(query, 30) : []), [query]);
+  const [results, setResults] = useState<CategorySearchResult[]>([]);
+
+  useEffect(() => {
+    if (!query) {
+      setResults([]);
+      return;
+    }
+    const timeout = setTimeout(async () => {
+      const res = await fetch(`/api/categories/search?q=${encodeURIComponent(query)}&limit=30`);
+      const data = await res.json();
+      setResults(data.results ?? []);
+    }, 250);
+    return () => clearTimeout(timeout);
+  }, [query]);
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>

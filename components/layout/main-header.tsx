@@ -15,14 +15,27 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import type { ClientCategory, CategoryTreeNode } from "@/lib/category-utils";
 
-export function MainHeader({ session }: { session: Session | null }) {
+interface MainHeaderProps {
+  session: Session | null;
+  featuredCategories: ClientCategory[];
+  allCategoriesForScope: { slug: string; name: string }[];
+  mobileTree: CategoryTreeNode[];
+}
+
+export function MainHeader({
+  session,
+  featuredCategories,
+  allCategoriesForScope,
+  mobileTree,
+}: MainHeaderProps) {
   const firstName = session?.user?.name?.split(" ")[0];
 
   return (
     <div className="bg-background">
       <div className="mx-auto flex max-w-[1440px] items-center gap-4 px-4 py-3 sm:px-6">
-        <MobileNav />
+        <MobileNav tree={mobileTree} />
 
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
@@ -33,7 +46,11 @@ export function MainHeader({ session }: { session: Session | null }) {
           </span>
         </Link>
 
-        <SearchBar className="mx-auto max-w-3xl flex-1" />
+        <SearchBar
+          className="mx-auto max-w-3xl flex-1"
+          featuredCategories={featuredCategories}
+          allCategories={allCategoriesForScope}
+        />
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <DropdownMenu>

@@ -1,9 +1,6 @@
 import Link from "next/link";
 import { Mail, MessageCircle, Rss, Share2, ShoppingBag } from "lucide-react";
-import { CATEGORIES } from "@/app/data/categories";
-import { categoryHref } from "@/lib/category-utils";
-
-const shopColumns = CATEGORIES.slice(0, 5);
+import { categoryHref, getCategoryTree } from "@/lib/category-utils";
 
 const helpLinks = [
   { label: "Contact Us", href: "/help" },
@@ -28,7 +25,10 @@ const legalLinks = [
   { label: "Do Not Sell My Info", href: "/legal/privacy-choices" },
 ];
 
-export function Footer() {
+export async function Footer() {
+  const tree = await getCategoryTree();
+  const shopColumns = tree.slice(0, 5);
+
   return (
     <footer className="border-t border-border bg-foreground text-background">
       <div className="mx-auto max-w-[1440px] px-6 py-12">

@@ -18,7 +18,7 @@ import { auth } from "@/auth";
 
 export default async function HomePage() {
   const session = await auth();
-  const featuredCategories = getFeaturedCategories();
+  const featuredCategories = await getFeaturedCategories();
   const heroSlides = featuredCategories.slice(0, 5).map((c) => ({
     id: c.id,
     name: c.name,
@@ -26,12 +26,14 @@ export default async function HomePage() {
     image: c.image,
     description: c.description,
   }));
-  const deals = getDealsProducts(14);
-  const flashSale = getFlashSaleProducts(14);
-  const trending = getTrendingProducts(14);
-  const newArrivals = getNewArrivalProducts(14);
-  const bestSellers = getBestSellerProducts(14);
-  const recommended = await getPersonalizedRecommendations(session?.user?.id ?? null, 14);
+  const [deals, flashSale, trending, newArrivals, bestSellers, recommended] = await Promise.all([
+    getDealsProducts(14),
+    getFlashSaleProducts(14),
+    getTrendingProducts(14),
+    getNewArrivalProducts(14),
+    getBestSellerProducts(14),
+    getPersonalizedRecommendations(session?.user?.id ?? null, 14),
+  ]);
 
   return (
     <div className="mx-auto flex max-w-[1440px] flex-col gap-12 px-4 py-6 sm:px-6 sm:py-8">

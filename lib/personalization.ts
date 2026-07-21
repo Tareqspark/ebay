@@ -2,8 +2,7 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { orders, orderItems } from "@/db/schema";
-import { PRODUCTS } from "@/app/data/products";
-import { getRecommendedProducts } from "@/lib/products";
+import { getAllProducts, getRecommendedProducts } from "@/lib/products";
 import type { Product } from "@/lib/types";
 
 /**
@@ -27,7 +26,8 @@ export async function getPersonalizedRecommendations(
   if (purchasedRows.length === 0) return getRecommendedProducts(limit, excludeIds);
 
   const purchasedIds = new Set(purchasedRows.map((r) => r.productId));
-  const productById = new Map(PRODUCTS.map((p) => [p.id, p]));
+  const all = await getAllProducts();
+  const productById = new Map(all.map((p) => [p.id, p]));
 
   const categoryCounts = new Map<string, number>();
   for (const id of purchasedIds) {
@@ -37,12 +37,12 @@ export async function getPersonalizedRecommendations(
   const preferredCategories = new Set([...categoryCounts.entries()].sort((a, b) => b[1] - a[1]).map(([slug]) => slug));
 
   const excluded = new Set([...excludeIds, ...purchasedIds]);
-  const pool = PRODUCTS.filter(
+  const pool = all.filter(
     (p) => !excluded.has(p.id) && p.review.rating >= 4.0 && preferredCategories.has(p.categorySlugPath[0])
   );
 
   if (pool.length >= limit) return pool.slice(0, limit);
 
-  const fallback = getRecommendedProducts(limit - pool.length, [...excluded, ...pool.map((p) => p.id)]);
+  const fallback = await getRecommendedProducts(limit - pool.length, [...excluded, ...pool.map((p) => p.id)]);
   return [...pool, ...fallback];
 }

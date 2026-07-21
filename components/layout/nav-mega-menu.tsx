@@ -11,11 +11,17 @@ import {
 } from "@/components/ui/navigation-menu";
 import { AllCategoriesPanel } from "@/components/layout/all-categories-panel";
 import { MegaMenuPanel } from "@/components/layout/mega-menu-panel";
-import { getFeaturedCategories } from "@/lib/category-utils";
+import type { ClientCategory } from "@/lib/category-utils";
+import type { Brand } from "@/lib/types";
 
-const quickCategories = getFeaturedCategories().slice(0, 10);
+interface NavMegaMenuProps {
+  categories: ClientCategory[];
+  brandsBySlug: Record<string, Brand[]>;
+}
 
-export function NavMegaMenu() {
+export function NavMegaMenu({ categories, brandsBySlug }: NavMegaMenuProps) {
+  const quickCategories = categories.filter((c) => c.featured).slice(0, 10);
+
   return (
     <div className="hidden border-b border-border/70 bg-background lg:block">
       <div className="mx-auto max-w-[1440px] px-6">
@@ -27,7 +33,7 @@ export function NavMegaMenu() {
                 All Categories
               </NavigationMenuTrigger>
               <NavigationMenuContent className="!w-[880px]">
-                <AllCategoriesPanel />
+                <AllCategoriesPanel categories={categories} brandsBySlug={brandsBySlug} />
               </NavigationMenuContent>
             </NavigationMenuItem>
 
@@ -35,7 +41,7 @@ export function NavMegaMenu() {
               <NavigationMenuItem key={category.id}>
                 <NavigationMenuTrigger>{category.name}</NavigationMenuTrigger>
                 <NavigationMenuContent className="!w-[760px]">
-                  <MegaMenuPanel category={category} />
+                  <MegaMenuPanel category={category} brands={brandsBySlug[category.slug] ?? []} />
                 </NavigationMenuContent>
               </NavigationMenuItem>
             ))}

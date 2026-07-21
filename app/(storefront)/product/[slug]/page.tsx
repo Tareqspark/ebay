@@ -10,7 +10,6 @@ import { AddToCart } from "@/components/product/add-to-cart";
 import { RecordRecentlyViewed } from "@/components/product/record-recently-viewed";
 import { ProductRail } from "@/components/product/product-rail";
 import { ReviewsSection } from "@/components/product/reviews-section";
-import { getBrandById } from "@/app/data/brands";
 import { getProductBySlug, getRelatedProducts } from "@/lib/products";
 import { resolveCategoryPath } from "@/lib/category-utils";
 
@@ -20,7 +19,7 @@ interface ProductPageProps {
 
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const product = getProductBySlug(slug);
+  const product = await getProductBySlug(slug);
   if (!product) return { title: "Product Not Found" };
   return {
     title: product.title,
@@ -30,12 +29,13 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params;
-  const product = getProductBySlug(slug);
+  const product = await getProductBySlug(slug);
   if (!product) notFound();
 
-  const brand = getBrandById(product.brandId);
-  const resolved = resolveCategoryPath(product.categorySlugPath);
-  const related = getRelatedProducts(product, 12);
+  const [resolved, related] = await Promise.all([
+    resolveCategoryPath(product.categorySlugPath),
+    getRelatedProducts(product, 12),
+  ]);
 
   return (
     <div className="mx-auto flex max-w-[1440px] flex-col gap-10 px-4 py-6 sm:px-6 sm:py-8">
@@ -48,11 +48,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
         <div className="flex flex-col gap-5">
           <div>
-            {brand && (
-              <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-                {brand.name}
-              </p>
-            )}
+            <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+              {product.brandName ?? product.brandId}
+            </p>
             <h1 className="mt-1 text-2xl font-bold text-foreground sm:text-3xl">{product.title}</h1>
             <div className="mt-2 flex items-center gap-3">
               <RatingStars rating={product.review.rating} count={product.review.count} size="md" />
