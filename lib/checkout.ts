@@ -68,21 +68,23 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
   const products = await getProductsByIds(rows.map((r) => r.productId));
   const productById = new Map(products.map((p) => [p.id, p]));
 
-  const lineItems = rows
-    .map((row) => {
-      const product = productById.get(row.productId);
-      if (!product) return null;
-      const meta = getProductMeta(product.id);
-      return {
-        productId: product.id,
-        title: product.title,
-        image: product.images[0],
-        quantity: row.quantity,
-        price: product.price,
-        source: meta?.source ?? ("self" as const),
-      };
-    })
-    .filter((x): x is NonNullable<typeof x> => x !== null);
+  const lineItems = (
+    await Promise.all(
+      rows.map(async (row) => {
+        const product = productById.get(row.productId);
+        if (!product) return null;
+        const meta = await getProductMeta(product.id);
+        return {
+          productId: product.id,
+          title: product.title,
+          image: product.images[0],
+          quantity: row.quantity,
+          price: product.price,
+          source: meta?.source ?? ("self" as const),
+        };
+      }),
+    )
+  ).filter((x): x is NonNullable<typeof x> => x !== null);
 
   const subtotal = Math.round(lineItems.reduce((sum, item) => sum + item.price * item.quantity, 0) * 100) / 100;
   const { shipping, tax, total } = computeTotals(subtotal);

@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/admin/shared/page-header";
 import { CjTabs } from "@/components/admin/cj/cj-tabs";
 import { CjOrdersTable } from "@/components/admin/cj/cj-orders-table";
-import { ORDERS } from "@/lib/admin/data";
+import { getOrders } from "@/lib/admin/data";
 
 export const metadata: Metadata = { title: "CJ Orders" };
 
-export default function AdminCjOrdersPage() {
-  const cjOrders = ORDERS.filter((o) => o.items.some((i) => i.source === "cj"));
+export default async function AdminCjOrdersPage() {
+  const orders = await getOrders();
+  const cjOrders = orders.filter((o) => o.items.some((i) => i.source === "cj"));
 
   return (
     <div className="flex flex-col gap-4">

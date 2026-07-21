@@ -16,9 +16,15 @@ import { formatCompactMoney, formatNumber, formatPercent, percentChange } from "
 
 export const metadata: Metadata = { title: "Analytics" };
 
-export default function AdminAnalyticsPage() {
-  const summary = getAnalyticsSummary();
-  const series = getRevenueSeries(30);
+export default async function AdminAnalyticsPage() {
+  const [summary, series, topCategories, topProducts, topBrands, topCustomers] = await Promise.all([
+    getAnalyticsSummary(),
+    getRevenueSeries(30),
+    getTopCategories(),
+    getTopProducts(),
+    getTopBrands(),
+    getTopCustomers(),
+  ]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -38,10 +44,10 @@ export default function AdminAnalyticsPage() {
       </Panel>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <RankedList title="Top categories" entries={getTopCategories()} />
-        <RankedList title="Top products" entries={getTopProducts()} />
-        <RankedList title="Top brands" entries={getTopBrands()} />
-        <RankedList title="Top customers" entries={getTopCustomers()} />
+        <RankedList title="Top categories" entries={topCategories} />
+        <RankedList title="Top products" entries={topProducts} />
+        <RankedList title="Top brands" entries={topBrands} />
+        <RankedList title="Top customers" entries={topCustomers} />
       </div>
     </div>
   );

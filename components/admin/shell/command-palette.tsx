@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   FolderTree,
@@ -23,12 +23,17 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { flattenNav } from "@/lib/admin/nav";
-import { PRODUCTS } from "@/app/data/products";
-import { CATEGORIES } from "@/app/data/categories";
-import { ORDERS } from "@/app/data/admin/orders";
-import { CUSTOMERS } from "@/app/data/admin/customers";
 
 const navDestinations = flattenNav();
+
+interface SearchResults {
+  products: { id: string; title: string }[];
+  orders: { id: string; total: number }[];
+  customers: { id: string; name: string; email: string }[];
+  categories: { id: string; name: string }[];
+}
+
+const EMPTY_RESULTS: SearchResults = { products: [], orders: [], customers: [], categories: [] };
 
 const QUICK_ACTIONS = [
   { label: "Create product", href: "/admin/products?new=1", icon: Plus },
@@ -59,28 +64,22 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   );
 
   const q = query.trim().toLowerCase();
+  const [results, setResults] = useState<SearchResults>(EMPTY_RESULTS);
 
-  const productMatches = useMemo(() => {
-    if (q.length < 2) return [];
-    return PRODUCTS.filter((p) => p.title.toLowerCase().includes(q)).slice(0, 5);
+  useEffect(() => {
+    if (q.length < 2) {
+      setResults(EMPTY_RESULTS);
+      return;
+    }
+    const timeout = setTimeout(async () => {
+      const res = await fetch(`/api/admin/search?q=${encodeURIComponent(q)}`);
+      setResults(await res.json());
+    }, 200);
+    return () => clearTimeout(timeout);
   }, [q]);
 
-  const orderMatches = useMemo(() => {
-    if (q.length < 2) return [];
-    return ORDERS.filter((o) => o.id.toLowerCase().includes(q)).slice(0, 5);
-  }, [q]);
-
-  const customerMatches = useMemo(() => {
-    if (q.length < 2) return [];
-    return CUSTOMERS.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q)
-    ).slice(0, 5);
-  }, [q]);
-
-  const categoryMatches = useMemo(() => {
-    if (q.length < 2) return [];
-    return CATEGORIES.filter((c) => c.name.toLowerCase().includes(q)).slice(0, 4);
-  }, [q]);
+  const { products: productMatches, orders: orderMatches, customers: customerMatches, categories: categoryMatches } =
+    results;
 
   return (
     <CommandDialog

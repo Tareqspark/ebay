@@ -4,7 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import Image from "next/image";
 import { StatusBadge } from "@/components/admin/shared/status-badge";
 import { formatDate } from "@/lib/admin/format";
-import { getCollectionProductCount, type Collection } from "@/lib/admin/collections";
+import type { Collection } from "@/lib/admin/collections";
 
 export const collectionColumns: ColumnDef<Collection, unknown>[] = [
   {
@@ -44,8 +44,8 @@ export const collectionColumns: ColumnDef<Collection, unknown>[] = [
     id: "count",
     header: "Products",
     size: 100,
-    accessorFn: (row) => getCollectionProductCount(row),
-    cell: ({ row }) => <span className="tabular-nums text-foreground">{getCollectionProductCount(row.original).toLocaleString()}</span>,
+    accessorFn: (row) => row.productCount,
+    cell: ({ row }) => <span className="tabular-nums text-foreground">{row.original.productCount.toLocaleString()}</span>,
   },
   {
     id: "status",

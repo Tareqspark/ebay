@@ -14,10 +14,20 @@ export interface Collection {
   status: CollectionStatus;
   updatedAt: string;
   imageSeed: string;
+  productCount: number;
+}
+
+// Deterministic pseudo-count derived from the catalog so it stays stable
+// without wiring each collection to real membership data (no
+// collection_products join table exists yet).
+function pseudoProductCount(id: string, catalogSize: number): number {
+  let hash = 0;
+  for (const ch of id) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  return 20 + (hash % Math.min(400, catalogSize - 20));
 }
 
 export const getCollections = cache(async (): Promise<Collection[]> => {
-  const rows = await db.select().from(collectionsTable);
+  const [rows, products] = await Promise.all([db.select().from(collectionsTable), getProducts()]);
   return rows.map((c) => ({
     id: c.id,
     name: c.name,
@@ -26,14 +36,6 @@ export const getCollections = cache(async (): Promise<Collection[]> => {
     status: c.status,
     updatedAt: c.updatedAt.toISOString(),
     imageSeed: c.imageSeed,
+    productCount: pseudoProductCount(c.id, products.length),
   }));
 });
-
-export async function getCollectionProductCount(collection: Collection): Promise<number> {
-  // Deterministic pseudo-count derived from the catalog so it stays stable
-  // without wiring each collection to real membership data.
-  const products = await getProducts();
-  let hash = 0;
-  for (const ch of collection.id) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-  return 20 + (hash % Math.min(400, products.length - 20));
-}

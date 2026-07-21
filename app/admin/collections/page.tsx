@@ -3,11 +3,12 @@ import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/admin/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { CollectionsTable } from "@/components/admin/collections/collections-table";
-import { COLLECTIONS } from "@/lib/admin/collections";
+import { getCollections } from "@/lib/admin/collections";
 
 export const metadata: Metadata = { title: "Collections" };
 
-export default function AdminCollectionsPage() {
+export default async function AdminCollectionsPage() {
+  const collections = await getCollections();
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
@@ -20,7 +21,7 @@ export default function AdminCollectionsPage() {
           </Button>
         }
       />
-      <CollectionsTable collections={COLLECTIONS} />
+      <CollectionsTable collections={collections} />
     </div>
   );
 }

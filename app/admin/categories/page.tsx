@@ -5,9 +5,8 @@ import { getCategoryTree, getCategoryTotals } from "@/lib/admin/categories";
 
 export const metadata: Metadata = { title: "Categories" };
 
-export default function AdminCategoriesPage() {
-  const tree = getCategoryTree();
-  const totals = getCategoryTotals();
+export default async function AdminCategoriesPage() {
+  const [tree, totals] = await Promise.all([getCategoryTree(), getCategoryTotals()]);
 
   return (
     <div className="flex flex-col gap-4">

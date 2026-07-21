@@ -3,15 +3,16 @@ import { PageHeader } from "@/components/admin/shared/page-header";
 import { KpiCard } from "@/components/admin/shared/kpi-card";
 import { CjTabs } from "@/components/admin/cj/cj-tabs";
 import { CjSourcingRequests } from "@/components/admin/cj/cj-sourcing-requests";
-import { CJ_SOURCING_REQUESTS } from "@/lib/admin/data";
+import { getCjSourcingRequests } from "@/lib/admin/data";
 
 export const metadata: Metadata = { title: "Sourcing Requests" };
 
-export default function AdminCjSourcingPage() {
-  const submitted = CJ_SOURCING_REQUESTS.filter((r) => r.status === "submitted").length;
-  const sourcing = CJ_SOURCING_REQUESTS.filter((r) => r.status === "sourcing").length;
-  const found = CJ_SOURCING_REQUESTS.filter((r) => r.status === "found").length;
-  const notFound = CJ_SOURCING_REQUESTS.filter((r) => r.status === "not_found").length;
+export default async function AdminCjSourcingPage() {
+  const requests = await getCjSourcingRequests();
+  const submitted = requests.filter((r) => r.status === "submitted").length;
+  const sourcing = requests.filter((r) => r.status === "sourcing").length;
+  const found = requests.filter((r) => r.status === "found").length;
+  const notFound = requests.filter((r) => r.status === "not_found").length;
 
   return (
     <div className="flex flex-col gap-4">
@@ -23,7 +24,7 @@ export default function AdminCjSourcingPage() {
         <KpiCard label="Found" value={String(found)} />
         <KpiCard label="Not found" value={String(notFound)} alert={notFound > 0} />
       </div>
-      <CjSourcingRequests initialRequests={CJ_SOURCING_REQUESTS} />
+      <CjSourcingRequests initialRequests={requests} />
     </div>
   );
 }

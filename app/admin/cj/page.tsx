@@ -4,19 +4,26 @@ import { PageHeader } from "@/components/admin/shared/page-header";
 import { KpiCard } from "@/components/admin/shared/kpi-card";
 import { CjTabs } from "@/components/admin/cj/cj-tabs";
 import { StatusBadge } from "@/components/admin/shared/status-badge";
-import { ORDERS, CJ_DISPUTES, PRODUCT_META, getCustomer, CJ_INTEGRATION_SETTINGS } from "@/lib/admin/data";
+import { getOrders, getCjDisputes, getProductMetaList, getCjIntegrationSettings } from "@/lib/admin/data";
 import { formatDate, formatMoney, formatPercent } from "@/lib/admin/format";
 
 export const metadata: Metadata = { title: "CJdropshipping" };
 
-export default function AdminCjOverviewPage() {
-  const cjProducts = PRODUCT_META.filter((m) => m.source === "cj").length;
-  const cjShare = PRODUCT_META.length > 0 ? cjProducts / PRODUCT_META.length : 0;
+export default async function AdminCjOverviewPage() {
+  const [orders, cjDisputes, productMeta, settings] = await Promise.all([
+    getOrders(),
+    getCjDisputes(),
+    getProductMetaList(),
+    getCjIntegrationSettings(),
+  ]);
 
-  const awaitingPush = ORDERS.filter((o) => o.cjSyncStatus === "not_sent").sort(
+  const cjProducts = productMeta.filter((m) => m.source === "cj").length;
+  const cjShare = productMeta.length > 0 ? cjProducts / productMeta.length : 0;
+
+  const awaitingPush = orders.filter((o) => o.cjSyncStatus === "not_sent").sort(
     (a, b) => new Date(a.placedAt).getTime() - new Date(b.placedAt).getTime()
   );
-  const openDisputes = CJ_DISPUTES.filter((d) => d.status === "open" || d.status === "awaiting_cj").sort(
+  const openDisputes = cjDisputes.filter((d) => d.status === "open" || d.status === "awaiting_cj").sort(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   );
 
@@ -26,7 +33,7 @@ export default function AdminCjOverviewPage() {
       <CjTabs />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <KpiCard label="Wallet balance" value={formatMoney(CJ_INTEGRATION_SETTINGS.walletBalance)} href="/admin/cj/settings" />
+        <KpiCard label="Wallet balance" value={formatMoney(settings.walletBalance)} href="/admin/cj/settings" />
         <KpiCard label="Orders awaiting push" value={String(awaitingPush.length)} alert={awaitingPush.length > 0} href="/admin/cj/orders" />
         <KpiCard label="Open disputes" value={String(openDisputes.length)} alert={openDisputes.length > 0} href="/admin/cj/after-sales" />
         <KpiCard label="Share of catalog" value={`${formatPercent(cjShare * 100)} · ${cjProducts.toLocaleString()} products`} href="/admin/cj/catalog" />
@@ -51,7 +58,7 @@ export default function AdminCjOverviewPage() {
               <div key={order.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
                 <div className="min-w-0">
                   <p className="font-medium text-foreground">{order.id}</p>
-                  <p className="truncate text-xs text-muted-foreground">{getCustomer(order.customerId)?.name ?? order.customerId}</p>
+                  <p className="truncate text-xs text-muted-foreground">{order.customerName}</p>
                 </div>
                 <span className="shrink-0 text-xs text-muted-foreground">{formatDate(order.placedAt)}</span>
               </div>

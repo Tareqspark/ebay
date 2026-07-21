@@ -14,15 +14,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatDateTime, formatMoney } from "@/lib/admin/format";
-import { CJ_INTEGRATION_SETTINGS, CJ_SHIPPING_LINES, CJ_SOURCING_REQUESTS } from "@/lib/admin/data";
+import { getCjIntegrationSettings, getCjShippingLines, getCjSourcingRequests } from "@/lib/admin/data";
 
 export const metadata: Metadata = { title: "CJdropshipping Settings" };
 
-const shippingLineItems = Object.fromEntries(CJ_SHIPPING_LINES.map((l) => [l.id, `${l.name} (${l.estimatedDays})`]));
 const syncFrequencyItems = { "15min": "Every 15 minutes", hourly: "Hourly", "6h": "Every 6 hours", daily: "Daily" };
 
-export default function AdminCjSettingsPage() {
-  const settings = CJ_INTEGRATION_SETTINGS;
+export default async function AdminCjSettingsPage() {
+  const [settings, cjShippingLines, cjSourcingRequests] = await Promise.all([
+    getCjIntegrationSettings(),
+    getCjShippingLines(),
+    getCjSourcingRequests(),
+  ]);
+  const shippingLineItems = Object.fromEntries(cjShippingLines.map((l) => [l.id, `${l.name} (${l.estimatedDays})`]));
 
   return (
     <div className="flex flex-col gap-4">
@@ -36,7 +40,7 @@ export default function AdminCjSettingsPage() {
           label="Sync frequency"
           value={syncFrequencyItems[settings.syncFrequency as keyof typeof syncFrequencyItems] ?? settings.syncFrequency}
         />
-        <KpiCard label="Sourcing requests" value={String(CJ_SOURCING_REQUESTS.length)} />
+        <KpiCard label="Sourcing requests" value={String(cjSourcingRequests.length)} />
       </div>
 
       <div className="flex max-w-2xl flex-col gap-4">
@@ -61,7 +65,7 @@ export default function AdminCjSettingsPage() {
             <Select defaultValue={settings.defaultShippingLineId} items={shippingLineItems}>
               <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {CJ_SHIPPING_LINES.map((line) => (
+                {cjShippingLines.map((line) => (
                   <SelectItem key={line.id} value={line.id}>
                     {line.name} ({line.estimatedDays})
                   </SelectItem>
@@ -85,7 +89,7 @@ export default function AdminCjSettingsPage() {
 
         <SettingsSection title="Shipping lines" description="Available CJ shipping lines and their per-order cost">
           <div className="flex flex-col divide-y divide-border">
-            {CJ_SHIPPING_LINES.map((line) => (
+            {cjShippingLines.map((line) => (
               <div key={line.id} className="flex items-center justify-between py-2 text-sm">
                 <div>
                   <p className="font-medium text-foreground">{line.name}</p>

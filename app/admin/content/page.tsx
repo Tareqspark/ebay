@@ -3,11 +3,12 @@ import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/admin/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { ContentTable } from "@/components/admin/content/content-table";
-import { CONTENT_ITEMS } from "@/lib/admin/content";
+import { getContentItems } from "@/lib/admin/content";
 
 export const metadata: Metadata = { title: "Content" };
 
-export default function AdminContentPage() {
+export default async function AdminContentPage() {
+  const items = await getContentItems();
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
@@ -20,7 +21,7 @@ export default function AdminContentPage() {
           </Button>
         }
       />
-      <ContentTable items={CONTENT_ITEMS} />
+      <ContentTable items={items} />
     </div>
   );
 }
