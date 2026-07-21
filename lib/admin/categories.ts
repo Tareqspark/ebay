@@ -1,4 +1,5 @@
-import { CATEGORIES, PRODUCTS } from "@/lib/admin/data";
+import { cache } from "react";
+import { getAdminCategories, getProducts } from "@/lib/admin/data";
 
 export interface CategoryTreeRow {
   id: string;
@@ -11,20 +12,18 @@ export interface CategoryTreeRow {
   children: CategoryTreeRow[];
 }
 
-let cache: CategoryTreeRow[] | null = null;
-
-export function getCategoryTree(): CategoryTreeRow[] {
-  if (cache) return cache;
+export const getCategoryTree = cache(async (): Promise<CategoryTreeRow[]> => {
+  const [categories, products] = await Promise.all([getAdminCategories(), getProducts()]);
 
   const countByPath = new Map<string, number>();
-  for (const product of PRODUCTS) {
+  for (const product of products) {
     const [top, child, grandchild] = product.categorySlugPath;
     countByPath.set(top, (countByPath.get(top) ?? 0) + 1);
     countByPath.set(`${top}/${child}`, (countByPath.get(`${top}/${child}`) ?? 0) + 1);
     countByPath.set(`${top}/${child}/${grandchild}`, (countByPath.get(`${top}/${child}/${grandchild}`) ?? 0) + 1);
   }
 
-  cache = CATEGORIES.map((top) => ({
+  return categories.map((top) => ({
     id: top.id,
     name: top.name,
     slug: top.slug,
@@ -50,12 +49,12 @@ export function getCategoryTree(): CategoryTreeRow[] {
       })),
     })),
   }));
-  return cache;
-}
+});
 
-export function getCategoryTotals() {
-  const top = CATEGORIES.length;
-  const child = CATEGORIES.reduce((s, c) => s + c.children.length, 0);
-  const grandchild = CATEGORIES.reduce((s, c) => s + c.children.reduce((s2, cc) => s2 + cc.children.length, 0), 0);
+export async function getCategoryTotals() {
+  const categories = await getAdminCategories();
+  const top = categories.length;
+  const child = categories.reduce((s, c) => s + c.children.length, 0);
+  const grandchild = categories.reduce((s, c) => s + c.children.reduce((s2, cc) => s2 + cc.children.length, 0), 0);
   return { top, child, grandchild, total: top + child + grandchild };
 }

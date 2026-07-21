@@ -1,10 +1,10 @@
 import {
   ADMIN_NOW,
-  ORDERS,
-  PAYMENTS,
-  INVENTORY,
-  PRODUCT_META,
-  CUSTOMERS,
+  getOrders,
+  getPayments,
+  getInventory,
+  getProductMetaList,
+  getCustomers,
   getProduct,
   getProductMeta,
   getBrand,
@@ -34,8 +34,15 @@ export interface DashboardKpis {
   failedPaymentsToday: number;
 }
 
-export function getDashboardKpis(): DashboardKpis {
-  const paidOrders = ORDERS.filter((o) => o.paymentStatus !== "failed");
+export async function getDashboardKpis(): Promise<DashboardKpis> {
+  const [orders, productMeta, inventory, payments] = await Promise.all([
+    getOrders(),
+    getProductMetaList(),
+    getInventory(),
+    getPayments(),
+  ]);
+
+  const paidOrders = orders.filter((o) => o.paymentStatus !== "failed");
   const todayOrders = paidOrders.filter((o) => isWithinDays(o.placedAt, 1));
   const yesterdayOrders = paidOrders.filter(
     (o) => isWithinDays(o.placedAt, 2) && !isWithinDays(o.placedAt, 1)
@@ -46,10 +53,10 @@ export function getDashboardKpis(): DashboardKpis {
     revenueYesterday: round2(yesterdayOrders.reduce((s, o) => s + o.total, 0)),
     ordersToday: todayOrders.length,
     ordersYesterday: yesterdayOrders.length,
-    pendingOrders: ORDERS.filter((o) => ["unfulfilled", "processing"].includes(o.fulfillmentStatus)).length,
-    productsImportedToday: PRODUCT_META.filter((m) => isWithinDays(m.importedAt, 1)).length,
-    lowInventoryCount: INVENTORY.filter((r) => r.status === "low_stock" || r.status === "out_of_stock").length,
-    failedPaymentsToday: PAYMENTS.filter((p) => p.status === "failed" && isWithinDays(p.createdAt, 3)).length,
+    pendingOrders: orders.filter((o) => ["unfulfilled", "processing"].includes(o.fulfillmentStatus)).length,
+    productsImportedToday: productMeta.filter((m) => isWithinDays(m.importedAt, 1)).length,
+    lowInventoryCount: inventory.filter((r) => r.status === "low_stock" || r.status === "out_of_stock").length,
+    failedPaymentsToday: payments.filter((p) => p.status === "failed" && isWithinDays(p.createdAt, 3)).length,
   };
 }
 
@@ -64,12 +71,13 @@ export interface RevenuePoint {
   orders: number;
 }
 
-export function getRevenueSeries(days = 30): RevenuePoint[] {
+export async function getRevenueSeries(days = 30): Promise<RevenuePoint[]> {
+  const orders = await getOrders();
   const points: RevenuePoint[] = [];
   for (let i = days - 1; i >= 0; i -= 1) {
     const dayStart = ADMIN_NOW - (i + 1) * DAY_MS;
     const dayEnd = ADMIN_NOW - i * DAY_MS;
-    const dayOrders = ORDERS.filter((o) => {
+    const dayOrders = orders.filter((o) => {
       if (o.paymentStatus === "failed") return false;
       const t = new Date(o.placedAt).getTime();
       return t >= dayStart && t < dayEnd;
@@ -96,12 +104,13 @@ export interface AnalyticsSummary {
   ordersPrev30d: number;
 }
 
-export function getAnalyticsSummary(): AnalyticsSummary {
+export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
+  const orders = await getOrders();
   const inWindow = (o: Order, from: number, to: number) => {
     const t = new Date(o.placedAt).getTime();
     return t >= from && t < to;
   };
-  const valid = ORDERS.filter((o) => o.paymentStatus !== "failed");
+  const valid = orders.filter((o) => o.paymentStatus !== "failed");
   const current = valid.filter((o) => inWindow(o, ADMIN_NOW - 30 * DAY_MS, ADMIN_NOW));
   const previous = valid.filter((o) => inWindow(o, ADMIN_NOW - 60 * DAY_MS, ADMIN_NOW - 30 * DAY_MS));
 
@@ -109,7 +118,7 @@ export function getAnalyticsSummary(): AnalyticsSummary {
   let cost = 0;
   for (const order of current) {
     for (const item of order.items) {
-      const meta = getProductMeta(item.productId);
+      const meta = await getProductMeta(item.productId);
       cost += (meta?.cost ?? item.price * 0.6) * item.quantity;
     }
   }
@@ -139,9 +148,10 @@ export interface RankedEntry {
   count: number;
 }
 
-export function getTopProducts(limit = 8): RankedEntry[] {
+export async function getTopProducts(limit = 8): Promise<RankedEntry[]> {
+  const orders = await getOrders();
   const totals = new Map<string, { revenue: number; units: number }>();
-  for (const order of ORDERS) {
+  for (const order of orders) {
     if (order.paymentStatus === "failed") continue;
     for (const item of order.items) {
       const entry = totals.get(item.productId) ?? { revenue: 0, units: 0 };
@@ -150,27 +160,28 @@ export function getTopProducts(limit = 8): RankedEntry[] {
       totals.set(item.productId, entry);
     }
   }
-  return [...totals.entries()]
-    .sort((a, b) => b[1].revenue - a[1].revenue)
-    .slice(0, limit)
-    .map(([productId, totals]) => {
-      const product = getProduct(productId);
+  const sorted = [...totals.entries()].sort((a, b) => b[1].revenue - a[1].revenue).slice(0, limit);
+  return Promise.all(
+    sorted.map(async ([productId, totals]) => {
+      const product = await getProduct(productId);
       return {
         id: productId,
         name: product?.title ?? productId,
-        detail: product ? getTopCategoryName(product.categorySlugPath[0]) : "",
+        detail: product ? await getTopCategoryName(product.categorySlugPath[0]) : "",
         value: round2(totals.revenue),
         count: totals.units,
       };
-    });
+    })
+  );
 }
 
-export function getTopCategories(limit = 8): RankedEntry[] {
+export async function getTopCategories(limit = 8): Promise<RankedEntry[]> {
+  const orders = await getOrders();
   const totals = new Map<string, { revenue: number; units: number }>();
-  for (const order of ORDERS) {
+  for (const order of orders) {
     if (order.paymentStatus === "failed") continue;
     for (const item of order.items) {
-      const product = getProduct(item.productId);
+      const product = await getProduct(item.productId);
       if (!product) continue;
       const slug = product.categorySlugPath[0];
       const entry = totals.get(slug) ?? { revenue: 0, units: 0 };
@@ -179,24 +190,25 @@ export function getTopCategories(limit = 8): RankedEntry[] {
       totals.set(slug, entry);
     }
   }
-  return [...totals.entries()]
-    .sort((a, b) => b[1].revenue - a[1].revenue)
-    .slice(0, limit)
-    .map(([slug, totals]) => ({
+  const sorted = [...totals.entries()].sort((a, b) => b[1].revenue - a[1].revenue).slice(0, limit);
+  return Promise.all(
+    sorted.map(async ([slug, totals]) => ({
       id: slug,
-      name: getTopCategoryName(slug),
+      name: await getTopCategoryName(slug),
       detail: `${totals.units} units`,
       value: round2(totals.revenue),
       count: totals.units,
-    }));
+    }))
+  );
 }
 
-export function getTopBrands(limit = 8): RankedEntry[] {
+export async function getTopBrands(limit = 8): Promise<RankedEntry[]> {
+  const orders = await getOrders();
   const totals = new Map<string, { revenue: number; units: number }>();
-  for (const order of ORDERS) {
+  for (const order of orders) {
     if (order.paymentStatus === "failed") continue;
     for (const item of order.items) {
-      const product = getProduct(item.productId);
+      const product = await getProduct(item.productId);
       if (!product) continue;
       const entry = totals.get(product.brandId) ?? { revenue: 0, units: 0 };
       entry.revenue += item.price * item.quantity;
@@ -204,20 +216,21 @@ export function getTopBrands(limit = 8): RankedEntry[] {
       totals.set(product.brandId, entry);
     }
   }
-  return [...totals.entries()]
-    .sort((a, b) => b[1].revenue - a[1].revenue)
-    .slice(0, limit)
-    .map(([brandId, totals]) => ({
+  const sorted = [...totals.entries()].sort((a, b) => b[1].revenue - a[1].revenue).slice(0, limit);
+  return Promise.all(
+    sorted.map(async ([brandId, totals]) => ({
       id: brandId,
-      name: getBrand(brandId)?.name ?? brandId,
+      name: (await getBrand(brandId))?.name ?? brandId,
       detail: `${totals.units} units`,
       value: round2(totals.revenue),
       count: totals.units,
-    }));
+    }))
+  );
 }
 
-export function getTopCustomers(limit = 8): RankedEntry[] {
-  return [...CUSTOMERS]
+export async function getTopCustomers(limit = 8): Promise<RankedEntry[]> {
+  const customers = await getCustomers();
+  return [...customers]
     .sort((a, b) => b.lifetimeValue - a.lifetimeValue)
     .slice(0, limit)
     .map((c) => ({
