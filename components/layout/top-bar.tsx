@@ -16,7 +16,7 @@ export function TopBar() {
           </span>
         </div>
         <div className="flex items-center gap-4">
-          <Link href="/orders" className="hover:underline">
+          <Link href="/account/orders" className="hover:underline">
             Track Order
           </Link>
           <Link href="/help" className="hover:underline">

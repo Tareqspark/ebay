@@ -11,11 +11,13 @@ import {
   getDealsProducts,
   getFlashSaleProducts,
   getNewArrivalProducts,
-  getRecommendedProducts,
   getTrendingProducts,
 } from "@/lib/products";
+import { getPersonalizedRecommendations } from "@/lib/personalization";
+import { auth } from "@/auth";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const session = await auth();
   const featuredCategories = getFeaturedCategories();
   const heroSlides = featuredCategories.slice(0, 5).map((c) => ({
     id: c.id,
@@ -29,7 +31,7 @@ export default function HomePage() {
   const trending = getTrendingProducts(14);
   const newArrivals = getNewArrivalProducts(14);
   const bestSellers = getBestSellerProducts(14);
-  const recommended = getRecommendedProducts(14);
+  const recommended = await getPersonalizedRecommendations(session?.user?.id ?? null, 14);
 
   return (
     <div className="mx-auto flex max-w-[1440px] flex-col gap-12 px-4 py-6 sm:px-6 sm:py-8">
@@ -74,7 +76,7 @@ export default function HomePage() {
 
       <ProductRail
         title="Recommended For You"
-        subtitle="Picked based on top-rated products"
+        subtitle={session ? "Picked based on what you've bought" : "Picked based on top-rated products"}
         icon={<Wand2 className="h-5 w-5" />}
         products={recommended}
       />

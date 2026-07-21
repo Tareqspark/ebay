@@ -9,6 +9,7 @@ import { ProductBadges } from "@/components/product/product-badges";
 import { AddToCart } from "@/components/product/add-to-cart";
 import { RecordRecentlyViewed } from "@/components/product/record-recently-viewed";
 import { ProductRail } from "@/components/product/product-rail";
+import { ReviewsSection } from "@/components/product/reviews-section";
 import { getBrandById } from "@/app/data/brands";
 import { getProductBySlug, getRelatedProducts } from "@/lib/products";
 import { resolveCategoryPath } from "@/lib/category-utils";
@@ -85,7 +86,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </span>
           </div>
 
-          <AddToCart inStock={product.stock > 0} />
+          <AddToCart productId={product.id} inStock={product.stock > 0} />
 
           {product.features.length > 0 && (
             <div>
@@ -102,6 +103,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
           )}
         </div>
       </div>
+
+      <ReviewsSection productId={product.id} productSlug={product.slug} />
 
       <ProductRail title="You Might Also Like" products={related} />
     </div>

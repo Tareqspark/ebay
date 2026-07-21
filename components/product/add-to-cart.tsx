@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { Check, Minus, Plus, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useCart } from "@/components/cart/cart-provider";
 
-export function AddToCart({ inStock }: { inStock: boolean }) {
+export function AddToCart({ productId, inStock }: { productId: string; inStock: boolean }) {
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
+  const { addItem, isPending } = useCart();
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -34,8 +36,9 @@ export function AddToCart({ inStock }: { inStock: boolean }) {
 
       <Button
         size="lg"
-        disabled={!inStock}
+        disabled={!inStock || isPending}
         onClick={() => {
+          addItem(productId, quantity);
           setAdded(true);
           setTimeout(() => setAdded(false), 2000);
         }}
