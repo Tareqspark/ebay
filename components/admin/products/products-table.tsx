@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Download, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { DataTable } from "@/components/admin/table/data-table";
@@ -26,6 +26,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { getProductColumns } from "@/components/admin/products/columns";
 import { ProductDetailPanel } from "@/components/admin/products/product-detail-panel";
+import {
+  updateProductPriceAction,
+  updateProductCostAction,
+  setProductStatusAction,
+  setProductVisibilityAction,
+  deleteProductsAction,
+} from "@/lib/admin/product-actions";
 import type { AdminProductRow } from "@/lib/admin/data";
 import type { ProductStatus, ProductVisibility } from "@/lib/admin/types";
 
@@ -73,7 +80,7 @@ export function ProductsTable({ initialRows, categoryOptions }: ProductsTablePro
     });
   }, [rows, status, visibility, category, source, savedView]);
 
-  function updateProduct(productId: string, patch: Partial<AdminProductRow["product"]>) {
+  function updateProductLocal(productId: string, patch: Partial<AdminProductRow["product"]>) {
     setRows((prev) =>
       prev.map((r) => {
         if (r.product.id !== productId) return r;
@@ -84,7 +91,7 @@ export function ProductsTable({ initialRows, categoryOptions }: ProductsTablePro
     );
   }
 
-  function updateMeta(productId: string, patch: Partial<AdminProductRow["meta"]>) {
+  function updateMetaLocal(productId: string, patch: Partial<AdminProductRow["meta"]>) {
     setRows((prev) =>
       prev.map((r) => {
         if (r.product.id !== productId) return r;
@@ -95,12 +102,53 @@ export function ProductsTable({ initialRows, categoryOptions }: ProductsTablePro
     );
   }
 
-  function bulkUpdateStatus(ids: string[], next: ProductStatus) {
+  const updatePrice = useCallback(async (productId: string, price: number) => {
+    const result = await updateProductPriceAction(productId, price);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    updateProductLocal(productId, { price });
+  }, []);
+
+  const updateCost = useCallback(async (productId: string, cost: number) => {
+    const result = await updateProductCostAction(productId, cost);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    updateMetaLocal(productId, { cost });
+  }, []);
+
+  const updateMeta = useCallback(async (productId: string, patch: { status?: ProductStatus; visibility?: ProductVisibility }) => {
+    const result = patch.status
+      ? await setProductStatusAction([productId], patch.status)
+      : patch.visibility
+        ? await setProductVisibilityAction([productId], patch.visibility)
+        : {};
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    updateMetaLocal(productId, patch);
+  }, []);
+
+  async function bulkUpdateStatus(ids: string[], next: ProductStatus) {
+    const result = await setProductStatusAction(ids, next);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
     setRows((prev) => prev.map((r) => (ids.includes(r.product.id) ? { ...r, meta: { ...r.meta, status: next } } : r)));
     toast.success(`Updated status for ${ids.length} product${ids.length === 1 ? "" : "s"}`);
   }
 
-  function bulkUpdateVisibility(ids: string[], next: ProductVisibility) {
+  async function bulkUpdateVisibility(ids: string[], next: ProductVisibility) {
+    const result = await setProductVisibilityAction(ids, next);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
     setRows((prev) => prev.map((r) => (ids.includes(r.product.id) ? { ...r, meta: { ...r.meta, visibility: next } } : r)));
     toast.success(`Updated visibility for ${ids.length} product${ids.length === 1 ? "" : "s"}`);
   }
@@ -136,21 +184,22 @@ export function ProductsTable({ initialRows, categoryOptions }: ProductsTablePro
   const columns = useMemo(
     () =>
       getProductColumns({
-        onEditPrice: (id, price) => updateProduct(id, { price }),
-        onEditCost: (id, cost) => updateMeta(id, { cost }),
+        onEditPrice: (id, price) => updatePrice(id, price),
+        onEditCost: (id, cost) => updateCost(id, cost),
         onOpenDetail: (id) => {
           setDetailProductId(id);
           setDetailOpen(true);
         },
         onDuplicate: () => toast.success("Product duplicated as draft"),
-        onToggleArchive: (id) => {
+        onToggleArchive: async (id) => {
           const row = rowsById.get(id);
           if (!row) return;
-          updateMeta(id, { status: row.meta.status === "archived" ? "active" : "archived" });
+          const nextStatus = row.meta.status === "archived" ? "active" : "archived";
+          await updateMeta(id, { status: nextStatus });
           toast.success(row.meta.status === "archived" ? "Product restored" : "Product archived");
         },
       }),
-    [rowsById]
+    [rowsById, updatePrice, updateCost, updateMeta]
   );
 
   return (
@@ -269,8 +318,14 @@ export function ProductsTable({ initialRows, categoryOptions }: ProductsTablePro
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
+              onClick={async () => {
                 if (!pendingDelete) return;
+                const result = await deleteProductsAction(pendingDelete);
+                if (result.error) {
+                  toast.error(result.error);
+                  setPendingDelete(null);
+                  return;
+                }
                 setRows((prev) => prev.filter((r) => !pendingDelete.includes(r.product.id)));
                 toast.success(`Deleted ${pendingDelete.length} product${pendingDelete.length === 1 ? "" : "s"}`);
                 setPendingDelete(null);
