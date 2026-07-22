@@ -3,6 +3,8 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { promoCodes, promoRedemptions } from "@/db/schema";
 import { computeTotalsWithDiscount } from "@/lib/checkout";
+import { toCents, toDollars } from "@/lib/money";
+import { formatPrice } from "@/lib/format";
 
 export interface PromoValidationResult {
   code: string;
@@ -36,7 +38,9 @@ export async function validatePromoForCheckout(
   const now = new Date();
   if (promo.startDate > now) return { error: "This promo code isn't active yet" };
   if (promo.endDate && promo.endDate < now) return { error: "This promo code has expired" };
-  if (promo.singleUse && promo.usageCount > 0) return { error: "This promo code has already been used" };
+  if (promo.usageLimit != null && promo.usageCount >= promo.usageLimit) {
+    return { error: promo.usageLimit === 1 ? "This promo code has already been used" : "This promo code has reached its usage limit" };
+  }
 
   const [alreadyUsed] = await db
     .select({ id: promoRedemptions.id })
@@ -44,6 +48,10 @@ export async function validatePromoForCheckout(
     .where(and(eq(promoRedemptions.promoCodeId, promo.id), eq(promoRedemptions.userId, userId)))
     .limit(1);
   if (alreadyUsed) return { error: "You've already used this promo code" };
+
+  if (promo.minOrderAmountCents && toCents(subtotal) < promo.minOrderAmountCents) {
+    return { error: `This code requires a minimum order of ${formatPrice(toDollars(promo.minOrderAmountCents))}` };
+  }
 
   const { discount, shipping, tax, total } = computeTotalsWithDiscount(subtotal, promo);
   return { promo, result: { code: promo.code, discount, shipping, tax, total } };

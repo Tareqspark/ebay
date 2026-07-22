@@ -47,9 +47,22 @@ export function getPromoCodeColumns(actions: PromoCodeColumnActions): ColumnDef<
       header: "Usage limit",
       size: 130,
       enableSorting: false,
-      accessorFn: (row) => row.singleUse,
+      accessorFn: (row) => row.usageLimit ?? Infinity,
       cell: ({ row }) => (
-        <span className="text-muted-foreground">{row.original.singleUse ? "Single use" : "Unlimited"}</span>
+        <span className="tabular-nums text-muted-foreground">
+          {row.original.usageLimit != null ? `${formatNumber(row.original.usageCount)} / ${formatNumber(row.original.usageLimit)}` : "Unlimited"}
+        </span>
+      ),
+    },
+    {
+      id: "minOrderAmount",
+      header: "Min. order",
+      size: 110,
+      accessorFn: (row) => row.minOrderAmount ?? 0,
+      cell: ({ row }) => (
+        <span className="tabular-nums text-muted-foreground">
+          {row.original.minOrderAmount ? formatMoney(row.original.minOrderAmount) : "None"}
+        </span>
       ),
     },
     {

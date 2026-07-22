@@ -527,11 +527,14 @@ export const promoCodes = mysqlTable(
     // lib/admin/promo-actions.ts, not at the schema level.
     discountPercent: int("discount_percent"),
     discountAmountCents: int("discount_amount_cents"),
-    // A single-use code is retired after its first redemption by anyone.
-    // Independent of that, every code (single-use or not) can only ever be
-    // redeemed once per customer — enforced by the unique index on
+    // Null = unlimited total redemptions. A single-use code is just
+    // usageLimit = 1 — the code is retired once usageCount reaches it.
+    // Independent of this, every code can only ever be redeemed once per
+    // customer regardless of usageLimit — enforced by the unique index on
     // promo_redemptions below, not a per-code setting.
-    singleUse: boolean("single_use").notNull().default(false),
+    usageLimit: int("usage_limit"),
+    // Null/0 = no minimum — the code applies to any order.
+    minOrderAmountCents: int("min_order_amount_cents"),
     status: mysqlEnum("status", promoCodeStatus).notNull().default("active"),
     startDate: timestamp("start_date").notNull(),
     endDate: timestamp("end_date"),

@@ -19,7 +19,8 @@ export interface PromoCodeInput {
   discountType: PromoDiscountType;
   discountPercent?: number;
   discountAmount?: number;
-  singleUse: boolean;
+  usageLimit?: number; // undefined/null = unlimited
+  minOrderAmount?: number; // undefined/null = no minimum
   status: PromoCodeStatus;
   startDate: string;
   endDate: string;
@@ -37,6 +38,12 @@ function validateInput(input: PromoCodeInput): string | null {
   }
   if (input.discountType === "fixed" && (!input.discountAmount || input.discountAmount <= 0)) {
     return "Fixed discount amount must be greater than $0";
+  }
+  if (input.usageLimit != null && (!Number.isInteger(input.usageLimit) || input.usageLimit < 1)) {
+    return "Usage limit must be a whole number of 1 or more";
+  }
+  if (input.minOrderAmount != null && input.minOrderAmount < 0) {
+    return "Minimum order amount can't be negative";
   }
   if (!input.startDate) return "A start date is required";
   if (input.endDate && new Date(input.endDate) < new Date(input.startDate)) {
@@ -59,7 +66,8 @@ export async function createPromoCodeAction(input: PromoCodeInput): Promise<Prom
     discountType: input.discountType,
     discountPercent: input.discountType === "percent" ? input.discountPercent! : null,
     discountAmountCents: input.discountType === "fixed" ? toCents(input.discountAmount!) : null,
-    singleUse: input.singleUse,
+    usageLimit: input.usageLimit ?? null,
+    minOrderAmountCents: input.minOrderAmount ? toCents(input.minOrderAmount) : null,
     status: input.status,
     startDate: new Date(input.startDate),
     endDate: input.endDate ? new Date(input.endDate) : null,
@@ -86,7 +94,8 @@ export async function updatePromoCodeAction(id: string, input: PromoCodeInput): 
       discountType: input.discountType,
       discountPercent: input.discountType === "percent" ? input.discountPercent! : null,
       discountAmountCents: input.discountType === "fixed" ? toCents(input.discountAmount!) : null,
-      singleUse: input.singleUse,
+      usageLimit: input.usageLimit ?? null,
+      minOrderAmountCents: input.minOrderAmount ? toCents(input.minOrderAmount) : null,
       status: input.status,
       startDate: new Date(input.startDate),
       endDate: input.endDate ? new Date(input.endDate) : null,

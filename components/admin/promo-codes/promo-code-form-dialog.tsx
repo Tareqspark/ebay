@@ -46,7 +46,9 @@ export function PromoCodeFormDialog({ open, onOpenChange, promo, onSubmit, submi
   const [discountType, setDiscountType] = useState<PromoDiscountType>("percent");
   const [discountPercent, setDiscountPercent] = useState("");
   const [discountAmount, setDiscountAmount] = useState("");
-  const [singleUse, setSingleUse] = useState(false);
+  const [limitUses, setLimitUses] = useState(false);
+  const [usageLimit, setUsageLimit] = useState("");
+  const [minOrderAmount, setMinOrderAmount] = useState("");
   const [status, setStatus] = useState<PromoCodeStatus>("active");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -57,7 +59,9 @@ export function PromoCodeFormDialog({ open, onOpenChange, promo, onSubmit, submi
       setDiscountType(promo?.discountType ?? "percent");
       setDiscountPercent(promo?.discountPercent ? String(promo.discountPercent) : "");
       setDiscountAmount(promo?.discountAmount ? String(promo.discountAmount) : "");
-      setSingleUse(promo?.singleUse ?? false);
+      setLimitUses(promo?.usageLimit != null);
+      setUsageLimit(promo?.usageLimit ? String(promo.usageLimit) : "1");
+      setMinOrderAmount(promo?.minOrderAmount ? String(promo.minOrderAmount) : "");
       setStatus(promo?.status ?? "active");
       setStartDate(toDateInputValue(promo?.startDate) || new Date().toISOString().slice(0, 10));
       setEndDate(toDateInputValue(promo?.endDate));
@@ -69,7 +73,8 @@ export function PromoCodeFormDialog({ open, onOpenChange, promo, onSubmit, submi
     !!startDate &&
     (discountType === "free_shipping" ||
       (discountType === "percent" && Number(discountPercent) >= 1 && Number(discountPercent) <= 100) ||
-      (discountType === "fixed" && Number(discountAmount) > 0));
+      (discountType === "fixed" && Number(discountAmount) > 0)) &&
+    (!limitUses || (Number.isInteger(Number(usageLimit)) && Number(usageLimit) >= 1));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -134,16 +139,42 @@ export function PromoCodeFormDialog({ open, onOpenChange, promo, onSubmit, submi
             </div>
           )}
 
-          <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
-            <div>
-              <Label htmlFor="promo-single-use">Single use</Label>
-              <p className="text-xs text-muted-foreground">Retires the code after its first redemption by anyone.</p>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+              <div>
+                <Label htmlFor="promo-limit-uses">Limit total redemptions</Label>
+                <p className="text-xs text-muted-foreground">Off = unlimited. Set to 1 for a one-time code, or higher for a limited batch.</p>
+              </div>
+              <Switch id="promo-limit-uses" checked={limitUses} onCheckedChange={setLimitUses} />
             </div>
-            <Switch id="promo-single-use" checked={singleUse} onCheckedChange={setSingleUse} />
+            {limitUses && (
+              <Input
+                type="number"
+                min={1}
+                step={1}
+                value={usageLimit}
+                onChange={(e) => setUsageLimit(e.target.value)}
+                placeholder="e.g. 1"
+                className="w-32"
+              />
+            )}
           </div>
           <p className="-mt-2 text-xs text-muted-foreground">
-            Every code — single use or not — can only be redeemed once per customer.
+            Every code — limited or not — can only be redeemed once per customer.
           </p>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="promo-min-order">Minimum order amount ($, optional)</Label>
+            <Input
+              id="promo-min-order"
+              type="number"
+              min={0}
+              step={0.01}
+              value={minOrderAmount}
+              onChange={(e) => setMinOrderAmount(e.target.value)}
+              placeholder="No minimum"
+            />
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
@@ -181,7 +212,8 @@ export function PromoCodeFormDialog({ open, onOpenChange, promo, onSubmit, submi
                 discountType,
                 discountPercent: discountType === "percent" ? Number(discountPercent) : undefined,
                 discountAmount: discountType === "fixed" ? Number(discountAmount) : undefined,
-                singleUse,
+                usageLimit: limitUses ? Number(usageLimit) : undefined,
+                minOrderAmount: minOrderAmount ? Number(minOrderAmount) : undefined,
                 status,
                 startDate,
                 endDate,

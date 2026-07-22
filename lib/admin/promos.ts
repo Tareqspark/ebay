@@ -13,7 +13,8 @@ export interface PromoCode {
   discountType: PromoDiscountType;
   discountPercent?: number;
   discountAmount?: number;
-  singleUse: boolean;
+  usageLimit?: number;
+  minOrderAmount?: number;
   status: PromoCodeStatus;
   startDate: string;
   endDate?: string;
@@ -29,7 +30,8 @@ export const getPromoCodes = cache(async (): Promise<PromoCode[]> => {
     discountType: r.discountType,
     discountPercent: r.discountPercent ?? undefined,
     discountAmount: r.discountAmountCents != null ? toDollars(r.discountAmountCents) : undefined,
-    singleUse: r.singleUse,
+    usageLimit: r.usageLimit ?? undefined,
+    minOrderAmount: r.minOrderAmountCents != null ? toDollars(r.minOrderAmountCents) : undefined,
     status: r.status,
     startDate: r.startDate.toISOString(),
     endDate: r.endDate ? r.endDate.toISOString() : undefined,
