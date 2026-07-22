@@ -54,6 +54,9 @@ const STATUS_MAP: Record<string, StatusConfig> = {
   paused: { label: "Paused", tone: "warning" },
   disconnected: { label: "Disconnected", tone: "danger" },
   connected: { label: "Connected", tone: "success" },
+  // team
+  invited: { label: "Invited", tone: "info" },
+  disabled: { label: "Disabled", tone: "danger" },
   // CJ sourcing requests
   submitted: { label: "Submitted", tone: "neutral" },
   sourcing: { label: "Sourcing", tone: "info" },

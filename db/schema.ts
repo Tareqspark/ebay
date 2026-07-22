@@ -542,7 +542,7 @@ export const carriers = mysqlTable("carriers", {
 // ---------------------------------------------------------------------------
 
 export const adminRole = ["Owner", "Admin", "Merchandiser", "Support", "Catalog Manager"] as const;
-export const adminUserStatus = ["active", "invited"] as const;
+export const adminUserStatus = ["active", "invited", "disabled"] as const;
 
 export const adminUsers = mysqlTable("admin_users", {
   id: varchar("id", { length: 191 }).primaryKey(),
