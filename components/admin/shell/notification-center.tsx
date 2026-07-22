@@ -4,9 +4,9 @@ import { useState } from "react";
 import { Bell, CheckCircle2, Info, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ANNOUNCEMENTS } from "@/app/data/admin/activity";
 import { formatRelative } from "@/lib/admin/format";
 import { cn } from "@/lib/utils";
+import type { Announcement } from "@/lib/admin/types";
 
 const LEVEL_ICON = {
   info: Info,
@@ -19,17 +19,17 @@ const LEVEL_CLASS = {
   warning: "text-amber-600 dark:text-amber-400",
 };
 
-export function NotificationCenter() {
+export function NotificationCenter({ announcements }: { announcements: Announcement[] }) {
   const [open, setOpen] = useState(false);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
-  const unreadCount = ANNOUNCEMENTS.filter((a) => !readIds.has(a.id)).length;
+  const unreadCount = announcements.filter((a) => !readIds.has(a.id)).length;
 
   return (
     <Popover
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (next) setReadIds(new Set(ANNOUNCEMENTS.map((a) => a.id)));
+        if (next) setReadIds(new Set(announcements.map((a) => a.id)));
       }}
     >
       <PopoverTrigger
@@ -47,7 +47,10 @@ export function NotificationCenter() {
           <p className="text-sm font-semibold text-foreground">Announcements</p>
         </div>
         <div className="max-h-96 overflow-y-auto">
-          {ANNOUNCEMENTS.map((a) => {
+          {announcements.length === 0 && (
+            <p className="px-4 py-8 text-center text-sm text-muted-foreground">No announcements.</p>
+          )}
+          {announcements.map((a) => {
             const Icon = LEVEL_ICON[a.level];
             return (
               <div key={a.id} className="flex gap-3 border-b border-border/60 px-4 py-3 last:border-0">

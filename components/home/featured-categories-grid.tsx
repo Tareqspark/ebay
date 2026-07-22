@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { categoryHref } from "@/lib/category-utils";
-import type { Category } from "@/app/data/categories";
+import { categoryHref, type Category } from "@/lib/category-utils";
 
 export function FeaturedCategoriesGrid({ categories }: { categories: Category[] }) {
   return (

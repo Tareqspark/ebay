@@ -6,12 +6,14 @@ import { AdminBreadcrumb } from "@/components/admin/shell/admin-breadcrumb";
 import { NotificationCenter } from "@/components/admin/shell/notification-center";
 import { UserMenu } from "@/components/admin/shell/user-menu";
 import { CommandPalette } from "@/components/admin/shell/command-palette";
+import type { Announcement } from "@/lib/admin/types";
 
 interface AdminTopbarProps {
   admin: { name?: string | null; email?: string | null; adminRole?: string };
+  announcements: Announcement[];
 }
 
-export function AdminTopbar({ admin }: AdminTopbarProps) {
+export function AdminTopbar({ admin, announcements }: AdminTopbarProps) {
   const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
@@ -41,7 +43,7 @@ export function AdminTopbar({ admin }: AdminTopbarProps) {
             ⌘K
           </kbd>
         </button>
-        <NotificationCenter />
+        <NotificationCenter announcements={announcements} />
         <UserMenu name={admin.name ?? "Staff"} email={admin.email ?? ""} role={admin.adminRole} />
       </div>
 
