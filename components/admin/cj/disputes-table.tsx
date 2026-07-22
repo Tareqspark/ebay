@@ -7,6 +7,7 @@ import { TableSearch } from "@/components/admin/table/table-search";
 import { FilterSelect } from "@/components/admin/table/filter-select";
 import { KpiCard } from "@/components/admin/shared/kpi-card";
 import { getDisputeColumns } from "@/components/admin/cj/dispute-columns";
+import { resolveCjDisputeAction, rejectCjDisputeAction } from "@/lib/admin/cj-dispute-actions";
 import { formatMoney } from "@/lib/admin/format";
 import type { AdminCjDisputeRow } from "@/lib/admin/data";
 
@@ -30,11 +31,21 @@ export function DisputesTable({ initialDisputes }: { initialDisputes: AdminCjDis
   const columns = useMemo(
     () =>
       getDisputeColumns({
-        onResolve: (id, resolveStatus) => {
+        onResolve: async (id, resolveStatus) => {
+          const result = await resolveCjDisputeAction(id, resolveStatus);
+          if (result.error) {
+            toast.error(result.error);
+            return;
+          }
           updateStatus(id, resolveStatus);
           toast.success(resolveStatus === "resolved_reship" ? "Reshipment requested from CJ" : "Refund requested from CJ");
         },
-        onReject: (id) => {
+        onReject: async (id) => {
+          const result = await rejectCjDisputeAction(id);
+          if (result.error) {
+            toast.error(result.error);
+            return;
+          }
           updateStatus(id, "rejected");
           toast.success("Dispute rejected");
         },

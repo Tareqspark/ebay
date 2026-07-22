@@ -6,6 +6,7 @@ import { DataTable } from "@/components/admin/table/data-table";
 import { TableSearch } from "@/components/admin/table/table-search";
 import { FilterSelect } from "@/components/admin/table/filter-select";
 import { getReviewColumns } from "@/components/admin/reviews/columns";
+import { setReviewStatusAction } from "@/lib/admin/review-actions";
 import type { ProductReview } from "@/lib/admin/reviews";
 
 export function ReviewsTable({ initialReviews }: { initialReviews: ProductReview[] }) {
@@ -14,7 +15,12 @@ export function ReviewsTable({ initialReviews }: { initialReviews: ProductReview
 
   const filtered = useMemo(() => reviews.filter((r) => status === "all" || r.status === status), [reviews, status]);
 
-  function setStatusFor(id: string, next: ProductReview["status"]) {
+  async function setStatusFor(id: string, next: "approved" | "rejected") {
+    const result = await setReviewStatusAction(id, next);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
     setReviews((prev) => prev.map((r) => (r.id === id ? { ...r, status: next } : r)));
     toast.success(next === "approved" ? "Review approved" : "Review rejected");
   }
