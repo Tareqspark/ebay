@@ -35,6 +35,7 @@ import {
 } from "@/lib/admin/product-actions";
 import type { AdminProductRow } from "@/lib/admin/data";
 import type { ProductStatus, ProductVisibility } from "@/lib/admin/types";
+import { neutralizeCsvCell } from "@/lib/sanitize";
 
 const SAVED_VIEWS = [
   { id: "all", label: "All products" },
@@ -157,13 +158,13 @@ export function ProductsTable({ initialRows, categoryOptions }: ProductsTablePro
     const header = ["Title", "Category", "Price", "Cost", "Margin %", "Inventory", "Supplier", "Status", "Visibility"];
     const lines = exportRows.map((r) =>
       [
-        r.product.title,
-        r.categoryName,
+        neutralizeCsvCell(r.product.title),
+        neutralizeCsvCell(r.categoryName),
         r.product.price.toFixed(2),
         r.meta.cost.toFixed(2),
         r.marginPercent.toFixed(1),
         r.product.stock,
-        r.supplierName,
+        neutralizeCsvCell(r.supplierName),
         r.meta.status,
         r.meta.visibility,
       ]
