@@ -8,12 +8,12 @@ import { StatusBadge } from "@/components/admin/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { formatDateTime, formatMoney } from "@/lib/admin/format";
-import { getCustomer, getSupplier, getCjShippingLine, CJ_BRAND_NAME } from "@/lib/admin/data";
-import type { Order } from "@/lib/admin/types";
+import { CJ_BRAND_NAME } from "@/lib/admin/data";
+import type { AdminOrderRow } from "@/lib/admin/data";
 
 interface OrderDetailPanelProps {
   open: boolean;
-  order: Order | null;
+  order: AdminOrderRow | null;
   onOpenChange: (open: boolean) => void;
   onMarkShipped: (orderId: string) => void;
   onRefund: (orderId: string) => void;
@@ -38,11 +38,8 @@ export function OrderDetailPanel({
     );
   }
 
-  const customer = getCustomer(order.customerId);
   const hasSelfItems = order.items.some((item) => item.source === "self");
   const hasCjItems = order.items.some((item) => item.source === "cj");
-  const supplier = getSupplier(order.supplierId);
-  const cjShippingLine = getCjShippingLine(order.cjShippingLineId);
   const canShip = hasSelfItems && (order.fulfillmentStatus === "unfulfilled" || order.fulfillmentStatus === "processing");
   const canPushToCj = hasCjItems && order.cjSyncStatus === "not_sent";
   const canRefund = order.paymentStatus === "paid";
@@ -161,8 +158,8 @@ export function OrderDetailPanel({
 
         <section className="grid grid-cols-2 gap-3">
           <InfoCard title="Customer">
-            <p className="font-medium text-foreground">{customer?.name ?? "—"}</p>
-            <p className="text-muted-foreground">{customer?.email}</p>
+            <p className="font-medium text-foreground">{order.customerName}</p>
+            <p className="text-muted-foreground">{order.customerEmail}</p>
           </InfoCard>
           <InfoCard title="Payment">
             <p className="text-foreground">{order.paymentMethod}</p>
@@ -177,7 +174,7 @@ export function OrderDetailPanel({
           </InfoCard>
           {hasSelfItems && (
             <InfoCard title="Fulfillment — self">
-              <p className="text-foreground">{supplier?.name ?? "—"}</p>
+              <p className="text-foreground">{order.supplierName ?? "—"}</p>
               <p className="text-muted-foreground">
                 {order.trackingNumber ? `${order.carrier} · ${order.trackingNumber}` : "No tracking yet"}
               </p>
@@ -189,7 +186,7 @@ export function OrderDetailPanel({
                 <StatusBadge status={order.cjSyncStatus ?? "not_sent"} />
                 {order.cjOrderId && <span className="text-xs text-muted-foreground">{order.cjOrderId}</span>}
               </div>
-              <p className="text-muted-foreground">{cjShippingLine ? `${cjShippingLine.name} · ${cjShippingLine.estimatedDays}` : "No shipping line yet"}</p>
+              <p className="text-muted-foreground">{order.cjShippingLineName ?? "No shipping line yet"}</p>
               <p className="text-muted-foreground">{order.cjTrackingNumber ?? "No CJ tracking yet"}</p>
             </InfoCard>
           )}

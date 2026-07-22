@@ -5,8 +5,7 @@ import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/admin/shared/status-badge";
 import { formatDate, formatMoney } from "@/lib/admin/format";
-import { getCustomer } from "@/lib/admin/data";
-import type { CjDispute } from "@/lib/admin/cj-types";
+import type { AdminCjDisputeRow } from "@/lib/admin/data";
 
 const REASON_LABEL: Record<string, string> = {
   lost_in_transit: "Lost in transit",
@@ -26,7 +25,7 @@ interface DisputeColumnActions {
   onReject: (id: string) => void;
 }
 
-export function getDisputeColumns({ onResolve, onReject }: DisputeColumnActions): ColumnDef<CjDispute, unknown>[] {
+export function getDisputeColumns({ onResolve, onReject }: DisputeColumnActions): ColumnDef<AdminCjDisputeRow, unknown>[] {
   return [
     {
       id: "order",
@@ -46,8 +45,8 @@ export function getDisputeColumns({ onResolve, onReject }: DisputeColumnActions)
       id: "customer",
       header: "Customer",
       size: 150,
-      accessorFn: (row) => getCustomer(row.customerId)?.name ?? row.customerId,
-      cell: ({ row }) => <span className="text-muted-foreground">{getCustomer(row.original.customerId)?.name ?? "—"}</span>,
+      accessorFn: (row) => row.customerName,
+      cell: ({ row }) => <span className="text-muted-foreground">{row.original.customerName}</span>,
     },
     {
       id: "reason",

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { SlideOver } from "@/components/admin/shared/slide-over";
 import { StatusBadge } from "@/components/admin/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDate, formatMoney } from "@/lib/admin/format";
-import { getOrdersForCustomer } from "@/lib/admin/data";
+import type { AdminOrderRow } from "@/lib/admin/data";
 import type { Customer, CustomerNote } from "@/lib/admin/types";
 
 interface CustomerDetailPanelProps {
@@ -19,6 +19,23 @@ interface CustomerDetailPanelProps {
 
 export function CustomerDetailPanel({ open, customer, onOpenChange, onAddNote }: CustomerDetailPanelProps) {
   const [draft, setDraft] = useState("");
+  const [orders, setOrders] = useState<AdminOrderRow[]>([]);
+
+  useEffect(() => {
+    if (!customer) {
+      setOrders([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/admin/customers/${customer.id}/orders`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setOrders(data.orders ?? []);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [customer]);
 
   if (!customer) {
     return (
@@ -27,8 +44,6 @@ export function CustomerDetailPanel({ open, customer, onOpenChange, onAddNote }:
       </SlideOver>
     );
   }
-
-  const orders = getOrdersForCustomer(customer.id);
 
   function submitNote() {
     if (!customer || !draft.trim()) return;

@@ -3,12 +3,11 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import Image from "next/image";
 import { StatusBadge } from "@/components/admin/shared/status-badge";
-import { getSupplier, CJ_BRAND_NAME } from "@/lib/admin/data";
 import { formatRelative } from "@/lib/admin/format";
 import { cn } from "@/lib/utils";
-import type { InventoryRecord } from "@/lib/admin/types";
+import type { AdminInventoryRow } from "@/lib/admin/data";
 
-export const inventoryColumns: ColumnDef<InventoryRecord, unknown>[] = [
+export const inventoryColumns: ColumnDef<AdminInventoryRow, unknown>[] = [
   {
     id: "sku",
     header: "SKU",
@@ -81,12 +80,8 @@ export const inventoryColumns: ColumnDef<InventoryRecord, unknown>[] = [
     id: "supplier",
     header: "Supplier",
     size: 170,
-    accessorFn: (row) => (row.source === "cj" ? CJ_BRAND_NAME : getSupplier(row.supplierId)?.name ?? row.supplierId),
-    cell: ({ row }) => (
-      <span className="truncate text-muted-foreground">
-        {row.original.source === "cj" ? CJ_BRAND_NAME : getSupplier(row.original.supplierId)?.name ?? "—"}
-      </span>
-    ),
+    accessorFn: (row) => row.supplierName ?? row.supplierId,
+    cell: ({ row }) => <span className="truncate text-muted-foreground">{row.original.supplierName ?? "—"}</span>,
   },
   {
     id: "updated",

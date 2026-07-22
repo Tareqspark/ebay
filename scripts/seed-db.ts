@@ -35,13 +35,16 @@ import { ACTIVITY, ANNOUNCEMENTS } from "../app/data/admin/activity";
 import { SYSTEM_COMPONENTS } from "../app/data/admin/system";
 import { CJ_DISPUTES } from "../app/data/admin/cj-disputes";
 import { CJ_SHIPPING_LINES, CJ_INTEGRATION_SETTINGS, CJ_SOURCING_REQUESTS } from "../lib/admin/cj";
-import { CAMPAIGNS } from "../lib/admin/marketing";
-import { CONTENT_ITEMS } from "../lib/admin/content";
-import { COLLECTIONS } from "../lib/admin/collections";
-import { SHIPPING_RATES, CARRIERS } from "../lib/admin/shipping";
-import { ADMIN_TEAM } from "../lib/admin/team";
-import { API_KEYS } from "../lib/admin/api-keys";
 import { CATEGORY_ICONS } from "../lib/category-icons";
+import {
+  CAMPAIGNS,
+  CONTENT_ITEMS,
+  COLLECTIONS,
+  SHIPPING_RATES,
+  CARRIERS,
+  ADMIN_TEAM,
+  API_KEYS,
+} from "./seed-admin-extras";
 
 const ICON_TO_NAME = new Map(Object.entries(CATEGORY_ICONS).map(([name, icon]) => [icon, name]));
 

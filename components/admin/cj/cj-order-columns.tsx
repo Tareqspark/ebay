@@ -6,8 +6,7 @@ import { StatusBadge } from "@/components/admin/shared/status-badge";
 import { CustomerCell } from "@/components/admin/orders/order-row-cells";
 import { OrderRowActions } from "@/components/admin/orders/order-row-actions";
 import { formatDateTime } from "@/lib/admin/format";
-import { getCustomer, getCjShippingLine } from "@/lib/admin/data";
-import type { Order } from "@/lib/admin/types";
+import type { AdminOrderRow } from "@/lib/admin/data";
 
 interface CjOrderColumnActions {
   onOpenDetail: (orderId: string) => void;
@@ -16,9 +15,9 @@ interface CjOrderColumnActions {
   onCancel: (orderId: string) => void;
 }
 
-export function getCjOrderColumns(actions: CjOrderColumnActions): ColumnDef<Order, unknown>[] {
+export function getCjOrderColumns(actions: CjOrderColumnActions): ColumnDef<AdminOrderRow, unknown>[] {
   return [
-    selectionColumn<Order>(),
+    selectionColumn<AdminOrderRow>(),
     {
       id: "id",
       header: "Order",
@@ -30,11 +29,8 @@ export function getCjOrderColumns(actions: CjOrderColumnActions): ColumnDef<Orde
       id: "customer",
       header: "Customer",
       size: 180,
-      accessorFn: (row) => getCustomer(row.customerId)?.name ?? row.customerId,
-      cell: ({ row }) => {
-        const customer = getCustomer(row.original.customerId);
-        return <CustomerCell name={customer?.name ?? "—"} email={customer?.email ?? ""} />;
-      },
+      accessorFn: (row) => row.customerName,
+      cell: ({ row }) => <CustomerCell name={row.original.customerName} email={row.original.customerEmail} />,
     },
     {
       id: "items",
@@ -66,12 +62,9 @@ export function getCjOrderColumns(actions: CjOrderColumnActions): ColumnDef<Orde
       header: "Shipping line",
       size: 190,
       enableSorting: false,
-      cell: ({ row }) => {
-        const line = getCjShippingLine(row.original.cjShippingLineId);
-        return (
-          <span className="truncate text-muted-foreground">{line ? `${line.name} (${line.estimatedDays})` : "—"}</span>
-        );
-      },
+      cell: ({ row }) => (
+        <span className="truncate text-muted-foreground">{row.original.cjShippingLineName ?? "—"}</span>
+      ),
     },
     {
       id: "cjTracking",

@@ -6,8 +6,7 @@ import { StatusBadge } from "@/components/admin/shared/status-badge";
 import { CustomerCell, TrackingCell, CjSourceCell } from "@/components/admin/orders/order-row-cells";
 import { OrderRowActions } from "@/components/admin/orders/order-row-actions";
 import { formatDateTime, formatMoney } from "@/lib/admin/format";
-import { getCustomer, getSupplier } from "@/lib/admin/data";
-import type { Order } from "@/lib/admin/types";
+import type { AdminOrderRow } from "@/lib/admin/data";
 
 interface OrderColumnActions {
   onOpenDetail: (orderId: string) => void;
@@ -16,9 +15,9 @@ interface OrderColumnActions {
   onPushToCj: (orderId: string) => void;
 }
 
-export function getOrderColumns(actions: OrderColumnActions): ColumnDef<Order, unknown>[] {
+export function getOrderColumns(actions: OrderColumnActions): ColumnDef<AdminOrderRow, unknown>[] {
   return [
-    selectionColumn<Order>(),
+    selectionColumn<AdminOrderRow>(),
     {
       id: "id",
       header: "Order",
@@ -30,11 +29,8 @@ export function getOrderColumns(actions: OrderColumnActions): ColumnDef<Order, u
       id: "customer",
       header: "Customer",
       size: 190,
-      accessorFn: (row) => getCustomer(row.customerId)?.name ?? row.customerId,
-      cell: ({ row }) => {
-        const customer = getCustomer(row.original.customerId);
-        return <CustomerCell name={customer?.name ?? "—"} email={customer?.email ?? ""} />;
-      },
+      accessorFn: (row) => row.customerName,
+      cell: ({ row }) => <CustomerCell name={row.original.customerName} email={row.original.customerEmail} />,
     },
     {
       id: "payment",
@@ -77,9 +73,9 @@ export function getOrderColumns(actions: OrderColumnActions): ColumnDef<Order, u
       id: "supplier",
       header: "Supplier",
       size: 170,
-      accessorFn: (row) => getSupplier(row.supplierId)?.name ?? row.supplierId,
+      accessorFn: (row) => row.supplierName ?? row.supplierId,
       cell: ({ row }) => (
-        <span className="truncate text-muted-foreground">{getSupplier(row.original.supplierId)?.name ?? "—"}</span>
+        <span className="truncate text-muted-foreground">{row.original.supplierName ?? "—"}</span>
       ),
     },
     {

@@ -8,10 +8,11 @@ import { FilterSelect } from "@/components/admin/table/filter-select";
 import { Button } from "@/components/ui/button";
 import { getCjOrderColumns } from "@/components/admin/cj/cj-order-columns";
 import { OrderDetailPanel } from "@/components/admin/orders/order-detail-panel";
-import type { CjSyncStatus, FulfillmentStatus, Order } from "@/lib/admin/types";
+import type { AdminOrderRow } from "@/lib/admin/data";
+import type { CjSyncStatus, FulfillmentStatus } from "@/lib/admin/types";
 
 interface CjOrdersTableProps {
-  initialOrders: Order[];
+  initialOrders: AdminOrderRow[];
 }
 
 export function CjOrdersTable({ initialOrders }: CjOrdersTableProps) {
@@ -28,7 +29,7 @@ export function CjOrdersTable({ initialOrders }: CjOrdersTableProps) {
     [orders, syncStatus]
   );
 
-  const patchOrder = useCallback((id: string, patch: Partial<Order>) => {
+  const patchOrder = useCallback((id: string, patch: Partial<AdminOrderRow>) => {
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch, updatedAt: new Date().toISOString() } : o)));
   }, []);
 

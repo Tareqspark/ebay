@@ -1,10 +1,9 @@
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/admin/shared/status-badge";
-import { getSupplier } from "@/lib/admin/data";
 import { formatNumber } from "@/lib/admin/format";
-import type { ImportJob } from "@/lib/admin/types";
+import type { AdminImportJobRow } from "@/lib/admin/data";
 
-export function ImportQueueList({ jobs }: { jobs: ImportJob[] }) {
+export function ImportQueueList({ jobs }: { jobs: AdminImportJobRow[] }) {
   if (jobs.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
@@ -16,13 +15,12 @@ export function ImportQueueList({ jobs }: { jobs: ImportJob[] }) {
   return (
     <div className="flex flex-col gap-3">
       {jobs.map((job) => {
-        const supplier = getSupplier(job.supplierId);
         const pct = job.status === "running" ? Math.round((job.processedItems / job.totalItems) * 100) : 0;
         return (
           <div key={job.id} className="rounded-lg border border-border bg-card p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="font-medium text-foreground">{supplier?.name ?? job.supplierId}</p>
+                <p className="font-medium text-foreground">{job.supplierName}</p>
                 <p className="text-xs text-muted-foreground capitalize">{job.type.replace(/_/g, " ")} · {job.id}</p>
               </div>
               <StatusBadge status={job.status} />

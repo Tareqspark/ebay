@@ -3,10 +3,10 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { StatusBadge } from "@/components/admin/shared/status-badge";
 import { formatDateTime, formatMoney } from "@/lib/admin/format";
-import { getCustomer } from "@/lib/admin/data";
-import type { Dispute, Payment, Payout } from "@/lib/admin/types";
+import type { AdminDisputeRow, AdminPaymentRow } from "@/lib/admin/data";
+import type { Payout } from "@/lib/admin/types";
 
-export const paymentColumns: ColumnDef<Payment, unknown>[] = [
+export const paymentColumns: ColumnDef<AdminPaymentRow, unknown>[] = [
   {
     id: "id",
     header: "Payment",
@@ -25,8 +25,8 @@ export const paymentColumns: ColumnDef<Payment, unknown>[] = [
     id: "customer",
     header: "Customer",
     size: 180,
-    accessorFn: (row) => getCustomer(row.customerId)?.name ?? row.customerId,
-    cell: ({ row }) => <span className="text-muted-foreground">{getCustomer(row.original.customerId)?.name ?? "—"}</span>,
+    accessorFn: (row) => row.customerName,
+    cell: ({ row }) => <span className="text-muted-foreground">{row.original.customerName}</span>,
   },
   {
     id: "amount",
@@ -58,7 +58,7 @@ export const paymentColumns: ColumnDef<Payment, unknown>[] = [
   },
 ];
 
-export const disputeColumns: ColumnDef<Dispute, unknown>[] = [
+export const disputeColumns: ColumnDef<AdminDisputeRow, unknown>[] = [
   {
     id: "order",
     header: "Order",
@@ -70,8 +70,8 @@ export const disputeColumns: ColumnDef<Dispute, unknown>[] = [
     id: "customer",
     header: "Customer",
     size: 180,
-    accessorFn: (row) => getCustomer(row.customerId)?.name ?? row.customerId,
-    cell: ({ row }) => <span className="text-muted-foreground">{getCustomer(row.original.customerId)?.name ?? "—"}</span>,
+    accessorFn: (row) => row.customerName,
+    cell: ({ row }) => <span className="text-muted-foreground">{row.original.customerName}</span>,
   },
   {
     id: "reason",

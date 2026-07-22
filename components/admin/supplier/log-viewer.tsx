@@ -2,10 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { FilterSelect } from "@/components/admin/table/filter-select";
-import { getSupplier } from "@/lib/admin/data";
 import { formatDateTime } from "@/lib/admin/format";
 import { cn } from "@/lib/utils";
-import type { SupplierLog } from "@/lib/admin/types";
+import type { AdminSupplierLogRow } from "@/lib/admin/data";
 
 const LEVEL_CLASS: Record<string, string> = {
   info: "text-muted-foreground",
@@ -13,7 +12,7 @@ const LEVEL_CLASS: Record<string, string> = {
   error: "text-red-600 dark:text-red-400",
 };
 
-export function LogViewer({ logs, supplierOptions }: { logs: SupplierLog[]; supplierOptions: { value: string; label: string }[] }) {
+export function LogViewer({ logs, supplierOptions }: { logs: AdminSupplierLogRow[]; supplierOptions: { value: string; label: string }[] }) {
   const [level, setLevel] = useState("all");
   const [supplierId, setSupplierId] = useState("all");
 
@@ -50,7 +49,7 @@ export function LogViewer({ logs, supplierOptions }: { logs: SupplierLog[]; supp
             <div key={log.id} className="flex items-start gap-3 px-4 py-2">
               <span className="shrink-0 text-muted-foreground/70">{formatDateTime(log.timestamp)}</span>
               <span className={cn("shrink-0 font-semibold uppercase", LEVEL_CLASS[log.level])}>{log.level}</span>
-              <span className="shrink-0 text-muted-foreground">{getSupplier(log.supplierId)?.name ?? log.supplierId}</span>
+              <span className="shrink-0 text-muted-foreground">{log.supplierName}</span>
               <span className="text-foreground">{log.message}</span>
             </div>
           ))}

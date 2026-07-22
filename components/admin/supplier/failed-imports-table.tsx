@@ -6,9 +6,9 @@ import { DataTable } from "@/components/admin/table/data-table";
 import { TableSearch } from "@/components/admin/table/table-search";
 import { Button } from "@/components/ui/button";
 import { getFailedImportColumns } from "@/components/admin/supplier/columns";
-import type { ImportError } from "@/lib/admin/types";
+import type { AdminImportErrorRow } from "@/lib/admin/data";
 
-export function FailedImportsTable({ initialErrors }: { initialErrors: ImportError[] }) {
+export function FailedImportsTable({ initialErrors }: { initialErrors: AdminImportErrorRow[] }) {
   const [errors, setErrors] = useState(initialErrors);
 
   function retry(errorId: string) {

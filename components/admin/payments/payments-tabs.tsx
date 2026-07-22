@@ -4,11 +4,12 @@ import { useMemo, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable } from "@/components/admin/table/data-table";
 import { paymentColumns, disputeColumns, payoutColumns } from "@/components/admin/payments/columns";
-import type { Dispute, Payment, Payout } from "@/lib/admin/types";
+import type { AdminDisputeRow, AdminPaymentRow } from "@/lib/admin/data";
+import type { Payout } from "@/lib/admin/types";
 
 interface PaymentsTabsProps {
-  payments: Payment[];
-  disputes: Dispute[];
+  payments: AdminPaymentRow[];
+  disputes: AdminDisputeRow[];
   payouts: Payout[];
   initialTab?: string;
 }

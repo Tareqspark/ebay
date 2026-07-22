@@ -5,13 +5,13 @@ import { DataTable } from "@/components/admin/table/data-table";
 import { TableSearch } from "@/components/admin/table/table-search";
 import { FilterSelect } from "@/components/admin/table/filter-select";
 import { inventoryColumns } from "@/components/admin/inventory/columns";
-import type { InventoryRecord } from "@/lib/admin/types";
+import type { AdminInventoryRow } from "@/lib/admin/data";
 
 export function InventoryTable({
   records,
   initialStatus,
 }: {
-  records: InventoryRecord[];
+  records: AdminInventoryRow[];
   initialStatus?: string;
 }) {
   const [status, setStatus] = useState(initialStatus ?? "all");

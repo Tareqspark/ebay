@@ -5,8 +5,8 @@ import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/admin/shared/status-badge";
 import { formatDateTime, formatNumber, formatRelative } from "@/lib/admin/format";
-import { getSupplier } from "@/lib/admin/data";
-import type { ImportError, ImportJob, Supplier } from "@/lib/admin/types";
+import type { AdminImportErrorRow, AdminImportJobRow } from "@/lib/admin/data";
+import type { Supplier } from "@/lib/admin/types";
 
 export const supplierColumns: ColumnDef<Supplier, unknown>[] = [
   {
@@ -67,7 +67,7 @@ export const supplierColumns: ColumnDef<Supplier, unknown>[] = [
   },
 ];
 
-export const importHistoryColumns: ColumnDef<ImportJob, unknown>[] = [
+export const importHistoryColumns: ColumnDef<AdminImportJobRow, unknown>[] = [
   {
     id: "id",
     header: "Job",
@@ -79,8 +79,8 @@ export const importHistoryColumns: ColumnDef<ImportJob, unknown>[] = [
     id: "supplier",
     header: "Supplier",
     size: 180,
-    accessorFn: (row) => getSupplier(row.supplierId)?.name ?? row.supplierId,
-    cell: ({ row }) => <span className="text-foreground">{getSupplier(row.original.supplierId)?.name ?? "—"}</span>,
+    accessorFn: (row) => row.supplierName,
+    cell: ({ row }) => <span className="text-foreground">{row.original.supplierName}</span>,
   },
   {
     id: "type",
@@ -134,7 +134,7 @@ interface FailedImportColumnActions {
   onRetry: (errorId: string) => void;
 }
 
-export function getFailedImportColumns({ onRetry }: FailedImportColumnActions): ColumnDef<ImportError, unknown>[] {
+export function getFailedImportColumns({ onRetry }: FailedImportColumnActions): ColumnDef<AdminImportErrorRow, unknown>[] {
   return [
     {
       id: "sku",
@@ -147,8 +147,8 @@ export function getFailedImportColumns({ onRetry }: FailedImportColumnActions): 
       id: "supplier",
       header: "Supplier",
       size: 180,
-      accessorFn: (row) => getSupplier(row.supplierId)?.name ?? row.supplierId,
-      cell: ({ row }) => <span className="text-foreground">{getSupplier(row.original.supplierId)?.name ?? "—"}</span>,
+      accessorFn: (row) => row.supplierName,
+      cell: ({ row }) => <span className="text-foreground">{row.original.supplierName}</span>,
     },
     {
       id: "reason",

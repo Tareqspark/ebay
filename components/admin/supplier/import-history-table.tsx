@@ -5,9 +5,9 @@ import { DataTable } from "@/components/admin/table/data-table";
 import { TableSearch } from "@/components/admin/table/table-search";
 import { FilterSelect } from "@/components/admin/table/filter-select";
 import { importHistoryColumns } from "@/components/admin/supplier/columns";
-import type { ImportJob } from "@/lib/admin/types";
+import type { AdminImportJobRow } from "@/lib/admin/data";
 
-export function ImportHistoryTable({ jobs }: { jobs: ImportJob[] }) {
+export function ImportHistoryTable({ jobs }: { jobs: AdminImportJobRow[] }) {
   const [status, setStatus] = useState("all");
 
   const filtered = useMemo(() => jobs.filter((j) => status === "all" || j.status === status), [jobs, status]);

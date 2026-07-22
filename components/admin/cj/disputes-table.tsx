@@ -8,9 +8,9 @@ import { FilterSelect } from "@/components/admin/table/filter-select";
 import { KpiCard } from "@/components/admin/shared/kpi-card";
 import { getDisputeColumns } from "@/components/admin/cj/dispute-columns";
 import { formatMoney } from "@/lib/admin/format";
-import type { CjDispute } from "@/lib/admin/cj-types";
+import type { AdminCjDisputeRow } from "@/lib/admin/data";
 
-export function DisputesTable({ initialDisputes }: { initialDisputes: CjDispute[] }) {
+export function DisputesTable({ initialDisputes }: { initialDisputes: AdminCjDisputeRow[] }) {
   const [disputes, setDisputes] = useState(initialDisputes);
   const [status, setStatus] = useState("all");
 
@@ -23,7 +23,7 @@ export function DisputesTable({ initialDisputes }: { initialDisputes: CjDispute[
 
   const filtered = useMemo(() => disputes.filter((d) => status === "all" || d.status === status), [disputes, status]);
 
-  function updateStatus(id: string, status: CjDispute["status"]) {
+  function updateStatus(id: string, status: AdminCjDisputeRow["status"]) {
     setDisputes((prev) => prev.map((d) => (d.id === id ? { ...d, status, updatedAt: new Date().toISOString() } : d)));
   }
 

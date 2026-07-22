@@ -8,10 +8,11 @@ import { FilterSelect } from "@/components/admin/table/filter-select";
 import { Button } from "@/components/ui/button";
 import { getOrderColumns } from "@/components/admin/orders/columns";
 import { OrderDetailPanel } from "@/components/admin/orders/order-detail-panel";
-import type { Order, FulfillmentStatus, CjSyncStatus } from "@/lib/admin/types";
+import type { AdminOrderRow } from "@/lib/admin/data";
+import type { FulfillmentStatus, CjSyncStatus } from "@/lib/admin/types";
 
 interface OrdersTableProps {
-  initialOrders: Order[];
+  initialOrders: AdminOrderRow[];
   initialStatusFilter?: string;
   initialQuery?: string;
 }
@@ -36,7 +37,7 @@ export function OrdersTable({ initialOrders, initialStatusFilter, initialQuery }
     [orders, fulfillment, payment]
   );
 
-  const patchOrder = useCallback((id: string, patch: Partial<Order>) => {
+  const patchOrder = useCallback((id: string, patch: Partial<AdminOrderRow>) => {
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch, updatedAt: new Date().toISOString() } : o)));
   }, []);
 

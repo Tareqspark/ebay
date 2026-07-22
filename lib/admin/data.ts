@@ -305,6 +305,7 @@ export async function getCustomer(id: string): Promise<Customer | undefined> {
 
 export interface AdminOrderRow extends Order {
   customerName: string;
+  customerEmail: string;
   supplierName?: string;
   cjShippingLineName?: string;
 }
@@ -328,38 +329,42 @@ export const getOrders = cache(async (): Promise<AdminOrderRow[]> => {
   const supplierById = new Map(suppliers.map((s) => [s.id, s]));
   const lineById = new Map(shippingLines.map((l) => [l.id, l]));
 
-  return orderRows.map((row) => ({
-    id: row.id,
-    customerId: row.userId,
-    customerName: customerById.get(row.userId)?.name ?? row.userId,
-    items: (itemsByOrder.get(row.id) ?? []).map((i) => ({
-      productId: i.productId,
-      title: i.title,
-      image: i.image,
-      quantity: i.quantity,
-      price: toDollars(i.priceCents),
-      source: i.source,
-    })),
-    subtotal: toDollars(row.subtotalCents),
-    shipping: toDollars(row.shippingCents),
-    tax: toDollars(row.taxCents),
-    total: toDollars(row.totalCents),
-    paymentStatus: row.paymentStatus,
-    fulfillmentStatus: row.fulfillmentStatus,
-    trackingNumber: row.trackingNumber ?? undefined,
-    carrier: row.carrier ?? undefined,
-    supplierId: row.supplierId ?? undefined,
-    supplierName: row.supplierId ? supplierById.get(row.supplierId)?.name : undefined,
-    placedAt: row.placedAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-    paymentMethod: row.paymentMethod,
-    shippingAddress: row.shippingAddress as OrderAddress,
-    cjSyncStatus: row.cjSyncStatus ?? undefined,
-    cjOrderId: row.cjOrderId ?? undefined,
-    cjTrackingNumber: row.cjTrackingNumber ?? undefined,
-    cjShippingLineId: row.cjShippingLineId ?? undefined,
-    cjShippingLineName: row.cjShippingLineId ? lineById.get(row.cjShippingLineId)?.name : undefined,
-  }));
+  return orderRows.map((row) => {
+    const cjLine = row.cjShippingLineId ? lineById.get(row.cjShippingLineId) : undefined;
+    return {
+      id: row.id,
+      customerId: row.userId,
+      customerName: customerById.get(row.userId)?.name ?? row.userId,
+      customerEmail: customerById.get(row.userId)?.email ?? "",
+      items: (itemsByOrder.get(row.id) ?? []).map((i) => ({
+        productId: i.productId,
+        title: i.title,
+        image: i.image,
+        quantity: i.quantity,
+        price: toDollars(i.priceCents),
+        source: i.source,
+      })),
+      subtotal: toDollars(row.subtotalCents),
+      shipping: toDollars(row.shippingCents),
+      tax: toDollars(row.taxCents),
+      total: toDollars(row.totalCents),
+      paymentStatus: row.paymentStatus,
+      fulfillmentStatus: row.fulfillmentStatus,
+      trackingNumber: row.trackingNumber ?? undefined,
+      carrier: row.carrier ?? undefined,
+      supplierId: row.supplierId ?? undefined,
+      supplierName: row.supplierId ? supplierById.get(row.supplierId)?.name : undefined,
+      placedAt: row.placedAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+      paymentMethod: row.paymentMethod,
+      shippingAddress: row.shippingAddress as OrderAddress,
+      cjSyncStatus: row.cjSyncStatus ?? undefined,
+      cjOrderId: row.cjOrderId ?? undefined,
+      cjTrackingNumber: row.cjTrackingNumber ?? undefined,
+      cjShippingLineId: row.cjShippingLineId ?? undefined,
+      cjShippingLineName: cjLine ? `${cjLine.name} (${cjLine.estimatedDays})` : undefined,
+    };
+  });
 });
 
 export async function getOrdersForCustomer(customerId: string): Promise<AdminOrderRow[]> {
@@ -460,18 +465,37 @@ export const getInventory = cache(async (): Promise<AdminInventoryRow[]> => {
 // Supplier sync / import pipeline
 // ---------------------------------------------------------------------------
 
-export const getImportQueue = cache(async (): Promise<ImportJob[]> => {
-  const rows = await db.select().from(importJobsTable).where(sql`status in ('queued','running')`);
-  return rows.map(toImportJob);
+export interface AdminImportJobRow extends ImportJob {
+  supplierName: string;
+}
+export interface AdminImportErrorRow extends ImportError {
+  supplierName: string;
+}
+export interface AdminSupplierLogRow extends SupplierLog {
+  supplierName: string;
+}
+
+export const getImportQueue = cache(async (): Promise<AdminImportJobRow[]> => {
+  const [rows, suppliers] = await Promise.all([
+    db.select().from(importJobsTable).where(sql`status in ('queued','running')`),
+    getSuppliers(),
+  ]);
+  const supplierById = new Map(suppliers.map((s) => [s.id, s]));
+  return rows.map((j) => toImportJob(j, supplierById));
 });
-export const getImportHistory = cache(async (): Promise<ImportJob[]> => {
-  const rows = await db.select().from(importJobsTable).where(sql`status in ('completed','failed')`);
-  return rows.map(toImportJob);
+export const getImportHistory = cache(async (): Promise<AdminImportJobRow[]> => {
+  const [rows, suppliers] = await Promise.all([
+    db.select().from(importJobsTable).where(sql`status in ('completed','failed')`),
+    getSuppliers(),
+  ]);
+  const supplierById = new Map(suppliers.map((s) => [s.id, s]));
+  return rows.map((j) => toImportJob(j, supplierById));
 });
-function toImportJob(j: typeof importJobsTable.$inferSelect): ImportJob {
+function toImportJob(j: typeof importJobsTable.$inferSelect, supplierById: Map<string, Supplier>): AdminImportJobRow {
   return {
     id: j.id,
     supplierId: j.supplierId,
+    supplierName: supplierById.get(j.supplierId)?.name ?? j.supplierId,
     type: j.type,
     status: j.status,
     totalItems: j.totalItems,
@@ -482,12 +506,14 @@ function toImportJob(j: typeof importJobsTable.$inferSelect): ImportJob {
   };
 }
 
-export const getImportErrors = cache(async (): Promise<ImportError[]> => {
-  const rows = await db.select().from(importErrorsTable);
+export const getImportErrors = cache(async (): Promise<AdminImportErrorRow[]> => {
+  const [rows, suppliers] = await Promise.all([db.select().from(importErrorsTable), getSuppliers()]);
+  const supplierById = new Map(suppliers.map((s) => [s.id, s]));
   return rows.map((e) => ({
     id: e.id,
     jobId: e.jobId,
     supplierId: e.supplierId,
+    supplierName: supplierById.get(e.supplierId)?.name ?? e.supplierId,
     sku: e.sku,
     reason: e.reason,
     occurredAt: e.occurredAt ? e.occurredAt.toISOString() : null,
@@ -500,9 +526,20 @@ export const getFieldMappings = cache(async (): Promise<FieldMapping[]> => {
   return rows.map((f) => ({ supplierId: f.supplierId, mappings: f.mappings }));
 });
 
-export const getSupplierLogs = cache(async (): Promise<SupplierLog[]> => {
-  const rows = await db.select().from(supplierLogsTable).orderBy(desc(supplierLogsTable.timestamp));
-  return rows.map((l) => ({ id: l.id, supplierId: l.supplierId, level: l.level, message: l.message, timestamp: l.timestamp.toISOString() }));
+export const getSupplierLogs = cache(async (): Promise<AdminSupplierLogRow[]> => {
+  const [rows, suppliers] = await Promise.all([
+    db.select().from(supplierLogsTable).orderBy(desc(supplierLogsTable.timestamp)),
+    getSuppliers(),
+  ]);
+  const supplierById = new Map(suppliers.map((s) => [s.id, s]));
+  return rows.map((l) => ({
+    id: l.id,
+    supplierId: l.supplierId,
+    supplierName: supplierById.get(l.supplierId)?.name ?? l.supplierId,
+    level: l.level,
+    message: l.message,
+    timestamp: l.timestamp.toISOString(),
+  }));
 });
 
 // ---------------------------------------------------------------------------
