@@ -3,6 +3,7 @@
 import { auth } from "@/auth";
 import { getCart } from "@/lib/cart";
 import { computeTotals } from "@/lib/checkout";
+import { validatePromoForCheckout } from "@/lib/promo";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
 import { toCents } from "@/lib/money";
 
@@ -21,7 +22,10 @@ export interface CreatePaymentIntentResult {
   error?: string;
 }
 
-export async function createPaymentIntentAction(address: ShippingAddressInput): Promise<CreatePaymentIntentResult> {
+export async function createPaymentIntentAction(
+  address: ShippingAddressInput,
+  promoCode?: string
+): Promise<CreatePaymentIntentResult> {
   const session = await auth();
   if (!session?.user?.id) {
     return { error: "You must be signed in to check out." };
@@ -39,7 +43,20 @@ export async function createPaymentIntentAction(address: ShippingAddressInput): 
     return { error: "Your cart is empty." };
   }
 
-  const { total } = computeTotals(cart.subtotal);
+  // Re-validated here, independent of whatever the "Apply" preview showed —
+  // this is the step that actually commits to a charge amount, so it can't
+  // trust anything computed client-side or even a few seconds earlier.
+  let total: number;
+  let appliedPromoCode: string | undefined;
+  if (promoCode?.trim()) {
+    const outcome = await validatePromoForCheckout(promoCode, session.user.id, cart.subtotal);
+    if ("error" in outcome) return { error: outcome.error };
+    total = outcome.result.total;
+    appliedPromoCode = outcome.result.code;
+  } else {
+    total = computeTotals(cart.subtotal).total;
+  }
+
   const stripe = getStripe()!;
 
   const intent = await stripe.paymentIntents.create({
@@ -56,6 +73,7 @@ export async function createPaymentIntentAction(address: ShippingAddressInput): 
       state: address.state,
       zip: address.zip,
       country: address.country,
+      ...(appliedPromoCode ? { promoCode: appliedPromoCode } : {}),
     },
   });
 

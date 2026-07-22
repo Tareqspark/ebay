@@ -60,6 +60,12 @@ export default async function CheckoutSuccessPage({ searchParams }: CheckoutSucc
             <span className="text-foreground">{formatPrice(item.price * item.quantity)}</span>
           </div>
         ))}
+        {order.discount > 0 && (
+          <div className="flex justify-between py-1 text-emerald-600 dark:text-emerald-400">
+            <span>Discount{order.promoCode ? ` (${order.promoCode})` : ""}</span>
+            <span>-{formatPrice(order.discount)}</span>
+          </div>
+        )}
         <div className="mt-2 flex justify-between border-t border-border pt-2 font-semibold text-foreground">
           <span>Total</span>
           <span>{formatPrice(order.total)}</span>

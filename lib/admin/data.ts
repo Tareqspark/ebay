@@ -345,6 +345,8 @@ export const getOrders = cache(async (): Promise<AdminOrderRow[]> => {
       shipping: toDollars(row.shippingCents),
       tax: toDollars(row.taxCents),
       total: toDollars(row.totalCents),
+      discount: row.discountCents ? toDollars(row.discountCents) : undefined,
+      promoCode: row.promoCode ?? undefined,
       paymentStatus: row.paymentStatus,
       fulfillmentStatus: row.fulfillmentStatus,
       trackingNumber: row.trackingNumber ?? undefined,

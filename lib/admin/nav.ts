@@ -13,6 +13,7 @@ import {
   Settings,
   ShoppingCart,
   Star,
+  Ticket,
   Truck,
   Users,
   Warehouse,
@@ -74,6 +75,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { label: "Customers", href: "/admin/customers", icon: Users },
       { label: "Reviews", href: "/admin/reviews", icon: Star },
       { label: "Marketing", href: "/admin/marketing", icon: Megaphone },
+      { label: "Promo Codes", href: "/admin/promo-codes", icon: Ticket },
     ],
   },
   {

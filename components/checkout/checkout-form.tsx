@@ -17,7 +17,13 @@ function getStripePromise() {
   return stripePromise;
 }
 
-export function CheckoutForm({ defaultAddress }: { defaultAddress: ShippingAddressInput }) {
+export function CheckoutForm({
+  defaultAddress,
+  promoCode,
+}: {
+  defaultAddress: ShippingAddressInput;
+  promoCode?: string | null;
+}) {
   const [address, setAddress] = useState(defaultAddress);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +39,7 @@ export function CheckoutForm({ defaultAddress }: { defaultAddress: ShippingAddre
   function handleContinue() {
     setError(null);
     startTransition(async () => {
-      const result = await createPaymentIntentAction(address);
+      const result = await createPaymentIntentAction(address, promoCode ?? undefined);
       if (result.error) {
         setError(result.error);
         return;

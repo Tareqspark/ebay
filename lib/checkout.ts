@@ -1,9 +1,9 @@
 import "server-only";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { orders, orderItems, cartItems, payments } from "@/db/schema";
+import { orders, orderItems, cartItems, payments, promoCodes, promoRedemptions } from "@/db/schema";
 import { newId } from "@/lib/id";
-import { toCents } from "@/lib/money";
+import { toCents, toDollars } from "@/lib/money";
 import { getStripe } from "@/lib/stripe";
 import { sendEmail } from "@/lib/sendgrid";
 import { getProductsByIds } from "@/lib/products";
@@ -22,6 +22,43 @@ export function computeTotals(subtotal: number) {
   const tax = Math.round((subtotal + shipping) * TAX_RATE * 100) / 100;
   const total = Math.round((subtotal + shipping + tax) * 100) / 100;
   return { shipping, tax, total };
+}
+
+export type PromoDiscountType = (typeof promoCodes.$inferSelect)["discountType"];
+
+interface PromoForDiscount {
+  discountType: PromoDiscountType;
+  discountPercent: number | null;
+  discountAmountCents: number | null;
+}
+
+/**
+ * Same shape as computeTotals(), plus a discount amount — kept as a
+ * separate function (rather than an optional param on computeTotals) so
+ * every existing no-promo call site stays untouched.
+ */
+export function computeTotalsWithDiscount(subtotal: number, promo?: PromoForDiscount | null) {
+  const baseShipping = subtotal >= FREE_SHIPPING_THRESHOLD || subtotal === 0 ? 0 : FLAT_SHIPPING;
+
+  let discount = 0;
+  let shipping = baseShipping;
+  let discountedSubtotal = subtotal;
+
+  if (promo?.discountType === "percent" && promo.discountPercent) {
+    discount = Math.min(subtotal, Math.round(subtotal * (promo.discountPercent / 100) * 100) / 100);
+    discountedSubtotal = Math.round((subtotal - discount) * 100) / 100;
+  } else if (promo?.discountType === "fixed" && promo.discountAmountCents) {
+    discount = Math.min(subtotal, toDollars(promo.discountAmountCents));
+    discountedSubtotal = Math.round((subtotal - discount) * 100) / 100;
+  } else if (promo?.discountType === "free_shipping") {
+    // Waives the shipping fee only — the product subtotal is untouched.
+    discount = baseShipping;
+    shipping = 0;
+  }
+
+  const tax = Math.round((discountedSubtotal + shipping) * TAX_RATE * 100) / 100;
+  const total = Math.round((discountedSubtotal + shipping + tax) * 100) / 100;
+  return { discount, shipping, tax, total };
 }
 
 async function generateOrderNumber(): Promise<string> {
@@ -61,7 +98,7 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
   const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
   if (intent.status !== "succeeded") return null;
 
-  const { cartId, userId, email, ...address } = intent.metadata as Record<string, string>;
+  const { cartId, userId, email, promoCode: promoCodeFromMetadata, ...address } = intent.metadata as Record<string, string>;
   if (!cartId || !userId) return null;
 
   const rows = await db.select().from(cartItems).where(eq(cartItems.cartId, cartId));
@@ -89,7 +126,13 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
   ).filter((x): x is NonNullable<typeof x> => x !== null);
 
   const subtotal = Math.round(lineItems.reduce((sum, item) => sum + item.price * item.quantity, 0) * 100) / 100;
-  const { shipping, tax, total } = computeTotals(subtotal);
+
+  let promoRow: typeof promoCodes.$inferSelect | null = null;
+  if (promoCodeFromMetadata) {
+    const [row] = await db.select().from(promoCodes).where(eq(promoCodes.code, promoCodeFromMetadata)).limit(1);
+    promoRow = row ?? null;
+  }
+  const { discount, shipping, tax, total } = computeTotalsWithDiscount(subtotal, promoRow);
 
   const shippingAddress: ShippingAddressInput = {
     name: address.name ?? "",
@@ -113,6 +156,8 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
     shippingCents: toCents(shipping),
     taxCents: toCents(tax),
     totalCents: toCents(total),
+    promoCode: promoRow?.code ?? null,
+    discountCents: toCents(discount),
     paymentMethod: "card",
     stripePaymentIntentId: paymentIntentId,
     shippingAddress,
@@ -139,6 +184,18 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
     status: "succeeded",
     method: "card",
   });
+
+  if (promoRow) {
+    await db.insert(promoRedemptions).values({
+      id: newId(),
+      promoCodeId: promoRow.id,
+      code: promoRow.code,
+      userId,
+      orderId,
+      discountCents: toCents(discount),
+    });
+    await db.update(promoCodes).set({ usageCount: sql`${promoCodes.usageCount} + 1` }).where(eq(promoCodes.id, promoRow.id));
+  }
 
   await clearCartById(cartId);
 

@@ -107,6 +107,8 @@ export interface Order {
   shipping: number;
   tax: number;
   total: number;
+  discount?: number;
+  promoCode?: string;
   paymentStatus: PaymentStatus;
   fulfillmentStatus: FulfillmentStatus;
   trackingNumber?: string;

@@ -9,6 +9,7 @@ import {
   json,
   mysqlEnum,
   index,
+  unique,
 } from "drizzle-orm/mysql-core";
 import { relations } from "drizzle-orm";
 
@@ -105,6 +106,12 @@ export const orders = mysqlTable(
     shippingCents: int("shipping_cents").notNull().default(0),
     taxCents: int("tax_cents").notNull(),
     totalCents: int("total_cents").notNull(),
+    // Promo code applied at checkout, if any — snapshot the code string
+    // rather than a live FK so the order keeps showing what was actually
+    // used even if the code is later edited or deleted (same convention as
+    // order_items snapshotting product title/image/price below).
+    promoCode: varchar("promo_code", { length: 60 }),
+    discountCents: int("discount_cents").notNull().default(0),
     paymentMethod: varchar("payment_method", { length: 60 }).notNull().default("card"),
     stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 191 }),
     // Fulfillment tracking — set by admin ops after the order is placed, not
@@ -500,6 +507,59 @@ export const campaigns = mysqlTable("campaigns", {
   redemptions: int("redemptions").notNull().default(0),
   revenueAttributedCents: int("revenue_attributed_cents").notNull().default(0),
 });
+
+// ---------------------------------------------------------------------------
+// Promo codes — real checkout-time discount engine (separate from the
+// campaigns table above, which only tracks marketing attribution and has no
+// redemption logic behind its optional `code` field).
+// ---------------------------------------------------------------------------
+
+export const promoDiscountType = ["percent", "fixed", "free_shipping"] as const;
+export const promoCodeStatus = ["active", "disabled"] as const;
+
+export const promoCodes = mysqlTable(
+  "promo_codes",
+  {
+    id: varchar("id", { length: 191 }).primaryKey(),
+    code: varchar("code", { length: 60 }).notNull().unique(),
+    discountType: mysqlEnum("discount_type", promoDiscountType).notNull(),
+    // Exactly one of these is set, matching discountType — enforced in
+    // lib/admin/promo-actions.ts, not at the schema level.
+    discountPercent: int("discount_percent"),
+    discountAmountCents: int("discount_amount_cents"),
+    // A single-use code is retired after its first redemption by anyone.
+    // Independent of that, every code (single-use or not) can only ever be
+    // redeemed once per customer — enforced by the unique index on
+    // promo_redemptions below, not a per-code setting.
+    singleUse: boolean("single_use").notNull().default(false),
+    status: mysqlEnum("status", promoCodeStatus).notNull().default("active"),
+    startDate: timestamp("start_date").notNull(),
+    endDate: timestamp("end_date"),
+    usageCount: int("usage_count").notNull().default(0),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [index("promo_codes_code_idx").on(table.code)]
+);
+
+export const promoRedemptions = mysqlTable(
+  "promo_redemptions",
+  {
+    id: varchar("id", { length: 191 }).primaryKey(),
+    promoCodeId: varchar("promo_code_id", { length: 191 }).notNull(),
+    code: varchar("code", { length: 60 }).notNull(),
+    userId: varchar("user_id", { length: 26 }).notNull(),
+    orderId: varchar("order_id", { length: 26 }).notNull(),
+    discountCents: int("discount_cents").notNull(),
+    redeemedAt: timestamp("redeemed_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("promo_redemptions_promo_code_id_idx").on(table.promoCodeId),
+    index("promo_redemptions_user_id_idx").on(table.userId),
+    // Hard backstop for "a customer can't use a code more than once" —
+    // enforced at the DB level, not just in application code.
+    unique("promo_redemptions_code_user_unique").on(table.promoCodeId, table.userId),
+  ]
+);
 
 export const contentType = ["page", "banner", "hero_slide"] as const;
 export const contentStatus = ["published", "draft"] as const;

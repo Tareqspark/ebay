@@ -13,6 +13,8 @@ export interface CustomerOrder {
   shipping: number;
   tax: number;
   total: number;
+  discount: number;
+  promoCode?: string;
   paymentStatus: PaymentStatus;
   fulfillmentStatus: FulfillmentStatus;
   paymentMethod: string;
@@ -46,6 +48,8 @@ export async function getOrdersForUser(userId: string): Promise<CustomerOrder[]>
       shipping: toDollars(row.shippingCents),
       tax: toDollars(row.taxCents),
       total: toDollars(row.totalCents),
+      discount: toDollars(row.discountCents),
+      promoCode: row.promoCode ?? undefined,
       paymentStatus: row.paymentStatus,
       fulfillmentStatus: row.fulfillmentStatus,
       paymentMethod: row.paymentMethod,
