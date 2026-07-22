@@ -7,6 +7,7 @@ import { contentItems } from "@/db/schema";
 import { newId } from "@/lib/id";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
+import { checkPlainText } from "@/lib/sanitize";
 import type { ContentType, ContentStatus } from "@/lib/admin/content";
 
 export interface ContentActionResult {
@@ -25,6 +26,8 @@ export async function createContentAction(input: ContentInput): Promise<ContentA
   const location = input.location.trim();
   if (!title) return { error: "Title is required" };
   if (!location) return { error: "Location is required" };
+  const textError = checkPlainText(title, "Title") ?? checkPlainText(location, "Location");
+  if (textError) return { error: textError };
 
   await db.insert(contentItems).values({
     id: newId(),
@@ -45,6 +48,8 @@ export async function updateContentAction(id: string, input: ContentInput): Prom
   const location = input.location.trim();
   if (!title) return { error: "Title is required" };
   if (!location) return { error: "Location is required" };
+  const textError = checkPlainText(title, "Title") ?? checkPlainText(location, "Location");
+  if (textError) return { error: textError };
 
   await db.update(contentItems).set({ title, type: input.type, location, status: input.status }).where(eq(contentItems.id, id));
 

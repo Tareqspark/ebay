@@ -7,6 +7,7 @@ import { collections } from "@/db/schema";
 import { newId } from "@/lib/id";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
+import { checkPlainText } from "@/lib/sanitize";
 import type { CollectionType, CollectionStatus } from "@/lib/admin/collections";
 
 export interface CollectionActionResult {
@@ -30,6 +31,8 @@ function slugify(name: string): string {
 export async function createCollectionAction(input: CollectionInput): Promise<CollectionActionResult> {
   const name = input.name.trim();
   if (!name) return { error: "Name is required" };
+  const textError = checkPlainText(name, "Name") ?? checkPlainText(input.ruleDescription, "Rule description");
+  if (textError) return { error: textError };
 
   await db.insert(collections).values({
     id: newId(),
@@ -49,6 +52,8 @@ export async function createCollectionAction(input: CollectionInput): Promise<Co
 export async function updateCollectionAction(id: string, input: CollectionInput): Promise<CollectionActionResult> {
   const name = input.name.trim();
   if (!name) return { error: "Name is required" };
+  const textError = checkPlainText(name, "Name") ?? checkPlainText(input.ruleDescription, "Rule description");
+  if (textError) return { error: textError };
 
   await db
     .update(collections)

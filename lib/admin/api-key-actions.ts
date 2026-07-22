@@ -7,6 +7,7 @@ import { apiKeys } from "@/db/schema";
 import { newId } from "@/lib/id";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
+import { checkPlainText } from "@/lib/sanitize";
 
 export interface ApiKeyActionResult {
   error?: string;
@@ -21,6 +22,8 @@ function randomPrefix(): string {
 export async function createApiKeyAction(name: string): Promise<ApiKeyActionResult> {
   const trimmed = name.trim();
   if (!trimmed) return { error: "Name is required" };
+  const textError = checkPlainText(trimmed, "Name");
+  if (textError) return { error: textError };
 
   const id = newId();
   const prefix = randomPrefix();

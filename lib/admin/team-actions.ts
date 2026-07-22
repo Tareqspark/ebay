@@ -8,6 +8,7 @@ import { adminUsers } from "@/db/schema";
 import { newId } from "@/lib/id";
 import { getAdminActorName, requireAdminSession } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
+import { checkPlainText } from "@/lib/sanitize";
 import type { AdminRole, AdminUserStatus } from "@/lib/admin/team";
 
 export interface TeamActionResult {
@@ -34,6 +35,8 @@ export async function inviteTeamMemberAction(input: TeamMemberInput): Promise<Te
   const email = input.email.trim().toLowerCase();
   if (!name) return { error: "Name is required" };
   if (!email || !email.includes("@")) return { error: "A valid email is required" };
+  const textError = checkPlainText(name, "Name");
+  if (textError) return { error: textError };
 
   const [existing] = await db.select().from(adminUsers).where(eq(adminUsers.email, email)).limit(1);
   if (existing) return { error: "A staff account with this email already exists" };
@@ -61,6 +64,8 @@ export async function updateTeamMemberAction(id: string, input: TeamMemberInput)
   const email = input.email.trim().toLowerCase();
   if (!name) return { error: "Name is required" };
   if (!email || !email.includes("@")) return { error: "A valid email is required" };
+  const textError = checkPlainText(name, "Name");
+  if (textError) return { error: textError };
 
   const [existing] = await db.select().from(adminUsers).where(eq(adminUsers.email, email)).limit(1);
   if (existing && existing.id !== id) return { error: "A staff account with this email already exists" };

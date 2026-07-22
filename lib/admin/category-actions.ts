@@ -9,6 +9,7 @@ import { slugify } from "@/lib/slugify";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
 import { getProducts } from "@/lib/admin/data";
+import { checkPlainText } from "@/lib/sanitize";
 import type { CategoryLevel } from "@/lib/admin/categories";
 
 export interface CategoryActionResult {
@@ -44,6 +45,8 @@ export async function createCategoryAction(
 ): Promise<CategoryActionResult> {
   const name = input.name.trim();
   if (!name) return { error: "Name is required" };
+  const nameError = checkPlainText(name, "Name") ?? checkPlainText(input.description, "Description") ?? checkPlainText(input.image, "Image URL");
+  if (nameError) return { error: nameError };
   const slug = slugify(input.slug.trim() || name);
   if (!slug) return { error: "A valid slug is required" };
   if (await slugTaken(slug, parentId)) return { error: "A category with this slug already exists at this level" };
@@ -78,6 +81,8 @@ export async function createCategoryAction(
 export async function updateCategoryAction(id: string, input: CategoryInput): Promise<CategoryActionResult> {
   const name = input.name.trim();
   if (!name) return { error: "Name is required" };
+  const nameError = checkPlainText(name, "Name") ?? checkPlainText(input.description, "Description") ?? checkPlainText(input.image, "Image URL");
+  if (nameError) return { error: nameError };
   const slug = slugify(input.slug.trim() || name);
   if (!slug) return { error: "A valid slug is required" };
 

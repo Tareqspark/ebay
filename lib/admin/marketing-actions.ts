@@ -7,6 +7,7 @@ import { campaigns } from "@/db/schema";
 import { newId } from "@/lib/id";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
+import { checkPlainText } from "@/lib/sanitize";
 import type { CampaignType, CampaignStatus } from "@/lib/admin/marketing";
 
 export interface MarketingActionResult {
@@ -34,9 +35,12 @@ export async function createCampaignAction(input: CampaignInput): Promise<Market
   const channel = input.channel.trim();
   if (!name) return { error: "Name is required" };
   if (!channel) return { error: "Channel is required" };
+  const textError = checkPlainText(name, "Name") ?? checkPlainText(channel, "Channel") ?? checkPlainText(input.code, "Code");
+  if (textError) return { error: textError };
   const startDate = parseDate(input.startDate);
   if (!startDate) return { error: "A valid start date is required" };
   const endDate = parseDate(input.endDate);
+  if (endDate && endDate < startDate) return { error: "End date can't be before the start date" };
 
   await db.insert(campaigns).values({
     id: newId(),
@@ -62,9 +66,12 @@ export async function updateCampaignAction(id: string, input: CampaignInput): Pr
   const channel = input.channel.trim();
   if (!name) return { error: "Name is required" };
   if (!channel) return { error: "Channel is required" };
+  const textError = checkPlainText(name, "Name") ?? checkPlainText(channel, "Channel") ?? checkPlainText(input.code, "Code");
+  if (textError) return { error: textError };
   const startDate = parseDate(input.startDate);
   if (!startDate) return { error: "A valid start date is required" };
   const endDate = parseDate(input.endDate);
+  if (endDate && endDate < startDate) return { error: "End date can't be before the start date" };
 
   await db
     .update(campaigns)

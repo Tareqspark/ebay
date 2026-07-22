@@ -8,6 +8,7 @@ import { newId } from "@/lib/id";
 import { toCents } from "@/lib/money";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
+import { checkPlainText } from "@/lib/sanitize";
 import type { ShippingRateStatus } from "@/lib/admin/shipping";
 
 export interface ShippingActionResult {
@@ -29,6 +30,12 @@ export async function createShippingRateAction(input: ShippingRateInput): Promis
   const condition = input.condition.trim();
   const deliveryEstimate = input.deliveryEstimate.trim();
   if (!zone || !method || !condition || !deliveryEstimate) return { error: "All fields are required" };
+  const textError =
+    checkPlainText(zone, "Zone") ??
+    checkPlainText(method, "Method") ??
+    checkPlainText(condition, "Condition") ??
+    checkPlainText(deliveryEstimate, "Delivery estimate");
+  if (textError) return { error: textError };
   if (input.rate < 0) return { error: "Rate can't be negative" };
 
   await db.insert(shippingRates).values({
@@ -53,6 +60,12 @@ export async function updateShippingRateAction(id: string, input: ShippingRateIn
   const condition = input.condition.trim();
   const deliveryEstimate = input.deliveryEstimate.trim();
   if (!zone || !method || !condition || !deliveryEstimate) return { error: "All fields are required" };
+  const textError =
+    checkPlainText(zone, "Zone") ??
+    checkPlainText(method, "Method") ??
+    checkPlainText(condition, "Condition") ??
+    checkPlainText(deliveryEstimate, "Delivery estimate");
+  if (textError) return { error: textError };
   if (input.rate < 0) return { error: "Rate can't be negative" };
 
   await db
@@ -79,6 +92,11 @@ export async function updateCarrierAction(
   id: string,
   input: { connected: boolean; servicesUsed: string[] }
 ): Promise<ShippingActionResult> {
+  for (const service of input.servicesUsed) {
+    const textError = checkPlainText(service, "Service");
+    if (textError) return { error: textError };
+  }
+
   await db.update(carriers).set({ connected: input.connected, servicesUsed: input.servicesUsed }).where(eq(carriers.id, id));
 
   const actor = await getAdminActorName();

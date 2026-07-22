@@ -7,6 +7,7 @@ import { reviews } from "@/db/schema";
 import { newId } from "@/lib/id";
 import { auth } from "@/auth";
 import { hasUserReviewedProduct } from "@/lib/reviews-data";
+import { checkPlainText } from "@/lib/sanitize";
 
 const reviewSchema = z.object({
   productId: z.string().min(1),
@@ -37,6 +38,8 @@ export async function submitReviewAction(_prevState: ReviewActionState, formData
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid review" };
   }
+  const textError = checkPlainText(parsed.data.title, "Title") ?? checkPlainText(parsed.data.body, "Review text");
+  if (textError) return { error: textError };
 
   const alreadyReviewed = await hasUserReviewedProduct(session.user.id, parsed.data.productId);
   if (alreadyReviewed) {
