@@ -19,6 +19,10 @@ export interface CustomerOrder {
   shippingAddress: OrderAddress;
   placedAt: string;
   updatedAt: string;
+  trackingNumber?: string;
+  carrier?: string;
+  cjTrackingNumber?: string;
+  cjSyncStatus?: string;
 }
 
 export async function getOrdersForUser(userId: string): Promise<CustomerOrder[]> {
@@ -48,6 +52,10 @@ export async function getOrdersForUser(userId: string): Promise<CustomerOrder[]>
       shippingAddress: row.shippingAddress,
       placedAt: row.placedAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
+      trackingNumber: row.trackingNumber ?? undefined,
+      carrier: row.carrier ?? undefined,
+      cjTrackingNumber: row.cjTrackingNumber ?? undefined,
+      cjSyncStatus: row.cjSyncStatus ?? undefined,
     });
   }
 
@@ -57,4 +65,11 @@ export async function getOrdersForUser(userId: string): Promise<CustomerOrder[]>
 export async function getOrderForUser(userId: string, orderId: string): Promise<CustomerOrder | null> {
   const all = await getOrdersForUser(userId);
   return all.find((o) => o.id === orderId) ?? null;
+}
+
+/** Case-insensitive order-number lookup, scoped to the signed-in user — powers the Track Your Order page. */
+export async function findOrderByNumberForUser(userId: string, orderNumber: string): Promise<CustomerOrder | null> {
+  const all = await getOrdersForUser(userId);
+  const normalized = orderNumber.trim().toUpperCase();
+  return all.find((o) => o.orderNumber.toUpperCase() === normalized) ?? null;
 }

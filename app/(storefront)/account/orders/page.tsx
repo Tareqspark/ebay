@@ -54,6 +54,22 @@ export default async function AccountOrdersPage() {
                     </div>
                   </div>
                 ))}
+                {(order.trackingNumber || order.cjTrackingNumber) && (
+                  <div className="flex flex-col gap-1 rounded-md bg-muted/40 px-3 py-2 text-xs">
+                    {order.trackingNumber && (
+                      <p className="text-foreground">
+                        <span className="text-muted-foreground">{order.carrier ?? "Tracking"}: </span>
+                        {order.trackingNumber}
+                      </p>
+                    )}
+                    {order.cjTrackingNumber && (
+                      <p className="text-foreground">
+                        <span className="text-muted-foreground">Supplier shipment: </span>
+                        {order.cjTrackingNumber}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ))}

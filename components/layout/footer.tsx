@@ -6,8 +6,7 @@ const helpLinks = [
   { label: "Contact Us", href: "/help" },
   { label: "Shipping & Delivery", href: "/help/shipping" },
   { label: "Returns & Refunds", href: "/help/returns" },
-  { label: "Track Your Order", href: "/orders" },
-  { label: "FAQs", href: "/help/faq" },
+  { label: "Track Your Order", href: "/track-order" },
 ];
 
 const companyLinks = [
@@ -21,8 +20,8 @@ const companyLinks = [
 const legalLinks = [
   { label: "Privacy Policy", href: "/legal/privacy" },
   { label: "Terms of Service", href: "/legal/terms" },
-  { label: "Accessibility", href: "/legal/accessibility" },
-  { label: "Do Not Sell My Info", href: "/legal/privacy-choices" },
+  { label: "Legal Notice", href: "/legal/notice" },
+  { label: "Do Not Sell My Info", href: "/legal/privacy" },
 ];
 
 export async function Footer() {
