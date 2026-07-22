@@ -6,6 +6,9 @@ import { db } from "@/db";
 import { categories as categoriesTable } from "@/db/schema";
 import { resolveCategoryIcon } from "@/lib/category-icons";
 import type { LucideIcon } from "lucide-react";
+import { categoryHref, POPULAR_SEARCHES } from "@/lib/category-client";
+
+export { categoryHref, POPULAR_SEARCHES };
 
 export type CategoryLevel = "top" | "child" | "grandchild";
 
@@ -65,10 +68,6 @@ export interface ResolvedCategoryPath {
   child?: ChildCategory;
   grandchild?: GrandchildCategory;
   breadcrumbs: CategoryBreadcrumbItem[];
-}
-
-export function categoryHref(...slugs: string[]): string {
-  return `/category/${slugs.join("/")}`;
 }
 
 /**
@@ -281,15 +280,3 @@ export async function buildCategoryTree(): Promise<CategoryTreeNode[]> {
   }));
 }
 
-export const POPULAR_SEARCHES: string[] = [
-  "Wireless Earbuds",
-  "4K Smart TVs",
-  "Running Shoes",
-  "Air Fryers",
-  "Gaming Laptops",
-  "Robot Vacuums",
-  "Coffee Makers",
-  "Skincare Sets",
-  "Office Chairs",
-  "Smartwatches",
-];

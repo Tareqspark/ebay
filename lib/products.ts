@@ -6,15 +6,11 @@ import { products as productsTable } from "@/db/schema";
 import { getAllBrands, getBrandById } from "@/lib/brands";
 import { toDollars } from "@/lib/money";
 import type { Brand, Product } from "@/lib/types";
+import { sortProducts, filterProducts, getPriceBounds } from "@/lib/products-client";
+import type { SortKey, ProductFilters } from "@/lib/products-client";
 
-export type SortKey = "relevance" | "price-asc" | "price-desc" | "rating" | "newest";
-
-export interface ProductFilters {
-  brandIds?: string[];
-  minPrice?: number;
-  maxPrice?: number;
-  minRating?: number;
-}
+export { sortProducts, filterProducts, getPriceBounds };
+export type { SortKey, ProductFilters };
 
 type ProductRow = typeof productsTable.$inferSelect;
 
@@ -142,32 +138,6 @@ export async function getRelatedProducts(product: Product, limit = 8): Promise<P
     .slice(0, limit);
 }
 
-export function sortProducts(products: Product[], sortKey: SortKey): Product[] {
-  const sorted = [...products];
-  switch (sortKey) {
-    case "price-asc":
-      return sorted.sort((a, b) => a.price - b.price);
-    case "price-desc":
-      return sorted.sort((a, b) => b.price - a.price);
-    case "rating":
-      return sorted.sort((a, b) => b.review.rating - a.review.rating);
-    case "newest":
-      return sorted.sort((a, b) => Number(b.isNewArrival) - Number(a.isNewArrival));
-    default:
-      return sorted;
-  }
-}
-
-export function filterProducts(products: Product[], filters: ProductFilters): Product[] {
-  return products.filter((p) => {
-    if (filters.brandIds?.length && !filters.brandIds.includes(p.brandId)) return false;
-    if (filters.minPrice !== undefined && p.price < filters.minPrice) return false;
-    if (filters.maxPrice !== undefined && p.price > filters.maxPrice) return false;
-    if (filters.minRating !== undefined && p.review.rating < filters.minRating) return false;
-    return true;
-  });
-}
-
 export async function getBrandsInProducts(products: Product[]): Promise<Brand[]> {
   const seen = new Set<string>();
   const brands: Brand[] = [];
@@ -178,15 +148,4 @@ export async function getBrandsInProducts(products: Product[]): Promise<Brand[]>
     if (brand) brands.push(brand);
   }
   return brands.sort((a, b) => a.name.localeCompare(b.name));
-}
-
-export function getPriceBounds(products: Product[]): { min: number; max: number } {
-  if (products.length === 0) return { min: 0, max: 0 };
-  let min = Infinity;
-  let max = 0;
-  for (const p of products) {
-    if (p.price < min) min = p.price;
-    if (p.price > max) max = p.price;
-  }
-  return { min: Math.floor(min), max: Math.ceil(max) };
 }

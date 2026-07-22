@@ -1,5 +1,3 @@
-import { ADMIN_NOW } from "@/lib/admin/data";
-
 export function formatMoney(value: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 }
@@ -37,9 +35,8 @@ export function formatDateTime(isoDate: string): string {
   });
 }
 
-/** Relative to the dataset's fixed "now" so mock data reads naturally. */
 export function formatRelative(isoDate: string): string {
-  const diffMs = ADMIN_NOW - new Date(isoDate).getTime();
+  const diffMs = Date.now() - new Date(isoDate).getTime();
   const minutes = Math.floor(diffMs / 60000);
   if (minutes < 1) return "just now";
   if (minutes < 60) return `${minutes}m ago`;

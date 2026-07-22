@@ -52,10 +52,7 @@ import type { CjDispute, CjShippingLine, CjIntegrationSettings, CjSourcingReques
 import type { Category } from "@/lib/category-utils";
 import { resolveCategoryIcon } from "@/lib/category-icons";
 
-export const CJ_BRAND_NAME = "CJdropshipping";
-
-// "Today" for relative-time formatting in the seeded historical dataset.
-export const ADMIN_NOW = new Date("2026-07-19T09:00:00-04:00").getTime();
+import { CJ_BRAND_NAME } from "@/lib/admin/constants";
 
 // ---------------------------------------------------------------------------
 // Catalog

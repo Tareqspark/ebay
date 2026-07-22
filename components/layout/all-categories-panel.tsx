@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { categoryHref, type ClientCategory } from "@/lib/category-utils";
+import { categoryHref } from "@/lib/category-client";
+import type { ClientCategory } from "@/lib/category-utils";
 import { MegaMenuPanel } from "@/components/layout/mega-menu-panel";
 import { cn } from "@/lib/utils";
 import type { Brand } from "@/lib/types";

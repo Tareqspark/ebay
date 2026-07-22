@@ -13,7 +13,8 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useRecentSearches } from "@/hooks/use-recent-searches";
-import { POPULAR_SEARCHES, type CategorySearchResult, type ClientCategory } from "@/lib/category-utils";
+import { POPULAR_SEARCHES } from "@/lib/category-client";
+import type { CategorySearchResult, ClientCategory } from "@/lib/category-utils";
 
 interface SearchBarProps {
   className?: string;

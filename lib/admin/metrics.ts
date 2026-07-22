@@ -1,5 +1,4 @@
 import {
-  ADMIN_NOW,
   getOrders,
   getPayments,
   getInventory,
@@ -15,8 +14,9 @@ import type { Order } from "@/lib/admin/types";
 const DAY_MS = 86400000;
 
 function isWithinDays(isoDate: string, days: number): boolean {
+  const now = Date.now();
   const t = new Date(isoDate).getTime();
-  return t >= ADMIN_NOW - days * DAY_MS && t <= ADMIN_NOW;
+  return t >= now - days * DAY_MS && t <= now;
 }
 
 export function isToday(isoDate: string): boolean {
@@ -73,10 +73,11 @@ export interface RevenuePoint {
 
 export async function getRevenueSeries(days = 30): Promise<RevenuePoint[]> {
   const orders = await getOrders();
+  const now = Date.now();
   const points: RevenuePoint[] = [];
   for (let i = days - 1; i >= 0; i -= 1) {
-    const dayStart = ADMIN_NOW - (i + 1) * DAY_MS;
-    const dayEnd = ADMIN_NOW - i * DAY_MS;
+    const dayStart = now - (i + 1) * DAY_MS;
+    const dayEnd = now - i * DAY_MS;
     const dayOrders = orders.filter((o) => {
       if (o.paymentStatus === "failed") return false;
       const t = new Date(o.placedAt).getTime();
@@ -111,8 +112,9 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
     return t >= from && t < to;
   };
   const valid = orders.filter((o) => o.paymentStatus !== "failed");
-  const current = valid.filter((o) => inWindow(o, ADMIN_NOW - 30 * DAY_MS, ADMIN_NOW));
-  const previous = valid.filter((o) => inWindow(o, ADMIN_NOW - 60 * DAY_MS, ADMIN_NOW - 30 * DAY_MS));
+  const now = Date.now();
+  const current = valid.filter((o) => inWindow(o, now - 30 * DAY_MS, now));
+  const previous = valid.filter((o) => inWindow(o, now - 60 * DAY_MS, now - 30 * DAY_MS));
 
   const revenue = current.reduce((s, o) => s + o.total, 0);
   let cost = 0;

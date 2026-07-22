@@ -5,7 +5,7 @@ import { Star, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/admin/shared/status-badge";
 import { formatDate } from "@/lib/admin/format";
-import { getReviewCustomerName, getReviewProductTitle, type ProductReview } from "@/lib/admin/reviews";
+import type { ProductReview } from "@/lib/admin/reviews";
 import { cn } from "@/lib/utils";
 
 function RatingStars({ rating }: { rating: number }) {
@@ -29,15 +29,15 @@ export function getReviewColumns({ onApprove, onReject }: ReviewColumnActions): 
       id: "product",
       header: "Product",
       size: 240,
-      accessorFn: (row) => getReviewProductTitle(row),
-      cell: ({ row }) => <span className="truncate font-medium text-foreground">{getReviewProductTitle(row.original)}</span>,
+      accessorFn: (row) => row.productTitle,
+      cell: ({ row }) => <span className="truncate font-medium text-foreground">{row.original.productTitle}</span>,
     },
     {
       id: "customer",
       header: "Customer",
       size: 150,
-      accessorFn: (row) => getReviewCustomerName(row),
-      cell: ({ row }) => <span className="text-muted-foreground">{getReviewCustomerName(row.original)}</span>,
+      accessorFn: (row) => row.customerName,
+      cell: ({ row }) => <span className="text-muted-foreground">{row.original.customerName}</span>,
     },
     {
       id: "rating",

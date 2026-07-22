@@ -1,7 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { categoryHref, type ClientCategory } from "@/lib/category-utils";
+import { categoryHref } from "@/lib/category-client";
+import type { ClientCategory } from "@/lib/category-utils";
 import type { Brand } from "@/lib/types";
 
 interface MegaMenuPanelProps {

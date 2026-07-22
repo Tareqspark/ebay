@@ -8,7 +8,7 @@ import { StatusBadge } from "@/components/admin/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { formatDateTime, formatMoney } from "@/lib/admin/format";
-import { CJ_BRAND_NAME } from "@/lib/admin/data";
+import { CJ_BRAND_NAME } from "@/lib/admin/constants";
 import type { AdminOrderRow } from "@/lib/admin/data";
 
 interface OrderDetailPanelProps {

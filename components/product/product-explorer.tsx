@@ -21,7 +21,7 @@ import {
   getPriceBounds,
   sortProducts,
   type SortKey,
-} from "@/lib/products";
+} from "@/lib/products-client";
 import { formatPrice } from "@/lib/format";
 import type { Brand, Product } from "@/lib/types";
 

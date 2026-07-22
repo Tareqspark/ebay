@@ -6,7 +6,7 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { categoryHref } from "@/lib/category-utils";
+import { categoryHref } from "@/lib/category-client";
 import { cn } from "@/lib/utils";
 
 export interface HeroSlide {
