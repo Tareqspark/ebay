@@ -3,13 +3,14 @@ import { db } from "@/db";
 import { adminUsers as adminUsersTable } from "@/db/schema";
 
 export type AdminRole = "Owner" | "Admin" | "Merchandiser" | "Support" | "Catalog Manager";
+export type AdminUserStatus = "active" | "invited" | "disabled";
 
 export interface AdminUser {
   id: string;
   name: string;
   email: string;
   role: AdminRole;
-  status: "active" | "invited";
+  status: AdminUserStatus;
   lastActiveAt: string;
 }
 
