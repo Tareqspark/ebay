@@ -1,7 +1,7 @@
 import "server-only";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { orders, orderItems, cartItems } from "@/db/schema";
+import { orders, orderItems, cartItems, payments } from "@/db/schema";
 import { newId } from "@/lib/id";
 import { toCents } from "@/lib/money";
 import { getStripe } from "@/lib/stripe";
@@ -130,6 +130,15 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
       source: item.source,
     }))
   );
+
+  await db.insert(payments).values({
+    id: newId(),
+    orderId,
+    customerId: userId,
+    amountCents: toCents(total),
+    status: "succeeded",
+    method: "card",
+  });
 
   await clearCartById(cartId);
 
