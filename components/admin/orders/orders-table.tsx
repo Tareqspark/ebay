@@ -8,6 +8,12 @@ import { FilterSelect } from "@/components/admin/table/filter-select";
 import { Button } from "@/components/ui/button";
 import { getOrderColumns } from "@/components/admin/orders/columns";
 import { OrderDetailPanel } from "@/components/admin/orders/order-detail-panel";
+import {
+  markOrderShippedAction,
+  cancelOrderAction,
+  refundOrderAction,
+  pushOrderToCjAction,
+} from "@/lib/admin/order-actions";
 import type { AdminOrderRow } from "@/lib/admin/data";
 import type { FulfillmentStatus, CjSyncStatus } from "@/lib/admin/types";
 
@@ -42,22 +48,64 @@ export function OrdersTable({ initialOrders, initialStatusFilter, initialQuery }
   }, []);
 
   const markShipped = useCallback(
-    (id: string) =>
+    async (id: string) => {
+      const order = ordersById.get(id);
+      if (!order) return;
+      const result = await markOrderShippedAction(id, order.id);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
       patchOrder(id, {
         fulfillmentStatus: "shipped" as FulfillmentStatus,
         trackingNumber: `1Z${Math.floor(Math.random() * 900000000 + 100000000)}US`,
         carrier: "UPS",
-      }),
-    [patchOrder]
+      });
+      toast.success(`${order.id} marked as shipped`);
+    },
+    [patchOrder, ordersById]
   );
   const cancelOrder = useCallback(
-    (id: string) => patchOrder(id, { fulfillmentStatus: "cancelled" as FulfillmentStatus }),
-    [patchOrder]
+    async (id: string) => {
+      const order = ordersById.get(id);
+      if (!order) return;
+      const result = await cancelOrderAction(id, order.id);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      patchOrder(id, { fulfillmentStatus: "cancelled" as FulfillmentStatus });
+      toast.success(`${order.id} cancelled`);
+    },
+    [patchOrder, ordersById]
   );
-  const refundOrder = useCallback((id: string) => patchOrder(id, { paymentStatus: "refunded" }), [patchOrder]);
+  const refundOrder = useCallback(
+    async (id: string) => {
+      const order = ordersById.get(id);
+      if (!order) return;
+      const result = await refundOrderAction(id, order.id);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      patchOrder(id, { paymentStatus: "refunded" });
+      toast.success(`${order.id} refunded`);
+    },
+    [patchOrder, ordersById]
+  );
   const pushToCj = useCallback(
-    (id: string) => patchOrder(id, { cjSyncStatus: "queued" as CjSyncStatus, cjOrderId: `CJO-${Math.floor(Math.random() * 9000000 + 1000000)}` }),
-    [patchOrder]
+    async (id: string) => {
+      const order = ordersById.get(id);
+      if (!order) return;
+      const result = await pushOrderToCjAction(id, order.id);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      patchOrder(id, { cjSyncStatus: "queued" as CjSyncStatus, cjOrderId: `CJO-${Math.floor(Math.random() * 9000000 + 1000000)}` });
+      toast.success(`${order.id} pushed to CJdropshipping`);
+    },
+    [patchOrder, ordersById]
   );
 
   const columns = useMemo(
@@ -67,18 +115,9 @@ export function OrdersTable({ initialOrders, initialStatusFilter, initialQuery }
           setDetailOrderId(id);
           setDetailOpen(true);
         },
-        onMarkShipped: (id) => {
-          markShipped(id);
-          toast.success(`${id} marked as shipped`);
-        },
-        onCancel: (id) => {
-          cancelOrder(id);
-          toast.success(`${id} cancelled`);
-        },
-        onPushToCj: (id) => {
-          pushToCj(id);
-          toast.success(`${id} pushed to CJdropshipping`);
-        },
+        onMarkShipped: markShipped,
+        onCancel: cancelOrder,
+        onPushToCj: pushToCj,
       }),
     [markShipped, cancelOrder, pushToCj]
   );
@@ -133,7 +172,6 @@ export function OrdersTable({ initialOrders, initialStatusFilter, initialQuery }
               size="sm"
               onClick={() => {
                 selectedIds.forEach(markShipped);
-                toast.success(`${selectedIds.length} orders marked as shipped`);
                 table.resetRowSelection();
               }}
             >

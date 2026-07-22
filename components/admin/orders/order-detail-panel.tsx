@@ -1,14 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { toast } from "sonner";
 import { Ban, PackageCheck, RotateCcw, Send } from "lucide-react";
 import { SlideOver } from "@/components/admin/shared/slide-over";
 import { StatusBadge } from "@/components/admin/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { formatDateTime, formatMoney } from "@/lib/admin/format";
-import { CJ_BRAND_NAME } from "@/lib/admin/constants";
 import type { AdminOrderRow } from "@/lib/admin/data";
 
 interface OrderDetailPanelProps {
@@ -60,55 +58,25 @@ export function OrderDetailPanel({
       footer={
         <div className="flex flex-wrap items-center justify-end gap-2">
           {canCancel && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => {
-                onCancel(order.id);
-                toast.success(`${order.id} cancelled`);
-              }}
-            >
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => onCancel(order.id)}>
               <Ban className="h-3.5 w-3.5" />
               Cancel order
             </Button>
           )}
           {canRefund && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => {
-                onRefund(order.id);
-                toast.success(`${order.id} refunded`);
-              }}
-            >
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => onRefund(order.id)}>
               <RotateCcw className="h-3.5 w-3.5" />
               Issue refund
             </Button>
           )}
           {canPushToCj && (
-            <Button
-              size="sm"
-              className="gap-1.5"
-              onClick={() => {
-                onPushToCj(order.id);
-                toast.success(`${order.id} pushed to ${CJ_BRAND_NAME}`);
-              }}
-            >
+            <Button size="sm" className="gap-1.5" onClick={() => onPushToCj(order.id)}>
               <Send className="h-3.5 w-3.5" />
               Push to CJ
             </Button>
           )}
           {canShip && (
-            <Button
-              size="sm"
-              className="gap-1.5"
-              onClick={() => {
-                onMarkShipped(order.id);
-                toast.success(`${order.id} marked as shipped`);
-              }}
-            >
+            <Button size="sm" className="gap-1.5" onClick={() => onMarkShipped(order.id)}>
               <PackageCheck className="h-3.5 w-3.5" />
               Mark as shipped
             </Button>
