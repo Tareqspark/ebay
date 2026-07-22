@@ -94,11 +94,15 @@ What's live: three-level category taxonomy, full catalog with filter/sort, categ
   - Products (`lib/admin/product-actions.ts`): price/cost edits, status/visibility (single + bulk), delete (real `DELETE`, safe because `order_items` keeps its own denormalized title/image/price snapshot rather than joining live to `products`).
   - Inventory (`lib/admin/inventory-actions.ts`): manual stock correction — this is new UI (the table was previously read-only), not just a rewire.
   - API keys (`lib/admin/api-key-actions.ts`): create/regenerate/revoke.
+  - Collections (`lib/admin/collection-actions.ts`): create/edit/delete.
+  - Content — CMS pages/banners/hero slides (`lib/admin/content-actions.ts`): create/edit/delete.
+  - Marketing campaigns (`lib/admin/marketing-actions.ts`): create/edit/delete (redemptions/revenue stay read-only — there's no real promo-code redemption engine yet to derive them from, so they're not admin-editable numbers).
+  - Shipping rates and carriers (`lib/admin/shipping-actions.ts`): create/edit/delete rates; connect/disconnect a carrier and edit its services.
+  - Staff accounts (`lib/admin/team-actions.ts`): invite (generates and one-time-displays a real bcrypt-hashed temporary password — there's no email-based accept-invite flow, so the password is the actual credential, shown once and copyable), edit name/email/role/status, reset password, and remove (guarded so a signed-in admin can't delete their own account).
 - Dashboard & KPIs, Orders/Products/Inventory/Customers/Payments/Reviews/Shipping tables and detail panels, the full Settings suite — all reading live data end to end.
 
 ### Remaining
 
-- [ ] **Build create/edit UI for collections, content (CMS pages/banners), marketing campaigns, shipping rates, and staff invites.** These five screens are still read-only lists reading real data — there's no create/edit affordance to wire yet (unlike the items above, where working-but-fake UI already existed and just needed a real write behind it).
 - [ ] **Category/collection editing and homepage rail configuration through the console** instead of hand-editing `scripts/*-source.mjs` — fulfills the Catalog Manager and Merchandiser roles described in `PRODUCT.md`'s *User roles*.
 - [ ] **Per-role permission enforcement** (Phase 5.3) — any active `admin_users` row can reach every screen today; the `role` column (Owner/Admin/Merchandiser/Support/Catalog Manager) is stored and displayed but nothing checks it yet.
 
@@ -197,8 +201,8 @@ Per `PRODUCT.md`'s *Pricing strategy* section, these were explicitly out of scop
 
 ## Suggested immediate next steps
 
-1. **Build the five still-UI-less admin screens** (collections, content, marketing campaigns, shipping rates, team invites) — the clearest remaining Phase 3 gap, and the one most likely to be visibly missing to a client demo.
-2. **Add per-role permission checks** (Phase 5.3's remaining piece) — the data (`admin_users.role`) already exists; this is purely an authorization-logic task now, not a schema or auth-flow one.
+1. **Add per-role permission checks** (Phase 5.3's remaining piece) — the data (`admin_users.role`) already exists; this is purely an authorization-logic task now, not a schema or auth-flow one.
+2. **Category/collection editing and homepage rail configuration through the console** — the last screen still edited via `scripts/*-source.mjs` instead of a real admin UI.
 3. **Resolve the two open infrastructure decisions below** (production MySQL hosting, real CJ API access) — both block real Phase 5.1 work from starting, even though neither blocks continuing to build against local MySQL in the meantime.
 
 ## Open decisions requiring product/business input (not engineering calls)
