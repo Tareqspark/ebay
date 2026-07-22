@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
-import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/admin/shared/page-header";
 import { KpiCard } from "@/components/admin/shared/kpi-card";
-import { Button } from "@/components/ui/button";
 import { CampaignsTable } from "@/components/admin/marketing/campaigns-table";
 import { getCampaigns } from "@/lib/admin/marketing";
 import { formatCompactMoney, formatNumber } from "@/lib/admin/format";
@@ -17,16 +15,7 @@ export default async function AdminMarketingPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader
-        title="Marketing"
-        description="Discount codes, email campaigns, and on-site banners."
-        actions={
-          <Button size="sm" className="gap-1.5">
-            <Plus className="h-3.5 w-3.5" />
-            New campaign
-          </Button>
-        }
-      />
+      <PageHeader title="Marketing" description="Discount codes, email campaigns, and on-site banners." />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KpiCard label="Active campaigns" value={String(active.length)} />
         <KpiCard label="Total campaigns" value={String(campaigns.length)} />

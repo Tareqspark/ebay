@@ -1,14 +1,21 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { Mail, Megaphone, Tag } from "lucide-react";
+import { Mail, Megaphone, Pencil, Tag, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/admin/shared/status-badge";
 import { formatDate, formatMoney, formatNumber } from "@/lib/admin/format";
 import type { Campaign } from "@/lib/admin/marketing";
 
 const TYPE_ICON = { discount: Tag, email: Mail, banner: Megaphone };
 
-export const campaignColumns: ColumnDef<Campaign, unknown>[] = [
+interface CampaignColumnActions {
+  onEdit: (campaign: Campaign) => void;
+  onDelete: (campaign: Campaign) => void;
+}
+
+export function getCampaignColumns(actions: CampaignColumnActions): ColumnDef<Campaign, unknown>[] {
+  return [
   {
     id: "name",
     header: "Campaign",
@@ -72,4 +79,23 @@ export const campaignColumns: ColumnDef<Campaign, unknown>[] = [
       <span className="tabular-nums font-medium text-foreground">{formatMoney(row.original.revenueAttributed)}</span>
     ),
   },
-];
+  {
+    id: "actions",
+    header: "",
+    size: 80,
+    enableSorting: false,
+    enableHiding: false,
+    enableResizing: false,
+    cell: ({ row }) => (
+      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <Button variant="outline" size="icon-sm" aria-label="Edit" onClick={() => actions.onEdit(row.original)}>
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+        <Button variant="outline" size="icon-sm" aria-label="Delete" onClick={() => actions.onDelete(row.original)}>
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    ),
+  },
+  ];
+}
