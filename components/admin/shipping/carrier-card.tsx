@@ -1,9 +1,15 @@
+"use client";
+
 import { CheckCircle2, Circle } from "lucide-react";
 import type { Carrier } from "@/lib/admin/shipping";
 
-export function CarrierCard({ carrier }: { carrier: Carrier }) {
+export function CarrierCard({ carrier, onClick }: { carrier: Carrier; onClick: () => void }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-ring/40"
+    >
       <div className="flex items-center justify-between">
         <p className="font-medium text-foreground">{carrier.name}</p>
         {carrier.connected ? (
@@ -21,6 +27,6 @@ export function CarrierCard({ carrier }: { carrier: Carrier }) {
       <p className="mt-2 text-xs text-muted-foreground">
         {carrier.servicesUsed.length > 0 ? carrier.servicesUsed.join(", ") : "No services configured"}
       </p>
-    </div>
+    </button>
   );
 }
