@@ -15,3 +15,9 @@ export async function requireAdminSession() {
   }
   return session;
 }
+
+/** For admin server actions: the signed-in staff member's display name, for activity-log "actor" fields. Falls back to "Staff" if somehow called outside an admin session (shouldn't happen — middleware already gates /admin). */
+export async function getAdminActorName(): Promise<string> {
+  const session = await auth();
+  return session?.user?.name ?? "Staff";
+}

@@ -10,6 +10,8 @@ import { getProductsByIds } from "@/lib/products";
 import { getProductMeta } from "@/lib/admin/data";
 import { clearCartById } from "@/lib/cart";
 import { orderConfirmationEmail } from "@/lib/email-templates";
+import { decrementInventoryForProduct } from "@/lib/inventory";
+import { logActivity } from "@/lib/admin/activity";
 
 export const TAX_RATE = 0.0825;
 export const FREE_SHIPPING_THRESHOLD = 50;
@@ -131,6 +133,14 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
 
   await clearCartById(cartId);
 
+  // Only self-fulfilled items hold real Baruashop-owned stock — CJ-sourced
+  // items are dropshipped and CJ holds that inventory, not us.
+  await Promise.all(
+    lineItems
+      .filter((item) => item.source === "self")
+      .map((item) => decrementInventoryForProduct(item.productId, item.quantity))
+  );
+
   if (email) {
     await sendEmail({
       to: email,
@@ -138,6 +148,8 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
       html: orderConfirmationEmail({ orderNumber, items: lineItems, subtotal, shipping, tax, total, shippingAddress }),
     });
   }
+
+  await logActivity("order", `Order ${orderNumber} placed — $${total.toFixed(2)}`, "Storefront");
 
   return orderId;
 }
