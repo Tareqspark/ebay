@@ -18,12 +18,14 @@ function revalidateProductViews() {
 }
 
 export async function updateProductPriceAction(productId: string, price: number): Promise<ProductActionResult> {
+  if (!Number.isFinite(price) || price < 0) return { error: "Price can't be negative" };
   await db.update(products).set({ priceCents: toCents(price) }).where(eq(products.id, productId));
   revalidateProductViews();
   return {};
 }
 
 export async function updateProductCostAction(productId: string, cost: number): Promise<ProductActionResult> {
+  if (!Number.isFinite(cost) || cost < 0) return { error: "Cost can't be negative" };
   await db.update(productMeta).set({ costCents: toCents(cost) }).where(eq(productMeta.productId, productId));
   revalidateProductViews();
   return {};

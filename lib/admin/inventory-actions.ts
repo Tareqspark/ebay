@@ -14,6 +14,10 @@ export interface InventoryActionResult {
 
 /** Manual stock correction (recount, damaged stock write-off, etc.) — sets available to an exact count rather than incrementing/decrementing, and recomputes status the same way checkout's automatic decrement does. */
 export async function adjustInventoryAction(sku: string, nextAvailable: number): Promise<InventoryActionResult> {
+  if (!Number.isFinite(nextAvailable) || !Number.isInteger(nextAvailable) || nextAvailable < 0) {
+    return { error: "Available stock can't be negative" };
+  }
+
   const [row] = await db.select().from(inventory).where(eq(inventory.sku, sku)).limit(1);
   if (!row) return { error: "Inventory record not found" };
 
