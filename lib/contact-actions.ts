@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { z } from "zod";
 import { sendEmail } from "@/lib/sendgrid";
 
@@ -17,11 +18,37 @@ export interface ContactFormState {
 
 const SUPPORT_INBOX = process.env.SENDGRID_FROM_EMAIL || "support@baruashop.com";
 
+// In-memory sliding-window limit: a given IP can submit at most 5 messages
+// per 10 minutes. Good enough to blunt a scripted spam/flood burst against
+// this unauthenticated form without needing an external store — resets on
+// deploy, which is an acceptable tradeoff for this low-stakes endpoint.
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const RATE_LIMIT_MAX = 5;
+const submissionsByIp = new Map<string, number[]>();
+
+async function isRateLimited(): Promise<boolean> {
+  const headerList = await headers();
+  const ip = headerList.get("x-forwarded-for")?.split(",")[0]?.trim() || headerList.get("x-real-ip") || "unknown";
+  const now = Date.now();
+  const recent = (submissionsByIp.get(ip) ?? []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+  if (recent.length >= RATE_LIMIT_MAX) {
+    submissionsByIp.set(ip, recent);
+    return true;
+  }
+  recent.push(now);
+  submissionsByIp.set(ip, recent);
+  return false;
+}
+
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
 
 export async function sendContactMessageAction(_prev: ContactFormState, formData: FormData): Promise<ContactFormState> {
+  if (await isRateLimited()) {
+    return { error: "Too many messages sent recently. Please try again in a few minutes." };
+  }
+
   const parsed = contactSchema.safeParse({
     name: formData.get("name"),
     email: formData.get("email"),
