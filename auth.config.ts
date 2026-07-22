@@ -14,11 +14,19 @@ export const authConfig: NextAuthConfig = {
   providers: [],
   callbacks: {
     jwt({ token, user }) {
-      if (user) token.id = user.id;
+      if (user) {
+        token.id = user.id;
+        token.isAdmin = user.isAdmin;
+        token.adminRole = user.adminRole;
+      }
       return token;
     },
     session({ session, token }) {
-      if (session.user) session.user.id = token.id as string;
+      if (session.user) {
+        session.user.id = token.id as string;
+        session.user.isAdmin = token.isAdmin;
+        session.user.adminRole = token.adminRole;
+      }
       return session;
     },
   },

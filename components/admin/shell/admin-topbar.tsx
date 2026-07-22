@@ -7,7 +7,11 @@ import { NotificationCenter } from "@/components/admin/shell/notification-center
 import { UserMenu } from "@/components/admin/shell/user-menu";
 import { CommandPalette } from "@/components/admin/shell/command-palette";
 
-export function AdminTopbar() {
+interface AdminTopbarProps {
+  admin: { name?: string | null; email?: string | null; adminRole?: string };
+}
+
+export function AdminTopbar({ admin }: AdminTopbarProps) {
   const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
@@ -38,7 +42,7 @@ export function AdminTopbar() {
           </kbd>
         </button>
         <NotificationCenter />
-        <UserMenu />
+        <UserMenu name={admin.name ?? "Staff"} email={admin.email ?? ""} role={admin.adminRole} />
       </div>
 
       <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />

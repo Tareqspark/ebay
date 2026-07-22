@@ -18,8 +18,15 @@ export default auth((req) => {
     signInUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(signInUrl);
   }
+
+  const isAdminRoute = pathname.startsWith("/admin") && pathname !== "/admin/login";
+  if (isAdminRoute && !req.auth?.user?.isAdmin) {
+    const loginUrl = new URL("/admin/login", req.nextUrl.origin);
+    loginUrl.searchParams.set("next", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
 });
 
 export const config = {
-  matcher: ["/account/:path*"],
+  matcher: ["/account/:path*", "/admin/:path*"],
 };
