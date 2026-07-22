@@ -1,6 +1,6 @@
 import { CreditCard, Package, RefreshCw, Server, ShoppingCart, Users } from "lucide-react";
 import { Panel } from "@/components/admin/shared/panel";
-import { ACTIVITY } from "@/lib/admin/data";
+import { getActivity } from "@/lib/admin/data";
 import { formatRelative } from "@/lib/admin/format";
 import type { ActivityType } from "@/lib/admin/types";
 
@@ -13,8 +13,9 @@ const ICON: Record<ActivityType, typeof ShoppingCart> = {
   system: Server,
 };
 
-export function ActivityFeedPanel() {
-  const recent = ACTIVITY.slice(0, 8);
+export async function ActivityFeedPanel() {
+  const activity = await getActivity();
+  const recent = activity.slice(0, 8);
 
   return (
     <Panel title="Recent activity">

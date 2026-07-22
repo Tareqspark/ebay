@@ -2,8 +2,8 @@ import { getDashboardKpis } from "@/lib/admin/metrics";
 import { formatCompactMoney, formatNumber, percentChange } from "@/lib/admin/format";
 import { KpiCard } from "@/components/admin/shared/kpi-card";
 
-export function KpiGrid() {
-  const kpis = getDashboardKpis();
+export async function KpiGrid() {
+  const kpis = await getDashboardKpis();
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">

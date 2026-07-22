@@ -1,9 +1,10 @@
 import { Panel } from "@/components/admin/shared/panel";
-import { CUSTOMERS } from "@/lib/admin/data";
+import { getCustomers } from "@/lib/admin/data";
 import { formatMoney, formatRelative } from "@/lib/admin/format";
 
-export function LatestCustomersPanel() {
-  const latest = [...CUSTOMERS].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 6);
+export async function LatestCustomersPanel() {
+  const customers = await getCustomers();
+  const latest = [...customers].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 6);
 
   return (
     <Panel title="Latest customers" viewAllHref="/admin/customers">

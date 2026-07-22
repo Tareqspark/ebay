@@ -1,10 +1,11 @@
 import { Panel } from "@/components/admin/shared/panel";
 import { StatusBadge } from "@/components/admin/shared/status-badge";
-import { SUPPLIERS } from "@/lib/admin/data";
+import { getSuppliers } from "@/lib/admin/data";
 import { formatRelative } from "@/lib/admin/format";
 
-export function SupplierSyncPanel() {
-  const sorted = [...SUPPLIERS].sort((a, b) => new Date(b.lastSyncAt).getTime() - new Date(a.lastSyncAt).getTime());
+export async function SupplierSyncPanel() {
+  const suppliers = await getSuppliers();
+  const sorted = [...suppliers].sort((a, b) => new Date(b.lastSyncAt).getTime() - new Date(a.lastSyncAt).getTime());
 
   return (
     <Panel title="Supplier sync status" viewAllHref="/admin/supplier">

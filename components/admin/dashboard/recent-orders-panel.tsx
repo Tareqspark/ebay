@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { Panel } from "@/components/admin/shared/panel";
 import { StatusBadge } from "@/components/admin/shared/status-badge";
-import { ORDERS, getCustomer } from "@/lib/admin/data";
+import { getOrders } from "@/lib/admin/data";
 import { formatMoney, formatRelative } from "@/lib/admin/format";
 
-export function RecentOrdersPanel() {
-  const recent = ORDERS.slice(0, 8);
+export async function RecentOrdersPanel() {
+  const orders = await getOrders();
+  const recent = orders.slice(0, 8);
 
   return (
     <Panel title="Recent orders" viewAllHref="/admin/orders" bodyClassName="overflow-x-auto">
@@ -22,7 +23,6 @@ export function RecentOrdersPanel() {
         </thead>
         <tbody>
           {recent.map((order) => {
-            const customer = getCustomer(order.customerId);
             return (
               <tr key={order.id} className="border-b border-border/40 last:border-0 hover:bg-muted/40">
                 <td className="px-4 py-2.5">
@@ -30,7 +30,7 @@ export function RecentOrdersPanel() {
                     {order.id}
                   </Link>
                 </td>
-                <td className="px-4 py-2.5 text-muted-foreground">{customer?.name ?? "—"}</td>
+                <td className="px-4 py-2.5 text-muted-foreground">{order.customerName}</td>
                 <td className="px-4 py-2.5">
                   <StatusBadge status={order.paymentStatus} />
                 </td>
