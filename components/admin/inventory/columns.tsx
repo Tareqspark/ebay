@@ -3,11 +3,17 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import Image from "next/image";
 import { StatusBadge } from "@/components/admin/shared/status-badge";
+import { EditableNumberCell } from "@/components/admin/table/editable-cell";
 import { formatRelative } from "@/lib/admin/format";
 import { cn } from "@/lib/utils";
 import type { AdminInventoryRow } from "@/lib/admin/data";
 
-export const inventoryColumns: ColumnDef<AdminInventoryRow, unknown>[] = [
+interface InventoryColumnActions {
+  onAdjust: (sku: string, nextAvailable: number) => void;
+}
+
+export function getInventoryColumns(actions: InventoryColumnActions): ColumnDef<AdminInventoryRow, unknown>[] {
+  return [
   {
     id: "sku",
     header: "SKU",
@@ -37,11 +43,18 @@ export const inventoryColumns: ColumnDef<AdminInventoryRow, unknown>[] = [
     header: "Available",
     size: 100,
     accessorFn: (row) => row.available,
-    cell: ({ row }) => (
-      <span className={cn("tabular-nums", row.original.available === 0 && "font-medium text-red-600 dark:text-red-400")}>
-        {row.original.available.toLocaleString()}
-      </span>
-    ),
+    cell: ({ row }) =>
+      row.original.source === "self" ? (
+        <EditableNumberCell
+          value={row.original.available}
+          onCommit={(next) => actions.onAdjust(row.original.sku, next)}
+          className={cn(row.original.available === 0 && "font-medium text-red-600 dark:text-red-400")}
+        />
+      ) : (
+        <span className={cn("tabular-nums", row.original.available === 0 && "font-medium text-red-600 dark:text-red-400")}>
+          {row.original.available.toLocaleString()}
+        </span>
+      ),
   },
   {
     id: "reserved",
@@ -91,3 +104,4 @@ export const inventoryColumns: ColumnDef<AdminInventoryRow, unknown>[] = [
     cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatRelative(row.original.updatedAt)}</span>,
   },
 ];
+}

@@ -1,22 +1,37 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { DataTable } from "@/components/admin/table/data-table";
 import { TableSearch } from "@/components/admin/table/table-search";
 import { FilterSelect } from "@/components/admin/table/filter-select";
-import { inventoryColumns } from "@/components/admin/inventory/columns";
+import { getInventoryColumns } from "@/components/admin/inventory/columns";
+import { adjustInventoryAction } from "@/lib/admin/inventory-actions";
 import type { AdminInventoryRow } from "@/lib/admin/data";
 
 export function InventoryTable({
-  records,
+  records: initialRecords,
   initialStatus,
 }: {
   records: AdminInventoryRow[];
   initialStatus?: string;
 }) {
+  const [records, setRecords] = useState(initialRecords);
   const [status, setStatus] = useState(initialStatus ?? "all");
   const [warehouse, setWarehouse] = useState("all");
   const [source, setSource] = useState("all");
+
+  const onAdjust = useCallback(async (sku: string, nextAvailable: number) => {
+    const result = await adjustInventoryAction(sku, nextAvailable);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    setRecords((prev) => prev.map((r) => (r.sku === sku ? { ...r, available: nextAvailable } : r)));
+    toast.success(`Stock updated to ${nextAvailable.toLocaleString()} units`);
+  }, []);
+
+  const columns = useMemo(() => getInventoryColumns({ onAdjust }), [onAdjust]);
 
   const warehouseOptions = useMemo(
     () => Array.from(new Set(records.map((r) => r.warehouse))).sort().map((w) => ({ value: w, label: w })),
@@ -36,7 +51,7 @@ export function InventoryTable({
 
   return (
     <DataTable
-      columns={inventoryColumns}
+      columns={columns}
       data={filtered}
       getRowId={(r) => r.sku}
       emptyMessage="No inventory records match these filters."

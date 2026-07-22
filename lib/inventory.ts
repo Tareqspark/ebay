@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { inventory as inventoryTable } from "@/db/schema";
 
 /** Same thresholds scripts/generate-admin-data.mjs used to seed inventory status, kept in sync so real decrements read the same way the mock data did. */
-function computeStatus(available: number, incoming: number): "in_stock" | "low_stock" | "out_of_stock" | "backorder" {
+export function computeInventoryStatus(available: number, incoming: number): "in_stock" | "low_stock" | "out_of_stock" | "backorder" {
   if (available === 0) return incoming > 0 ? "backorder" : "out_of_stock";
   return available <= 9 ? "low_stock" : "in_stock";
 }
@@ -31,6 +31,6 @@ export async function decrementInventoryForProduct(productId: string, quantity: 
   const nextAvailable = Math.max(0, row.available - quantity);
   await db
     .update(inventoryTable)
-    .set({ available: nextAvailable, status: computeStatus(nextAvailable, row.incoming) })
+    .set({ available: nextAvailable, status: computeInventoryStatus(nextAvailable, row.incoming) })
     .where(eq(inventoryTable.sku, row.sku));
 }

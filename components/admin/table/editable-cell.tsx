@@ -69,3 +69,66 @@ export function EditableMoneyCell({ value, onCommit, className }: EditableMoneyC
     />
   );
 }
+
+interface EditableNumberCellProps {
+  value: number;
+  onCommit: (next: number) => void;
+  className?: string;
+}
+
+/** Same click-to-edit interaction as EditableMoneyCell, for plain integer counts (e.g. inventory on hand) rather than currency. */
+export function EditableNumberCell({ value, onCommit, className }: EditableNumberCellProps) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(value));
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setDraft(String(value));
+          setEditing(true);
+          requestAnimationFrame(() => inputRef.current?.select());
+        }}
+        className={cn("rounded px-1.5 py-0.5 tabular-nums transition-colors hover:bg-muted", className)}
+      >
+        {value.toLocaleString()}
+      </button>
+    );
+  }
+
+  function commit() {
+    const parsed = Number.parseInt(draft, 10);
+    setEditing(false);
+    if (!Number.isNaN(parsed) && parsed >= 0 && parsed !== value) {
+      onCommit(parsed);
+    }
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      type="number"
+      step="1"
+      min="0"
+      value={draft}
+      autoFocus
+      onClick={(e) => e.stopPropagation()}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit();
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setEditing(false);
+        }
+      }}
+      className="w-20 rounded border border-ring bg-background px-1.5 py-0.5 text-sm tabular-nums outline-none ring-2 ring-ring/30"
+    />
+  );
+}
