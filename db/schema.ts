@@ -154,6 +154,26 @@ export const orderItems = mysqlTable(
   (table) => [index("order_items_order_id_idx").on(table.orderId)]
 );
 
+/**
+ * Browsing-behavior signal for personalization — an append-only view log,
+ * signed-in users only (guests get the static fallback in
+ * lib/personalization.ts same as before). Deliberately not deduped at
+ * write time (every page load is one row); read-side queries just cap how
+ * many recent rows they look at, matching activity_events' same
+ * unbounded-log-but-bounded-read shape elsewhere in this schema.
+ */
+export const productViews = mysqlTable(
+  "product_views",
+  {
+    id: varchar("id", { length: 26 }).primaryKey(),
+    userId: varchar("user_id", { length: 26 }).notNull(),
+    productId: varchar("product_id", { length: 191 }).notNull(),
+    categorySlug: varchar("category_slug", { length: 191 }).notNull(),
+    viewedAt: timestamp("viewed_at").notNull().defaultNow(),
+  },
+  (table) => [index("product_views_user_id_idx").on(table.userId), index("product_views_viewed_at_idx").on(table.viewedAt)]
+);
+
 export const reviews = mysqlTable(
   "reviews",
   {

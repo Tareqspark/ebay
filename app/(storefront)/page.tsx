@@ -78,7 +78,7 @@ export default async function HomePage() {
 
       <ProductRail
         title="Recommended For You"
-        subtitle={session ? "Picked based on what you've bought" : "Picked based on top-rated products"}
+        subtitle={session ? "Picked based on what you've bought and browsed" : "Picked based on top-rated products"}
         icon={<Wand2 className="h-5 w-5" />}
         products={recommended}
       />

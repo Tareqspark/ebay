@@ -10,8 +10,10 @@ import { AddToCart } from "@/components/product/add-to-cart";
 import { RecordRecentlyViewed } from "@/components/product/record-recently-viewed";
 import { ProductRail } from "@/components/product/product-rail";
 import { ReviewsSection } from "@/components/product/reviews-section";
+import { auth } from "@/auth";
 import { getProductBySlug, getRelatedProducts } from "@/lib/products";
 import { resolveCategoryPath } from "@/lib/category-utils";
+import { recordProductView } from "@/lib/product-views";
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -32,10 +34,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const product = await getProductBySlug(slug);
   if (!product) notFound();
 
+  const session = await auth();
   const [resolved, related] = await Promise.all([
     resolveCategoryPath(product.categorySlugPath),
     getRelatedProducts(product, 12),
   ]);
+  if (session?.user?.id) {
+    await recordProductView(session.user.id, product.id, product.categorySlugPath[0]);
+  }
 
   return (
     <div className="mx-auto flex max-w-[1440px] flex-col gap-10 px-4 py-6 sm:px-6 sm:py-8">
