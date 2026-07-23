@@ -12,6 +12,7 @@ import { clearCartById } from "@/lib/cart";
 import { orderConfirmationEmail } from "@/lib/email-templates";
 import { decrementInventoryForProduct } from "@/lib/inventory";
 import { logActivity } from "@/lib/admin/activity";
+import { getTierByName } from "@/lib/loyalty";
 
 export const TAX_RATE = 0.0825;
 export const FREE_SHIPPING_THRESHOLD = 50;
@@ -26,7 +27,7 @@ export function computeTotals(subtotal: number) {
 
 export type PromoDiscountType = (typeof promoCodes.$inferSelect)["discountType"];
 
-interface PromoForDiscount {
+export interface PromoForDiscount {
   discountType: PromoDiscountType;
   discountPercent: number | null;
   discountAmountCents: number | null;
@@ -98,7 +99,14 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
   const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
   if (intent.status !== "succeeded") return null;
 
-  const { cartId, userId, email, promoCode: promoCodeFromMetadata, ...address } = intent.metadata as Record<string, string>;
+  const {
+    cartId,
+    userId,
+    email,
+    promoCode: promoCodeFromMetadata,
+    loyaltyTier: loyaltyTierFromMetadata,
+    ...address
+  } = intent.metadata as Record<string, string>;
   if (!cartId || !userId) return null;
 
   const rows = await db.select().from(cartItems).where(eq(cartItems.cartId, cartId));
@@ -128,11 +136,20 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
   const subtotal = Math.round(lineItems.reduce((sum, item) => sum + item.price * item.quantity, 0) * 100) / 100;
 
   let promoRow: typeof promoCodes.$inferSelect | null = null;
+  let loyaltyTier: string | null = null;
+  let discountSource: PromoForDiscount | null = null;
   if (promoCodeFromMetadata) {
     const [row] = await db.select().from(promoCodes).where(eq(promoCodes.code, promoCodeFromMetadata)).limit(1);
     promoRow = row ?? null;
+    discountSource = promoRow;
+  } else if (loyaltyTierFromMetadata) {
+    const tier = getTierByName(loyaltyTierFromMetadata);
+    if (tier) {
+      loyaltyTier = tier.name;
+      discountSource = { discountType: "percent", discountPercent: tier.discountPercent, discountAmountCents: null };
+    }
   }
-  const { discount, shipping, tax, total } = computeTotalsWithDiscount(subtotal, promoRow);
+  const { discount, shipping, tax, total } = computeTotalsWithDiscount(subtotal, discountSource);
 
   const shippingAddress: ShippingAddressInput = {
     name: address.name ?? "",
@@ -157,6 +174,7 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
     taxCents: toCents(tax),
     totalCents: toCents(total),
     promoCode: promoRow?.code ?? null,
+    loyaltyTier,
     discountCents: toCents(discount),
     paymentMethod: "card",
     stripePaymentIntentId: paymentIntentId,

@@ -112,6 +112,11 @@ export const orders = mysqlTable(
     // order_items snapshotting product title/image/price below).
     promoCode: varchar("promo_code", { length: 60 }),
     discountCents: int("discount_cents").notNull().default(0),
+    // Which loyalty tier's automatic discount applied, if any — mutually
+    // exclusive with promoCode (see lib/loyalty.ts): a customer's account
+    // tier discount and a manually-entered promo code never stack, so at
+    // most one of these two columns is ever set per order.
+    loyaltyTier: varchar("loyalty_tier", { length: 40 }),
     paymentMethod: varchar("payment_method", { length: 60 }).notNull().default("card"),
     stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 191 }),
     // Fulfillment tracking — set by admin ops after the order is placed, not

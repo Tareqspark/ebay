@@ -2,8 +2,9 @@
 
 import { auth } from "@/auth";
 import { getCart } from "@/lib/cart";
-import { computeTotals } from "@/lib/checkout";
+import { computeTotals, computeTotalsWithDiscount } from "@/lib/checkout";
 import { validatePromoForCheckout } from "@/lib/promo";
+import { getLoyaltyStatus } from "@/lib/loyalty";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
 import { toCents } from "@/lib/money";
 
@@ -45,16 +46,30 @@ export async function createPaymentIntentAction(
 
   // Re-validated here, independent of whatever the "Apply" preview showed —
   // this is the step that actually commits to a charge amount, so it can't
-  // trust anything computed client-side or even a few seconds earlier.
+  // trust anything computed client-side or even a few seconds earlier. A
+  // loyalty-tier discount and a promo code never stack — a promo code, if
+  // present, always wins; the tier discount only kicks in when the
+  // customer didn't enter one.
   let total: number;
   let appliedPromoCode: string | undefined;
+  let appliedLoyaltyTier: string | undefined;
   if (promoCode?.trim()) {
     const outcome = await validatePromoForCheckout(promoCode, session.user.id, cart.subtotal);
     if ("error" in outcome) return { error: outcome.error };
     total = outcome.result.total;
     appliedPromoCode = outcome.result.code;
   } else {
-    total = computeTotals(cart.subtotal).total;
+    const loyalty = await getLoyaltyStatus(session.user.id);
+    if (loyalty.tier.discountPercent > 0) {
+      total = computeTotalsWithDiscount(cart.subtotal, {
+        discountType: "percent",
+        discountPercent: loyalty.tier.discountPercent,
+        discountAmountCents: null,
+      }).total;
+      appliedLoyaltyTier = loyalty.tier.name;
+    } else {
+      total = computeTotals(cart.subtotal).total;
+    }
   }
 
   const stripe = getStripe()!;
@@ -74,6 +89,7 @@ export async function createPaymentIntentAction(
       zip: address.zip,
       country: address.country,
       ...(appliedPromoCode ? { promoCode: appliedPromoCode } : {}),
+      ...(appliedLoyaltyTier ? { loyaltyTier: appliedLoyaltyTier } : {}),
     },
   });
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Tag, X } from "lucide-react";
+import { Award, Tag, X } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,13 +19,23 @@ interface AppliedPromo {
   total: number;
 }
 
+interface LoyaltyDiscount {
+  tierName: string;
+  discountPercent: number;
+  discount: number;
+  shipping: number;
+  tax: number;
+  total: number;
+}
+
 interface CheckoutClientProps {
   cart: CartSummary;
   defaultAddress: ShippingAddressInput;
   baseTotals: { shipping: number; tax: number; total: number };
+  loyaltyDiscount: LoyaltyDiscount | null;
 }
 
-export function CheckoutClient({ cart, defaultAddress, baseTotals }: CheckoutClientProps) {
+export function CheckoutClient({ cart, defaultAddress, baseTotals, loyaltyDiscount }: CheckoutClientProps) {
   const [promoInput, setPromoInput] = useState("");
   const [applied, setApplied] = useState<AppliedPromo | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
@@ -51,9 +61,14 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals }: CheckoutCli
     setPromoError(null);
   }
 
-  const shipping = applied?.shipping ?? baseTotals.shipping;
-  const tax = applied?.tax ?? baseTotals.tax;
-  const total = applied?.total ?? baseTotals.total;
+  // A promo code always wins over the automatic loyalty-tier discount —
+  // mirrors the mutual-exclusivity rule enforced server-side in
+  // createPaymentIntentAction.
+  const active = applied ?? loyaltyDiscount;
+  const shipping = active?.shipping ?? baseTotals.shipping;
+  const tax = active?.tax ?? baseTotals.tax;
+  const total = active?.total ?? baseTotals.total;
+  const discount = active?.discount ?? 0;
 
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
@@ -88,6 +103,12 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals }: CheckoutCli
             </div>
           ) : (
             <div className="flex flex-col gap-1.5 pb-1">
+              {loyaltyDiscount && (
+                <div className="flex items-center gap-1.5 rounded-md bg-amber-50 px-2 py-1.5 text-xs font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+                  <Award className="h-3 w-3" />
+                  {loyaltyDiscount.tierName} member — {loyaltyDiscount.discountPercent}% off applied
+                </div>
+              )}
               <div className="flex gap-1.5">
                 <Input
                   value={promoInput}
@@ -113,10 +134,10 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals }: CheckoutCli
             <span>Subtotal</span>
             <span className="tabular-nums text-foreground">{formatPrice(cart.subtotal)}</span>
           </div>
-          {applied && applied.discount > 0 && (
+          {discount > 0 && (
             <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
               <span>Discount</span>
-              <span className="tabular-nums">-{formatPrice(applied.discount)}</span>
+              <span className="tabular-nums">-{formatPrice(discount)}</span>
             </div>
           )}
           <div className="flex justify-between text-muted-foreground">
