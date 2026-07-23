@@ -9,6 +9,7 @@ import { newId } from "@/lib/id";
 import { getAdminActorName, requireAdminSession } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
 import { checkPlainText } from "@/lib/sanitize";
+import { requirePermission, requireOwner } from "@/lib/admin/permissions";
 import type { AdminRole, AdminUserStatus } from "@/lib/admin/team";
 
 export interface TeamActionResult {
@@ -31,6 +32,13 @@ function generateTempPassword(): string {
 }
 
 export async function inviteTeamMemberAction(input: TeamMemberInput): Promise<TeamActionResult> {
+  const guard = await requirePermission("settings");
+  if (guard) return guard;
+  if (input.role === "Owner") {
+    const ownerGuard = await requireOwner();
+    if (ownerGuard) return { error: "Only the Owner can grant the Owner role" };
+  }
+
   const name = input.name.trim();
   const email = input.email.trim().toLowerCase();
   if (!name) return { error: "Name is required" };
@@ -60,6 +68,15 @@ export async function inviteTeamMemberAction(input: TeamMemberInput): Promise<Te
 }
 
 export async function updateTeamMemberAction(id: string, input: TeamMemberInput): Promise<TeamActionResult> {
+  const guard = await requirePermission("settings");
+  if (guard) return guard;
+
+  const [target] = await db.select({ role: adminUsers.role }).from(adminUsers).where(eq(adminUsers.id, id)).limit(1);
+  if (target?.role === "Owner" || input.role === "Owner") {
+    const ownerGuard = await requireOwner();
+    if (ownerGuard) return { error: "Only the Owner can change the Owner account or grant the Owner role" };
+  }
+
   const name = input.name.trim();
   const email = input.email.trim().toLowerCase();
   if (!name) return { error: "Name is required" };
@@ -79,6 +96,15 @@ export async function updateTeamMemberAction(id: string, input: TeamMemberInput)
 }
 
 export async function resetTeamMemberPasswordAction(id: string, name: string): Promise<TeamActionResult> {
+  const guard = await requirePermission("settings");
+  if (guard) return guard;
+
+  const [target] = await db.select({ role: adminUsers.role }).from(adminUsers).where(eq(adminUsers.id, id)).limit(1);
+  if (target?.role === "Owner") {
+    const ownerGuard = await requireOwner();
+    if (ownerGuard) return { error: "Only the Owner can reset the Owner account's password" };
+  }
+
   const tempPassword = generateTempPassword();
   const passwordHash = await hash(tempPassword, 10);
   await db.update(adminUsers).set({ passwordHash }).where(eq(adminUsers.id, id));
@@ -90,9 +116,18 @@ export async function resetTeamMemberPasswordAction(id: string, name: string): P
 }
 
 export async function deleteTeamMemberAction(id: string, name: string): Promise<TeamActionResult> {
+  const guard = await requirePermission("settings");
+  if (guard) return guard;
+
   const session = await requireAdminSession();
   if (session.user.id === id) {
     return { error: "You can't remove your own account" };
+  }
+
+  const [target] = await db.select({ role: adminUsers.role }).from(adminUsers).where(eq(adminUsers.id, id)).limit(1);
+  if (target?.role === "Owner") {
+    const ownerGuard = await requireOwner();
+    if (ownerGuard) return { error: "Only the Owner can remove the Owner account" };
   }
 
   await db.delete(adminUsers).where(eq(adminUsers.id, id));

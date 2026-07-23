@@ -28,7 +28,10 @@ import {
   cjIntegrationSettings as cjIntegrationSettingsTable,
   cjSourcingRequests as cjSourcingRequestsTable,
   errorLogs as errorLogsTable,
+  rolePermissions as rolePermissionsTable,
+  adminUserPermissionOverrides as permissionOverridesTable,
 } from "@/db/schema";
+import type { AdminPermission, NonOwnerRole } from "@/lib/admin/permissions";
 import { toCents, toDollars } from "@/lib/money";
 import type { Product, Brand } from "@/lib/types";
 import type {
@@ -589,6 +592,30 @@ export const getErrorLogs = cache(async (): Promise<AdminErrorLogRow[]> => {
     resolved: r.resolved,
     createdAt: r.createdAt.toISOString(),
   }));
+});
+
+// ---------------------------------------------------------------------------
+// RBAC
+// ---------------------------------------------------------------------------
+
+export const getRolePermissionsMatrix = cache(async (): Promise<Record<NonOwnerRole, AdminPermission[]>> => {
+  const rows = await db.select().from(rolePermissionsTable);
+  const matrix: Record<NonOwnerRole, AdminPermission[]> = { Admin: [], Merchandiser: [], "Catalog Manager": [], Support: [] };
+  for (const row of rows) {
+    matrix[row.role as NonOwnerRole].push(row.permission);
+  }
+  return matrix;
+});
+
+export interface AdminPermissionOverrideRow {
+  adminUserId: string;
+  permission: AdminPermission;
+  granted: boolean;
+}
+
+export const getPermissionOverrides = cache(async (): Promise<AdminPermissionOverrideRow[]> => {
+  const rows = await db.select().from(permissionOverridesTable);
+  return rows.map((r) => ({ adminUserId: r.adminUserId, permission: r.permission, granted: r.granted }));
 });
 
 // ---------------------------------------------------------------------------

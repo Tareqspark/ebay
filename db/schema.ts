@@ -763,6 +763,62 @@ export const adminUsers = mysqlTable("admin_users", {
   lastActiveAt: timestamp("last_active_at").notNull().defaultNow(),
 });
 
+// ---------------------------------------------------------------------------
+// RBAC — role-level default grants + per-user overrides. Owner is never
+// stored here: it always has full access, hardcoded in
+// lib/admin/permissions.ts, so a broken or empty permission set can never
+// lock every admin out of their own console.
+// ---------------------------------------------------------------------------
+
+export const adminPermission = [
+  "analytics",
+  "orders",
+  "products",
+  "returns",
+  "inventory",
+  "categories",
+  "collections",
+  "bundles",
+  "customers",
+  "reviews",
+  "marketing",
+  "promo-codes",
+  "supplier",
+  "payments",
+  "shipping",
+  "content",
+  "cj",
+  "settings",
+] as const;
+
+export const rolePermissions = mysqlTable(
+  "role_permissions",
+  {
+    id: varchar("id", { length: 26 }).primaryKey(),
+    role: mysqlEnum("role", adminRole).notNull(),
+    permission: mysqlEnum("permission", adminPermission).notNull(),
+  },
+  (table) => [unique("role_permissions_role_permission_unique").on(table.role, table.permission)]
+);
+
+// granted=false is an explicit revoke (take away something the role would
+// otherwise grant); granted=true is an explicit grant (add something the
+// role wouldn't). Most staff have zero rows here — the role default is all
+// that applies unless an Owner has specifically carved out an exception.
+export const adminUserPermissionOverrides = mysqlTable(
+  "admin_user_permission_overrides",
+  {
+    id: varchar("id", { length: 26 }).primaryKey(),
+    adminUserId: varchar("admin_user_id", { length: 191 }).notNull(),
+    permission: mysqlEnum("permission", adminPermission).notNull(),
+    granted: boolean("granted").notNull(),
+  },
+  (table) => [
+    index("admin_user_permission_overrides_admin_user_id_idx").on(table.adminUserId),
+    unique("admin_user_permission_overrides_user_permission_unique").on(table.adminUserId, table.permission),
+  ]
+);
+
 export const apiKeys = mysqlTable("api_keys", {
   id: varchar("id", { length: 191 }).primaryKey(),
   name: varchar("name", { length: 191 }).notNull(),

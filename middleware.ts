@@ -59,6 +59,11 @@ export default auth((req) => {
 
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-nonce", nonce);
+  // Read by app/admin/(dashboard)/layout.tsx to resolve the current section's
+  // required permission — middleware is the only place a Server Component
+  // can reliably learn the request path today (no direct equivalent of
+  // usePathname() on the server).
+  requestHeaders.set("x-pathname", pathname);
 
   const isAccountRoute = pathname.startsWith("/account");
   const isPublicAccountPath = PUBLIC_ACCOUNT_PATHS.some((p) => pathname.startsWith(p));

@@ -45,6 +45,8 @@ import {
   ADMIN_TEAM,
   API_KEYS,
 } from "./seed-admin-extras";
+import { DEFAULT_ROLE_PERMISSIONS } from "../lib/admin/permission-constants";
+import type { NonOwnerRole } from "../lib/admin/permission-constants";
 
 const ICON_TO_NAME = new Map(Object.entries(CATEGORY_ICONS).map(([name, icon]) => [icon, name]));
 
@@ -538,6 +540,19 @@ async function main() {
     schema.apiKeys,
     API_KEYS.map((k) => ({ id: k.id, name: k.name, prefix: k.prefix, scopes: k.scopes, createdAt: new Date(k.createdAt), lastUsedAt: k.lastUsedAt ? new Date(k.lastUsedAt) : null })),
     "api_keys"
+  );
+
+  // Role-default permissions (RBAC) — Owner is deliberately absent, see
+  // lib/admin/permissions.ts. Per-user overrides aren't seeded; they start
+  // empty until an Owner carves out an exception from Settings → Users &
+  // Permissions.
+  await db.delete(schema.rolePermissions);
+  await bulkInsert(
+    schema.rolePermissions,
+    Object.entries(DEFAULT_ROLE_PERMISSIONS).flatMap(([role, permissions]) =>
+      permissions.map((permission) => ({ id: newId(), role: role as NonOwnerRole, permission }))
+    ),
+    "role_permissions"
   );
 
   console.log("\nDone.");
