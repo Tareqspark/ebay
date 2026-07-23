@@ -22,6 +22,9 @@ export interface ShippingRateInput {
   rate: number;
   deliveryEstimate: string;
   status: ShippingRateStatus;
+  carrierId: string | null;
+  minSubtotal: number | null;
+  maxSubtotal: number | null;
 }
 
 export async function createShippingRateAction(input: ShippingRateInput): Promise<ShippingActionResult> {
@@ -37,6 +40,9 @@ export async function createShippingRateAction(input: ShippingRateInput): Promis
     checkPlainText(deliveryEstimate, "Delivery estimate");
   if (textError) return { error: textError };
   if (input.rate < 0) return { error: "Rate can't be negative" };
+  if (input.minSubtotal != null && input.maxSubtotal != null && input.minSubtotal > input.maxSubtotal) {
+    return { error: "Minimum order value can't be greater than the maximum" };
+  }
 
   await db.insert(shippingRates).values({
     id: newId(),
@@ -46,6 +52,9 @@ export async function createShippingRateAction(input: ShippingRateInput): Promis
     rateCents: toCents(input.rate),
     deliveryEstimate,
     status: input.status,
+    carrierId: input.carrierId,
+    minSubtotalCents: input.minSubtotal != null ? toCents(input.minSubtotal) : null,
+    maxSubtotalCents: input.maxSubtotal != null ? toCents(input.maxSubtotal) : null,
   });
 
   const actor = await getAdminActorName();
@@ -67,10 +76,23 @@ export async function updateShippingRateAction(id: string, input: ShippingRateIn
     checkPlainText(deliveryEstimate, "Delivery estimate");
   if (textError) return { error: textError };
   if (input.rate < 0) return { error: "Rate can't be negative" };
+  if (input.minSubtotal != null && input.maxSubtotal != null && input.minSubtotal > input.maxSubtotal) {
+    return { error: "Minimum order value can't be greater than the maximum" };
+  }
 
   await db
     .update(shippingRates)
-    .set({ zone, method, condition, rateCents: toCents(input.rate), deliveryEstimate, status: input.status })
+    .set({
+      zone,
+      method,
+      condition,
+      rateCents: toCents(input.rate),
+      deliveryEstimate,
+      status: input.status,
+      carrierId: input.carrierId,
+      minSubtotalCents: input.minSubtotal != null ? toCents(input.minSubtotal) : null,
+      maxSubtotalCents: input.maxSubtotal != null ? toCents(input.maxSubtotal) : null,
+    })
     .where(eq(shippingRates.id, id));
 
   const actor = await getAdminActorName();

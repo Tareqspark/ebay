@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { loadStripe, type Stripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
 import { Input } from "@/components/ui/input";
@@ -20,14 +20,25 @@ function getStripePromise() {
 export function CheckoutForm({
   defaultAddress,
   promoCode,
+  shippingRateId,
+  ratesAvailable,
+  onAddressChange,
 }: {
   defaultAddress: ShippingAddressInput;
   promoCode?: string | null;
+  shippingRateId?: string | null;
+  ratesAvailable: boolean;
+  onAddressChange: (address: ShippingAddressInput) => void;
 }) {
   const [address, setAddress] = useState(defaultAddress);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    onAddressChange(address);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address.state]);
 
   function field(key: keyof ShippingAddressInput) {
     return {
@@ -39,7 +50,7 @@ export function CheckoutForm({
   function handleContinue() {
     setError(null);
     startTransition(async () => {
-      const result = await createPaymentIntentAction(address, promoCode ?? undefined);
+      const result = await createPaymentIntentAction(address, promoCode ?? undefined, shippingRateId ?? undefined);
       if (result.error) {
         setError(result.error);
         return;
@@ -88,7 +99,15 @@ export function CheckoutForm({
       {error && <p className="text-sm text-destructive">{error}</p>}
       <Button
         size="lg"
-        disabled={isPending || !address.name || !address.line1 || !address.city || !address.state || !address.zip}
+        disabled={
+          isPending ||
+          !address.name ||
+          !address.line1 ||
+          !address.city ||
+          !address.state ||
+          !address.zip ||
+          (ratesAvailable && !shippingRateId)
+        }
         onClick={handleContinue}
       >
         {isPending ? "Preparing payment..." : "Continue to Payment"}

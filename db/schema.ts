@@ -120,6 +120,10 @@ export const orders = mysqlTable(
     // Separate from discountCents (promo/loyalty) since a bundle discount
     // stacks with those rather than competing — see lib/bundles.ts.
     bundleDiscountCents: int("bundle_discount_cents").notNull().default(0),
+    // Snapshot of the shipping_rates row chosen at checkout — same
+    // snapshot convention as promoCode/order_items, since a rate can be
+    // edited or removed later without rewriting past orders.
+    shippingMethod: varchar("shipping_method", { length: 191 }),
     paymentMethod: varchar("payment_method", { length: 60 }).notNull().default("card"),
     stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 191 }),
     // Fulfillment tracking — set by admin ops after the order is placed, not
@@ -692,10 +696,17 @@ export const shippingRates = mysqlTable("shipping_rates", {
   id: varchar("id", { length: 191 }).primaryKey(),
   zone: varchar("zone", { length: 191 }).notNull(),
   method: varchar("method", { length: 191 }).notNull(),
+  // Free-text display label (e.g. "Orders under $50") — the actual
+  // eligibility check at checkout uses the structured thresholds below,
+  // not this string, so real-time rate shopping doesn't depend on parsing
+  // admin-entered prose.
   condition: varchar("condition", { length: 191 }).notNull(),
+  minSubtotalCents: int("min_subtotal_cents"),
+  maxSubtotalCents: int("max_subtotal_cents"),
   rateCents: int("rate_cents").notNull(),
   deliveryEstimate: varchar("delivery_estimate", { length: 191 }).notNull(),
   status: mysqlEnum("status", shippingRateStatus).notNull().default("active"),
+  carrierId: varchar("carrier_id", { length: 191 }),
 });
 
 export const carriers = mysqlTable("carriers", {

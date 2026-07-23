@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { orders, payments } from "@/db/schema";
 import { getStripe } from "@/lib/stripe";
+import { generateTrackingNumber } from "@/lib/shipping-provider";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
 
@@ -19,8 +20,12 @@ export interface OrderActionResult {
 }
 
 export async function markOrderShippedAction(orderId: string, orderNumber: string): Promise<OrderActionResult> {
-  const trackingNumber = `1Z${Math.floor(Math.random() * 900000000 + 100000000)}US`;
-  const carrier = "UPS";
+  const [order] = await db.select({ shippingMethod: orders.shippingMethod }).from(orders).where(eq(orders.id, orderId)).limit(1);
+  // shippingMethod is a "Carrier — Method" snapshot from the rate chosen at
+  // checkout (lib/shipping-rates.ts); fall back to UPS for orders placed
+  // before that existed or where no rate matched (e.g. CJ-only orders).
+  const carrier = order?.shippingMethod?.split(" — ")[0] || "UPS";
+  const trackingNumber = generateTrackingNumber(carrier);
   await db
     .update(orders)
     .set({ fulfillmentStatus: "shipped", trackingNumber, carrier })

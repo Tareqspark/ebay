@@ -22,9 +22,9 @@ import { ShippingRateFormDialog } from "@/components/admin/shipping/shipping-rat
 import { formatMoney } from "@/lib/admin/format";
 import { createShippingRateAction, updateShippingRateAction, deleteShippingRateAction } from "@/lib/admin/shipping-actions";
 import type { ShippingRateInput } from "@/lib/admin/shipping-actions";
-import type { ShippingRate } from "@/lib/admin/shipping";
+import type { ShippingRate, Carrier } from "@/lib/admin/shipping";
 
-export function ShippingRatesTable({ rates: initial }: { rates: ShippingRate[] }) {
+export function ShippingRatesTable({ rates: initial, carriers }: { rates: ShippingRate[]; carriers: Carrier[] }) {
   const [rates, setRates] = useState(initial);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ShippingRate | null>(null);
@@ -67,6 +67,15 @@ export function ShippingRatesTable({ rates: initial }: { rates: ShippingRate[] }
     () => [
       { id: "zone", header: "Zone", size: 150, accessorFn: (r) => r.zone, cell: ({ row }) => <span className="font-medium text-foreground">{row.original.zone}</span> },
       { id: "method", header: "Method", size: 160, accessorFn: (r) => r.method, cell: ({ row }) => <span className="text-foreground">{row.original.method}</span> },
+      {
+        id: "carrier",
+        header: "Carrier",
+        size: 110,
+        accessorFn: (r) => r.carrierId,
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">{carriers.find((c) => c.id === row.original.carrierId)?.name ?? "—"}</span>
+        ),
+      },
       { id: "condition", header: "Condition", size: 150, accessorFn: (r) => r.condition, cell: ({ row }) => <span className="text-muted-foreground">{row.original.condition}</span> },
       { id: "rate", header: "Rate", size: 90, accessorFn: (r) => r.rate, cell: ({ row }) => <span className="tabular-nums text-foreground">{row.original.rate === 0 ? "Free" : formatMoney(row.original.rate)}</span> },
       { id: "estimate", header: "Delivery estimate", size: 170, accessorFn: (r) => r.deliveryEstimate, cell: ({ row }) => <span className="text-muted-foreground">{row.original.deliveryEstimate}</span> },
@@ -98,7 +107,7 @@ export function ShippingRatesTable({ rates: initial }: { rates: ShippingRate[] }
         ),
       },
     ],
-    []
+    [carriers]
   );
 
   return (
@@ -133,6 +142,7 @@ export function ShippingRatesTable({ rates: initial }: { rates: ShippingRate[] }
           if (!open) setEditing(null);
         }}
         rate={editing}
+        carriers={carriers}
         onSubmit={handleSubmit}
         submitting={submitting}
       />

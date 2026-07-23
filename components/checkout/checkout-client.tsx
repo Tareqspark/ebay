@@ -1,15 +1,17 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Award, Tag, X } from "lucide-react";
+import { useEffect, useState, useTransition } from "react";
+import { Award, Tag, Truck, X } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CheckoutForm } from "@/components/checkout/checkout-form";
 import { applyPromoCodeAction } from "@/lib/promo-actions";
+import { getShippingRatesAction, previewShippingTotalsAction } from "@/lib/shipping-rates-actions";
 import { formatPrice } from "@/lib/format";
 import type { ShippingAddressInput } from "@/lib/checkout-actions";
 import type { CartSummary } from "@/lib/cart";
+import type { AvailableShippingRate } from "@/lib/shipping-rates";
 
 interface AppliedPromo {
   code: string;
@@ -41,6 +43,53 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals, loyaltyDiscou
   const [promoError, setPromoError] = useState<string | null>(null);
   const [isApplying, startApplying] = useTransition();
 
+  const [addressState, setAddressState] = useState(defaultAddress.state);
+  const [rates, setRates] = useState<AvailableShippingRate[]>([]);
+  const [ratesLoading, setRatesLoading] = useState(false);
+  const [selectedRateId, setSelectedRateId] = useState<string | null>(null);
+  const [shippingPreview, setShippingPreview] = useState<{ shipping: number; tax: number; total: number; discount: number } | null>(null);
+
+  // Real rate shopping: whenever the destination state changes, fetch every
+  // eligible admin-configured rate for that zone + the current subtotal
+  // (lib/shipping-rates.ts) and default to the cheapest — the customer can
+  // still pick a faster one.
+  useEffect(() => {
+    if (!addressState.trim()) {
+      setRates([]);
+      return;
+    }
+    let cancelled = false;
+    setRatesLoading(true);
+    getShippingRatesAction(addressState, cart.subtotal)
+      .then((result) => {
+        if (cancelled) return;
+        setRates(result);
+        setSelectedRateId(result[0]?.id ?? null);
+      })
+      .finally(() => {
+        if (!cancelled) setRatesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addressState]);
+
+  useEffect(() => {
+    if (!selectedRateId) {
+      setShippingPreview(null);
+      return;
+    }
+    let cancelled = false;
+    previewShippingTotalsAction(selectedRateId, applied?.code).then((result) => {
+      if (cancelled || result.error) return;
+      setShippingPreview({ shipping: result.shipping!, tax: result.tax!, total: result.total!, discount: result.discount! });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRateId, applied?.code]);
+
   function handleApplyPromo() {
     if (!promoInput.trim()) return;
     setPromoError(null);
@@ -61,10 +110,11 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals, loyaltyDiscou
     setPromoError(null);
   }
 
-  // A promo code always wins over the automatic loyalty-tier discount —
-  // mirrors the mutual-exclusivity rule enforced server-side in
-  // createPaymentIntentAction.
-  const active = applied ?? loyaltyDiscount;
+  // Precedence: a chosen real carrier rate (once fetched) always reflects
+  // the actual charge most accurately, so its preview — which itself
+  // already accounts for any active promo/loyalty discount — wins over the
+  // flat-rate promo/loyalty totals computed before a rate was known.
+  const active = shippingPreview ?? applied ?? loyaltyDiscount;
   const shipping = active?.shipping ?? baseTotals.shipping;
   const tax = active?.tax ?? baseTotals.tax;
   const total = active?.total ?? baseTotals.total;
@@ -72,7 +122,56 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals, loyaltyDiscou
 
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
-      <CheckoutForm defaultAddress={defaultAddress} promoCode={applied?.code ?? null} />
+      <div className="flex flex-col gap-6">
+        <CheckoutForm
+          defaultAddress={defaultAddress}
+          promoCode={applied?.code ?? null}
+          shippingRateId={selectedRateId}
+          ratesAvailable={rates.length > 0}
+          onAddressChange={(address) => setAddressState(address.state)}
+        />
+
+        {(ratesLoading || rates.length > 0) && (
+          <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-5">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Truck className="h-4 w-4" />
+              Shipping Method
+            </h2>
+            {ratesLoading ? (
+              <p className="text-sm text-muted-foreground">Finding rates for your address...</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {rates.map((rate) => (
+                  <label
+                    key={rate.id}
+                    className="flex cursor-pointer items-center justify-between gap-3 rounded-md border border-border px-3 py-2.5 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/5"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <input
+                        type="radio"
+                        name="shipping-rate"
+                        checked={selectedRateId === rate.id}
+                        onChange={() => setSelectedRateId(rate.id)}
+                        className="h-3.5 w-3.5 accent-primary"
+                      />
+                      <span>
+                        <span className="font-medium text-foreground">
+                          {rate.carrierName ? `${rate.carrierName} ${rate.method}` : rate.method}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">{rate.deliveryEstimate}</span>
+                      </span>
+                    </span>
+                    <span className="shrink-0 tabular-nums font-medium text-foreground">
+                      {rate.rate === 0 ? "Free" : formatPrice(rate.rate)}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="h-fit rounded-lg border border-border bg-card p-4">
         <h2 className="text-sm font-semibold text-foreground">Order Summary</h2>
         <div className="mt-3 flex flex-col gap-2 text-sm">

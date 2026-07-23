@@ -17,7 +17,7 @@ export default async function AdminShippingPage() {
         <CarriersGrid carriers={carriers} />
       </Panel>
 
-      <ShippingRatesTable rates={rates} />
+      <ShippingRatesTable rates={rates} carriers={carriers} />
     </div>
   );
 }

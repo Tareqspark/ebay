@@ -14,13 +14,20 @@ import { decrementInventoryForProduct } from "@/lib/inventory";
 import { logActivity } from "@/lib/admin/activity";
 import { getTierByName } from "@/lib/loyalty";
 import { computeBundleAdjustedSubtotal } from "@/lib/bundles";
+import { getShippingRateById } from "@/lib/shipping-rates";
 
 export const TAX_RATE = 0.0825;
 export const FREE_SHIPPING_THRESHOLD = 50;
 export const FLAT_SHIPPING = 6.99;
 
-export function computeTotals(subtotal: number) {
-  const shipping = subtotal >= FREE_SHIPPING_THRESHOLD || subtotal === 0 ? 0 : FLAT_SHIPPING;
+/**
+ * shippingOverride, when given, replaces the flat/free-threshold shipping
+ * figure with a real chosen shipping_rates rate (see lib/shipping-rates.ts)
+ * — omitted, this is unchanged flat-rate behavior for every pre-existing
+ * call site (cart page's free-shipping banner, etc).
+ */
+export function computeTotals(subtotal: number, shippingOverride?: number) {
+  const shipping = shippingOverride ?? (subtotal >= FREE_SHIPPING_THRESHOLD || subtotal === 0 ? 0 : FLAT_SHIPPING);
   const tax = Math.round((subtotal + shipping) * TAX_RATE * 100) / 100;
   const total = Math.round((subtotal + shipping + tax) * 100) / 100;
   return { shipping, tax, total };
@@ -37,10 +44,12 @@ export interface PromoForDiscount {
 /**
  * Same shape as computeTotals(), plus a discount amount — kept as a
  * separate function (rather than an optional param on computeTotals) so
- * every existing no-promo call site stays untouched.
+ * every existing no-promo call site stays untouched. shippingOverride
+ * behaves the same as on computeTotals() — when a customer picked a real
+ * carrier rate, a free_shipping promo waives *that* rate, not the flat one.
  */
-export function computeTotalsWithDiscount(subtotal: number, promo?: PromoForDiscount | null) {
-  const baseShipping = subtotal >= FREE_SHIPPING_THRESHOLD || subtotal === 0 ? 0 : FLAT_SHIPPING;
+export function computeTotalsWithDiscount(subtotal: number, promo?: PromoForDiscount | null, shippingOverride?: number) {
+  const baseShipping = shippingOverride ?? (subtotal >= FREE_SHIPPING_THRESHOLD || subtotal === 0 ? 0 : FLAT_SHIPPING);
 
   let discount = 0;
   let shipping = baseShipping;
@@ -106,6 +115,7 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
     email,
     promoCode: promoCodeFromMetadata,
     loyaltyTier: loyaltyTierFromMetadata,
+    shippingRateId: shippingRateIdFromMetadata,
     ...address
   } = intent.metadata as Record<string, string>;
   if (!cartId || !userId) return null;
@@ -138,6 +148,16 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
     lineItems.map((item) => ({ productId: item.productId, quantity: item.quantity, price: item.price }))
   );
 
+  let shippingMethod: string | null = null;
+  let shippingOverride: number | undefined;
+  if (shippingRateIdFromMetadata) {
+    const rate = await getShippingRateById(shippingRateIdFromMetadata);
+    if (rate) {
+      shippingOverride = rate.rate;
+      shippingMethod = rate.carrierName ? `${rate.carrierName} — ${rate.method}` : rate.method;
+    }
+  }
+
   let promoRow: typeof promoCodes.$inferSelect | null = null;
   let loyaltyTier: string | null = null;
   let discountSource: PromoForDiscount | null = null;
@@ -152,7 +172,7 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
       discountSource = { discountType: "percent", discountPercent: tier.discountPercent, discountAmountCents: null };
     }
   }
-  const { discount, shipping, tax, total } = computeTotalsWithDiscount(subtotal, discountSource);
+  const { discount, shipping, tax, total } = computeTotalsWithDiscount(subtotal, discountSource, shippingOverride);
 
   const shippingAddress: ShippingAddressInput = {
     name: address.name ?? "",
@@ -179,6 +199,7 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
     promoCode: promoRow?.code ?? null,
     loyaltyTier,
     bundleDiscountCents: toCents(bundleDiscount),
+    shippingMethod,
     discountCents: toCents(discount),
     paymentMethod: "card",
     stripePaymentIntentId: paymentIntentId,

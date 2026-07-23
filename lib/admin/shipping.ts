@@ -13,6 +13,9 @@ export interface ShippingRate {
   rate: number;
   deliveryEstimate: string;
   status: ShippingRateStatus;
+  carrierId: string | null;
+  minSubtotal: number | null;
+  maxSubtotal: number | null;
 }
 
 export interface Carrier {
@@ -32,6 +35,9 @@ export const getShippingRates = cache(async (): Promise<ShippingRate[]> => {
     rate: toDollars(r.rateCents),
     deliveryEstimate: r.deliveryEstimate,
     status: r.status,
+    carrierId: r.carrierId,
+    minSubtotal: r.minSubtotalCents != null ? toDollars(r.minSubtotalCents) : null,
+    maxSubtotal: r.maxSubtotalCents != null ? toDollars(r.maxSubtotalCents) : null,
   }));
 });
 
