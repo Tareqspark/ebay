@@ -80,6 +80,11 @@ export type PaymentStatus = "paid" | "pending" | "refunded" | "partially_refunde
 export type FulfillmentStatus = "unfulfilled" | "processing" | "shipped" | "delivered" | "cancelled";
 
 export interface OrderItem {
+  // Optional because app/data/admin/orders.ts's generated OrderItem literals
+  // (the one-time scripts/seed-db.ts source, not live data) predate this
+  // field — every real DB-backed order (lib/orders.ts, lib/admin/data.ts)
+  // always populates it.
+  id?: string;
   productId: string;
   title: string;
   image: string;

@@ -37,6 +37,7 @@ export async function getOrdersForUser(userId: string): Promise<CustomerOrder[]>
       id: row.id,
       orderNumber: row.orderNumber,
       items: items.map((item) => ({
+        id: item.id,
         productId: item.productId,
         title: item.title,
         image: item.image,

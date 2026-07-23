@@ -41,6 +41,8 @@ const STATUS_MAP: Record<string, StatusConfig> = {
   // reviews
   approved: { label: "Approved", tone: "success" },
   rejected: { label: "Rejected", tone: "danger" },
+  // returns ("refunded" reuses the payment-status mapping above)
+  requested: { label: "Requested", tone: "warning" },
   // inventory
   in_stock: { label: "In stock", tone: "success" },
   low_stock: { label: "Low stock", tone: "warning" },

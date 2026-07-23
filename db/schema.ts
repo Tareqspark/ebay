@@ -174,6 +174,47 @@ export const productViews = mysqlTable(
   (table) => [index("product_views_user_id_idx").on(table.userId), index("product_views_viewed_at_idx").on(table.viewedAt)]
 );
 
+/**
+ * Returns/refunds for self-stocked order items only — CJ-sourced items
+ * already have their own after-sales flow (cj_disputes below), which
+ * covers a different problem (a supplier-side claim: lost/damaged/wrong
+ * item) with a different resolution shape (reship vs. refund). A return
+ * is a customer-initiated "I don't want this" on stock Baruashop itself
+ * holds, so it's a separate, simpler table rather than folding into
+ * cj_disputes.
+ */
+export const returnReason = ["defective", "wrong_item", "not_as_described", "no_longer_needed", "damaged_in_shipping", "other"] as const;
+export const returnStatus = ["requested", "refunded", "rejected"] as const;
+
+export const returns = mysqlTable(
+  "returns",
+  {
+    id: varchar("id", { length: 26 }).primaryKey(),
+    orderId: varchar("order_id", { length: 26 }).notNull(),
+    orderItemId: varchar("order_item_id", { length: 26 }).notNull(),
+    userId: varchar("user_id", { length: 26 }).notNull(),
+    productId: varchar("product_id", { length: 191 }).notNull(),
+    // Snapshot, same reasoning as order_items — survives a later product edit/delete.
+    productTitle: varchar("product_title", { length: 255 }).notNull(),
+    quantity: int("quantity").notNull(),
+    reason: mysqlEnum("reason", returnReason).notNull(),
+    note: text("note"),
+    status: mysqlEnum("status", returnStatus).notNull().default("requested"),
+    // Computed at request time from the order_item's own snapshotted price —
+    // deterministic and known before any admin action, so the customer sees
+    // the exact refund amount immediately on request, not after approval.
+    refundAmountCents: int("refund_amount_cents").notNull(),
+    adminNote: text("admin_note"),
+    requestedAt: timestamp("requested_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
+  },
+  (table) => [
+    index("returns_order_id_idx").on(table.orderId),
+    index("returns_user_id_idx").on(table.userId),
+    index("returns_order_item_id_idx").on(table.orderItemId),
+  ]
+);
+
 export const reviews = mysqlTable(
   "reviews",
   {

@@ -334,6 +334,7 @@ export const getOrders = cache(async (): Promise<AdminOrderRow[]> => {
       customerName: customerById.get(row.userId)?.name ?? row.userId,
       customerEmail: customerById.get(row.userId)?.email ?? "",
       items: (itemsByOrder.get(row.id) ?? []).map((i) => ({
+        id: i.id,
         productId: i.productId,
         title: i.title,
         image: i.image,

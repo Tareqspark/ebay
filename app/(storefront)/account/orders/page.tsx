@@ -1,15 +1,21 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { AccountTabs } from "@/components/account/account-tabs";
+import { ReturnItemButton } from "@/components/account/return-item-button";
 import { auth } from "@/auth";
 import { getOrdersForUser } from "@/lib/orders";
+import { getReturnsByOrderItemForUser } from "@/lib/returns";
+import type { CustomerReturn } from "@/lib/returns";
 import { formatPrice } from "@/lib/format";
 
 export const metadata: Metadata = { title: "My Orders" };
 
+const RETURN_STATUS_LABEL = { requested: "Return requested", refunded: "Refunded", rejected: "Return rejected" } as const;
+
 export default async function AccountOrdersPage() {
   const session = await auth();
   const orders = session?.user?.id ? await getOrdersForUser(session.user.id) : [];
+  const returnsByItem = session?.user?.id ? await getReturnsByOrderItemForUser(session.user.id) : new Map<string, CustomerReturn>();
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6">
@@ -41,19 +47,34 @@ export default async function AccountOrdersPage() {
                 </div>
               </div>
               <div className="flex flex-col gap-3 p-4">
-                {order.items.map((item, i) => (
-                  <div key={`${item.productId}-${i}`} className="flex items-center gap-3">
-                    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
-                      <Image src={item.image} alt="" fill sizes="56px" className="object-cover" />
+                {order.items.map((item, i) => {
+                  const isReturnable =
+                    !!item.id &&
+                    item.source === "self" &&
+                    (order.fulfillmentStatus === "shipped" || order.fulfillmentStatus === "delivered");
+                  const existingReturn = item.id ? returnsByItem.get(item.id) : undefined;
+                  return (
+                    <div key={`${item.productId}-${i}`} className="flex items-center gap-3">
+                      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
+                        <Image src={item.image} alt="" fill sizes="56px" className="object-cover" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm text-foreground">{item.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Qty {item.quantity} × {formatPrice(item.price)}
+                        </p>
+                      </div>
+                      {isReturnable &&
+                        (existingReturn ? (
+                          <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                            {RETURN_STATUS_LABEL[existingReturn.status]}
+                          </span>
+                        ) : (
+                          <ReturnItemButton orderItemId={item.id!} productTitle={item.title} />
+                        ))}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-foreground">{item.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Qty {item.quantity} × {formatPrice(item.price)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {(order.trackingNumber || order.cjTrackingNumber) && (
                   <div className="flex flex-col gap-1 rounded-md bg-muted/40 px-3 py-2 text-xs">
                     {order.trackingNumber && (
