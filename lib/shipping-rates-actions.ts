@@ -28,14 +28,18 @@ export interface ShippingTotalsPreview {
  * before a charge is created, this is only for showing an accurate total
  * as the customer picks between rates.
  */
-export async function previewShippingTotalsAction(shippingRateId: string, promoCode?: string): Promise<ShippingTotalsPreview> {
+export async function previewShippingTotalsAction(
+  shippingRateId: string,
+  state: string,
+  promoCode?: string
+): Promise<ShippingTotalsPreview> {
   const session = await auth();
   if (!session?.user?.id) return { error: "Sign in to check out." };
 
   const cart = await getCart();
   if (cart.items.length === 0) return { error: "Your cart is empty." };
 
-  const rate = await getShippingRateById(shippingRateId);
+  const rate = await getShippingRateById(shippingRateId, state, cart.subtotal);
   const shippingOverride = rate?.rate;
 
   if (promoCode?.trim()) {

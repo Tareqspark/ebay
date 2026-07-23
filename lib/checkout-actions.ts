@@ -3,7 +3,7 @@
 import { auth } from "@/auth";
 import { getCart } from "@/lib/cart";
 import { computeTotals, computeTotalsWithDiscount } from "@/lib/checkout";
-import { validatePromoForCheckout } from "@/lib/promo";
+import { validatePromoForCheckout, reservePromoUsage } from "@/lib/promo";
 import { getLoyaltyStatus } from "@/lib/loyalty";
 import { getShippingRateById } from "@/lib/shipping-rates";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
@@ -48,12 +48,15 @@ export async function createPaymentIntentAction(
 
   // Re-validated here, independent of whatever the client showed — this is
   // the step that actually commits to a charge amount. A chosen carrier
-  // rate is re-looked-up by ID (never trusted as a raw dollar figure);
-  // falls back to the flat rate if none was chosen or it's no longer valid.
+  // rate is re-looked-up by ID against THIS address's zone and THIS cart's
+  // subtotal (never trusted as a raw dollar figure, and never accepted
+  // just because the ID is active — it must still be the correct rate for
+  // this specific destination/order value); falls back to the flat rate
+  // if none was chosen or it no longer matches.
   let shippingOverride: number | undefined;
   let appliedShippingRateId: string | undefined;
   if (shippingRateId) {
-    const rate = await getShippingRateById(shippingRateId);
+    const rate = await getShippingRateById(shippingRateId, address.state, cart.subtotal);
     if (rate) {
       shippingOverride = rate.rate;
       appliedShippingRateId = rate.id;
@@ -69,6 +72,19 @@ export async function createPaymentIntentAction(
   if (promoCode?.trim()) {
     const outcome = await validatePromoForCheckout(promoCode, session.user.id, cart.subtotal);
     if ("error" in outcome) return { error: outcome.error };
+    // Claims the usage slot atomically right here, at the point a charge is
+    // actually about to be created — validatePromoForCheckout's check alone
+    // can't stop two concurrent checkouts both passing it before either
+    // increments anything (see reservePromoUsage's doc comment).
+    const reserved = await reservePromoUsage(outcome.promo.id);
+    if (!reserved) {
+      return {
+        error:
+          outcome.promo.usageLimit === 1
+            ? "This promo code has already been used"
+            : "This promo code just reached its usage limit",
+      };
+    }
     total = computeTotalsWithDiscount(
       cart.subtotal,
       { discountType: outcome.promo.discountType, discountPercent: outcome.promo.discountPercent, discountAmountCents: outcome.promo.discountAmountCents },

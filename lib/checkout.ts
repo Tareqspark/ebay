@@ -1,5 +1,5 @@
 import "server-only";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { orders, orderItems, cartItems, payments, promoCodes, promoRedemptions } from "@/db/schema";
 import { newId } from "@/lib/id";
@@ -151,7 +151,7 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
   let shippingMethod: string | null = null;
   let shippingOverride: number | undefined;
   if (shippingRateIdFromMetadata) {
-    const rate = await getShippingRateById(shippingRateIdFromMetadata);
+    const rate = await getShippingRateById(shippingRateIdFromMetadata, address.state ?? "", subtotal);
     if (rate) {
       shippingOverride = rate.rate;
       shippingMethod = rate.carrierName ? `${rate.carrierName} — ${rate.method}` : rate.method;
@@ -229,6 +229,10 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
   });
 
   if (promoRow) {
+    // The usage slot was already atomically claimed in
+    // createPaymentIntentAction (lib/promo.ts's reservePromoUsage) — by now
+    // payment has succeeded, so this only records who redeemed it, not
+    // whether they were allowed to.
     await db.insert(promoRedemptions).values({
       id: newId(),
       promoCodeId: promoRow.id,
@@ -237,7 +241,6 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
       orderId,
       discountCents: toCents(discount),
     });
-    await db.update(promoCodes).set({ usageCount: sql`${promoCodes.usageCount} + 1` }).where(eq(promoCodes.id, promoRow.id));
   }
 
   await clearCartById(cartId);

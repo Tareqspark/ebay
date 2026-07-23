@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { returns, orders } from "@/db/schema";
+import { returns, orders, orderItems } from "@/db/schema";
 import { getStripe } from "@/lib/stripe";
 import { toDollars } from "@/lib/money";
 import { getAdminActorName } from "@/lib/admin/auth";
@@ -23,9 +23,25 @@ function revalidateReturnViews() {
 /**
  * Issues a real (partial) Stripe refund when the order has a stored
  * PaymentIntent and Stripe is configured — same graceful-degradation
- * pattern as refundOrderAction. Marks the order partially_refunded rather
- * than refunded, since a return covers one line item, not necessarily
- * the whole order.
+ * pattern as refundOrderAction. Marks the order partially_refunded, unless
+ * every line item on the order now has a refunded return, in which case
+ * it's fully refunded — a real distinction, not cosmetic: lib/loyalty.ts's
+ * lifetime-spend calculation treats "refunded" orders as $0 spend and
+ * excludes them entirely, while "partially_refunded" nets out only the
+ * actual refunded amount. Leaving every returned order stuck at
+ * "partially_refunded" meant a customer who returned 100% of an order
+ * still kept full loyalty credit for it forever.
+ *
+ * Completeness is measured by item count, not by comparing dollar
+ * totals — refundAmountCents is already discount-proportioned (see
+ * requestReturnAction), so summing it and comparing against the order's
+ * raw, undiscounted subtotal would almost never reach "fully returned"
+ * whenever any order-level discount applied, and per-item rounding on
+ * that proportion could make it miss by a cent even without one. A
+ * mixed self+CJ order can never register as fully returned this way
+ * either, correctly — CJ items aren't returnable through this flow at
+ * all (see requestReturnAction), so the order still has real value
+ * outstanding until those are resolved through the CJ dispute flow.
  */
 export async function approveReturnAction(returnId: string): Promise<ReturnActionResult> {
   const [ret] = await db.select().from(returns).where(eq(returns.id, returnId)).limit(1);
@@ -46,7 +62,20 @@ export async function approveReturnAction(returnId: string): Promise<ReturnActio
   }
 
   await db.update(returns).set({ status: "refunded" }).where(eq(returns.id, returnId));
-  await db.update(orders).set({ paymentStatus: "partially_refunded" }).where(eq(orders.id, ret.orderId));
+
+  const [[{ totalItems }], [{ refundedItems }]] = await Promise.all([
+    db.select({ totalItems: sql<string>`COUNT(*)` }).from(orderItems).where(eq(orderItems.orderId, ret.orderId)),
+    db
+      .select({ refundedItems: sql<string>`COUNT(*)` })
+      .from(returns)
+      .where(and(eq(returns.orderId, ret.orderId), eq(returns.status, "refunded"))),
+  ]);
+  const isFullyReturned = Number(refundedItems) >= Number(totalItems);
+
+  await db
+    .update(orders)
+    .set({ paymentStatus: isFullyReturned ? "refunded" : "partially_refunded" })
+    .where(eq(orders.id, ret.orderId));
 
   const actor = await getAdminActorName();
   await logActivity(

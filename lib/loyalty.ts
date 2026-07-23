@@ -1,7 +1,7 @@
 import "server-only";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { orders } from "@/db/schema";
+import { orders, returns } from "@/db/schema";
 import { toDollars } from "@/lib/money";
 
 /**
@@ -44,16 +44,36 @@ export interface LoyaltyStatus {
 
 // Orders that were paid and stayed paid (or partially so) count toward
 // lifetime spend — a fully refunded or never-paid order shouldn't buy tier
-// progress.
+// progress. "partially_refunded" still nets out whatever was actually
+// returned (below) rather than counting the order's full original total —
+// otherwise a partial return wouldn't reduce lifetime spend at all, and a
+// customer could buy big, return most of it, and keep the tier credit for
+// value they got back.
 const SPEND_COUNTING_STATUSES = ["paid", "partially_refunded"] as const;
 
 export async function getLoyaltyStatus(userId: string): Promise<LoyaltyStatus> {
-  const rows = await db
-    .select({ totalCents: orders.totalCents })
+  const orderRows = await db
+    .select({ id: orders.id, totalCents: orders.totalCents })
     .from(orders)
     .where(and(eq(orders.userId, userId), inArray(orders.paymentStatus, SPEND_COUNTING_STATUSES)));
 
-  const lifetimeSpend = toDollars(rows.reduce((sum, r) => sum + r.totalCents, 0));
+  const orderIds = orderRows.map((o) => o.id);
+  const refundedByOrder = new Map<string, number>();
+  if (orderIds.length > 0) {
+    const refundRows = await db
+      .select({ orderId: returns.orderId, refundAmountCents: returns.refundAmountCents })
+      .from(returns)
+      .where(and(inArray(returns.orderId, orderIds), eq(returns.status, "refunded")));
+    for (const r of refundRows) {
+      refundedByOrder.set(r.orderId, (refundedByOrder.get(r.orderId) ?? 0) + r.refundAmountCents);
+    }
+  }
+
+  const lifetimeSpendCents = orderRows.reduce(
+    (sum, o) => sum + Math.max(0, o.totalCents - (refundedByOrder.get(o.id) ?? 0)),
+    0
+  );
+  const lifetimeSpend = toDollars(lifetimeSpendCents);
   const tier = tierForSpend(lifetimeSpend);
   const tierIndex = LOYALTY_TIERS.indexOf(tier);
   const next = LOYALTY_TIERS[tierIndex + 1];

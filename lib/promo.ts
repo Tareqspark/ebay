@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { promoCodes, promoRedemptions } from "@/db/schema";
 import { computeTotalsWithDiscount } from "@/lib/checkout";
@@ -55,4 +55,28 @@ export async function validatePromoForCheckout(
 
   const { discount, shipping, tax, total } = computeTotalsWithDiscount(subtotal, promo);
   return { promo, result: { code: promo.code, discount, shipping, tax, total } };
+}
+
+/**
+ * Atomically claims one usage slot — the WHERE clause re-checks the limit
+ * in the same UPDATE that increments it, so two concurrent checkouts for
+ * the same limited-use code can't both read usageCount as "under the
+ * limit" and both succeed (validatePromoForCheckout's check alone can't
+ * prevent this: two requests can both pass it before either has
+ * incremented anything). Call this from createPaymentIntentAction, right
+ * before creating the PaymentIntent — that's the actual money-committing
+ * step, not order creation, which by then just describes what already
+ * happened. affectedRows === 0 means someone else claimed the last slot
+ * in between validation and this call.
+ *
+ * Trade-off: a slot claimed here is not released if the customer abandons
+ * checkout before paying, same as a "held" ticket/seat — accepted rather
+ * than building expiring reservations for this project's scale.
+ */
+export async function reservePromoUsage(promoId: string): Promise<boolean> {
+  const [result] = await db
+    .update(promoCodes)
+    .set({ usageCount: sql`${promoCodes.usageCount} + 1` })
+    .where(and(eq(promoCodes.id, promoId), or(isNull(promoCodes.usageLimit), lt(promoCodes.usageCount, promoCodes.usageLimit))));
+  return result.affectedRows > 0;
 }

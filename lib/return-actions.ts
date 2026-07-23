@@ -48,7 +48,18 @@ export async function requestReturnAction(orderItemId: string, reason: ReturnRea
     .limit(1);
   if (existing) return { error: "A return has already been requested for this item" };
 
-  const refundAmountCents = item.priceCents * item.quantity;
+  // Refund the item's proportional share of what was actually paid, not
+  // its raw undiscounted price — an order-level discount (promo code,
+  // loyalty tier, or bundle) reduces every line item's effective price
+  // together, so a returned item should give back less than its sticker
+  // price if the order got a discount. Verified via QA: without this,
+  // returning one item from a 20%-off order refunded the full pre-discount
+  // price, overpaying the customer by the discount amount.
+  const itemLineTotalCents = item.priceCents * item.quantity;
+  const orderDiscountCents = order.discountCents + order.bundleDiscountCents;
+  const proportionalDiscountCents =
+    order.subtotalCents > 0 ? Math.round((itemLineTotalCents / order.subtotalCents) * orderDiscountCents) : 0;
+  const refundAmountCents = Math.max(0, itemLineTotalCents - proportionalDiscountCents);
 
   await db.insert(returns).values({
     id: newId(),

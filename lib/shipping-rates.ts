@@ -75,10 +75,22 @@ export interface ResolvedShippingRate {
   rate: number;
 }
 
-/** Re-derived fresh at PaymentIntent-creation and order-creation time — never trusted from the client. */
-export async function getShippingRateById(id: string): Promise<ResolvedShippingRate | null> {
+/**
+ * Re-derived fresh at PaymentIntent-creation and order-creation time —
+ * never trusted from the client. Requires the destination state and order
+ * subtotal so a rate ID alone can't be replayed for a zone or order value
+ * it was never actually offered for — a rate that's active but doesn't
+ * match this specific destination/subtotal is treated as not found, same
+ * as one that's disabled or deleted.
+ */
+export async function getShippingRateById(id: string, state: string, subtotal: number): Promise<ResolvedShippingRate | null> {
   const [row] = await db.select().from(shippingRates).where(eq(shippingRates.id, id)).limit(1);
   if (!row || row.status !== "active") return null;
+  if (row.zone !== resolveShippingZone(state)) return null;
+
+  const subtotalCents = toCents(subtotal);
+  if (row.minSubtotalCents != null && subtotalCents < row.minSubtotalCents) return null;
+  if (row.maxSubtotalCents != null && subtotalCents > row.maxSubtotalCents) return null;
 
   let carrierName: string | undefined;
   if (row.carrierId) {

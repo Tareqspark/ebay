@@ -81,14 +81,14 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals, loyaltyDiscou
       return;
     }
     let cancelled = false;
-    previewShippingTotalsAction(selectedRateId, applied?.code).then((result) => {
+    previewShippingTotalsAction(selectedRateId, addressState, applied?.code).then((result) => {
       if (cancelled || result.error) return;
       setShippingPreview({ shipping: result.shipping!, tax: result.tax!, total: result.total!, discount: result.discount! });
     });
     return () => {
       cancelled = true;
     };
-  }, [selectedRateId, applied?.code]);
+  }, [selectedRateId, addressState, applied?.code]);
 
   function handleApplyPromo() {
     if (!promoInput.trim()) return;
