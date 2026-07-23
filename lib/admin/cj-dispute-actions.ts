@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { cjDisputes } from "@/db/schema";
+import { submitCjDispute } from "@/lib/cj-provider";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
 import type { CjDisputeStatus } from "@/lib/admin/cj-types";
@@ -24,11 +25,17 @@ async function setDisputeStatus(disputeId: string, status: CjDisputeStatus, acti
   return {};
 }
 
-/** requestedResolution decides which of the two "resolved_*" statuses this dispute moves to — mirrors what the customer/CJ actually asked for. */
+/**
+ * requestedResolution decides which of the two "resolved_*" statuses this
+ * dispute moves to — mirrors what the customer/CJ actually asked for.
+ * Routed through lib/cj-provider.ts (mocked at the external-API boundary,
+ * same as the rest of this admin console's CJ integration).
+ */
 export async function resolveCjDisputeAction(
   disputeId: string,
   resolution: "resolved_reship" | "resolved_refund"
 ): Promise<CjDisputeActionResult> {
+  await submitCjDispute(disputeId, resolution === "resolved_reship" ? "reshipment" : "refund");
   return setDisputeStatus(
     disputeId,
     resolution,

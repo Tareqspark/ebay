@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { orders, payments } from "@/db/schema";
 import { getStripe } from "@/lib/stripe";
 import { generateTrackingNumber } from "@/lib/shipping-provider";
+import { pushOrderToCj } from "@/lib/cj-provider";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
 
@@ -78,12 +79,13 @@ export async function refundOrderAction(orderId: string, orderNumber: string): P
 }
 
 /**
- * Pushing to CJ is mocked at the external-API boundary (there's no live
- * CJdropshipping integration) but the DB write and audit trail are real —
- * matches the hybrid-sourcing model documented in CLAUDE.md/PRODUCT.md.
+ * Routed through lib/cj-provider.ts, which is mocked at the external-API
+ * boundary (there's no live CJdropshipping integration) but the DB write
+ * and audit trail are real — matches the hybrid-sourcing model documented
+ * in CLAUDE.md/PRODUCT.md.
  */
 export async function pushOrderToCjAction(orderId: string, orderNumber: string): Promise<OrderActionResult> {
-  const cjOrderId = `CJO-${Math.floor(Math.random() * 9000000 + 1000000)}`;
+  const { cjOrderId } = await pushOrderToCj(orderId);
   await db.update(orders).set({ cjSyncStatus: "queued", cjOrderId }).where(eq(orders.id, orderId));
 
   const actor = await getAdminActorName();

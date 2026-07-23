@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { StatusBadge } from "@/components/admin/shared/status-badge";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { formatDate } from "@/lib/admin/format";
+import { submitSourcingRequestAction } from "@/lib/admin/cj-sourcing-actions";
 import type { CjSourcingRequest } from "@/lib/admin/cj-types";
 
 export function CjSourcingRequests({ initialRequests }: { initialRequests: CjSourcingRequest[] }) {
@@ -16,25 +17,33 @@ export function CjSourcingRequests({ initialRequests }: { initialRequests: CjSou
   const [productName, setProductName] = useState("");
   const [referenceUrl, setReferenceUrl] = useState("");
   const [notes, setNotes] = useState("");
+  const [isPending, startTransition] = useTransition();
 
   function submit() {
     if (!productName.trim()) {
       toast.error("Product name is required");
       return;
     }
-    const request: CjSourcingRequest = {
-      id: `src-${Date.now()}`,
-      productName: productName.trim(),
-      referenceUrl: referenceUrl.trim() || undefined,
-      notes: notes.trim(),
-      status: "submitted",
-      submittedAt: new Date().toISOString(),
-    };
-    setRequests((prev) => [request, ...prev]);
-    setProductName("");
-    setReferenceUrl("");
-    setNotes("");
-    toast.success("Sourcing request submitted to CJdropshipping");
+    startTransition(async () => {
+      const result = await submitSourcingRequestAction(productName, referenceUrl, notes);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      const request: CjSourcingRequest = {
+        id: crypto.randomUUID(),
+        productName: productName.trim(),
+        referenceUrl: referenceUrl.trim() || undefined,
+        notes: notes.trim(),
+        status: "submitted",
+        submittedAt: new Date().toISOString(),
+      };
+      setRequests((prev) => [request, ...prev]);
+      setProductName("");
+      setReferenceUrl("");
+      setNotes("");
+      toast.success("Sourcing request submitted to CJdropshipping");
+    });
   }
 
   return (
@@ -62,9 +71,9 @@ export function CjSourcingRequests({ initialRequests }: { initialRequests: CjSou
           <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Specs, quantity, target cost, shipping requirements..." />
         </div>
         <div>
-          <Button size="sm" className="gap-1.5" onClick={submit}>
+          <Button size="sm" className="gap-1.5" onClick={submit} disabled={isPending}>
             <Plus className="h-3.5 w-3.5" />
-            Submit request
+            {isPending ? "Submitting..." : "Submit request"}
           </Button>
         </div>
       </div>

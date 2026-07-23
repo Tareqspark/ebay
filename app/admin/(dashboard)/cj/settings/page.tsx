@@ -4,17 +4,10 @@ import { KpiCard } from "@/components/admin/shared/kpi-card";
 import { CjTabs } from "@/components/admin/cj/cj-tabs";
 import { SettingsSection } from "@/components/admin/settings/settings-section";
 import { StatusBadge } from "@/components/admin/shared/status-badge";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { CjFulfillmentSettingsForm } from "@/components/admin/cj/cj-fulfillment-settings-form";
 import { formatDateTime, formatMoney } from "@/lib/admin/format";
 import { getCjIntegrationSettings, getCjShippingLines, getCjSourcingRequests } from "@/lib/admin/data";
+import { isCjConfigured } from "@/lib/cj-provider";
 
 export const metadata: Metadata = { title: "CJdropshipping Settings" };
 
@@ -26,7 +19,6 @@ export default async function AdminCjSettingsPage() {
     getCjShippingLines(),
     getCjSourcingRequests(),
   ]);
-  const shippingLineItems = Object.fromEntries(cjShippingLines.map((l) => [l.id, `${l.name} (${l.estimatedDays})`]));
 
   return (
     <div className="flex flex-col gap-4">
@@ -53,38 +45,22 @@ export default async function AdminCjSettingsPage() {
             <StatusBadge status={settings.connected ? "connected" : "disconnected"} />
           </div>
           <p className="text-xs text-muted-foreground">Last synced {formatDateTime(settings.lastSyncAt)}</p>
+          {!isCjConfigured() && (
+            <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+              No live CJ API connection configured (CJ_API_KEY unset) — push-to-CJ and dispute submission still write
+              real local records, but the actual CJ-side API call is simulated. Set CJ_API_KEY once a real
+              CJdropshipping developer account exists.
+            </p>
+          )}
         </SettingsSection>
 
         <SettingsSection title="Fulfillment defaults" description="How orders with CJ-sourced items are pushed and shipped">
-          <div className="flex items-center gap-2.5">
-            <Switch id="auto-push" defaultChecked={settings.autoPushOrders} />
-            <Label htmlFor="auto-push">Automatically push paid orders to CJ</Label>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label>Default shipping line</Label>
-            <Select defaultValue={settings.defaultShippingLineId} items={shippingLineItems}>
-              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {cjShippingLines.map((line) => (
-                  <SelectItem key={line.id} value={line.id}>
-                    {line.name} ({line.estimatedDays})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label>Sync frequency</Label>
-            <Select defaultValue={settings.syncFrequency} items={syncFrequencyItems}>
-              <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="15min">Every 15 minutes</SelectItem>
-                <SelectItem value="hourly">Hourly</SelectItem>
-                <SelectItem value="6h">Every 6 hours</SelectItem>
-                <SelectItem value="daily">Daily</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <CjFulfillmentSettingsForm
+            autoPushOrders={settings.autoPushOrders}
+            defaultShippingLineId={settings.defaultShippingLineId}
+            syncFrequency={settings.syncFrequency}
+            shippingLines={cjShippingLines}
+          />
         </SettingsSection>
 
         <SettingsSection title="Shipping lines" description="Available CJ shipping lines and their per-order cost">
