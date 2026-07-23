@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import type { ReactNode } from "react";
 import { asc } from "drizzle-orm";
+import Fuse from "fuse.js";
 import { db } from "@/db";
 import { categories as categoriesTable } from "@/db/schema";
 import { resolveCategoryIcon } from "@/lib/category-icons";
@@ -213,32 +214,64 @@ export async function flattenCategories(): Promise<FlatCategoryEntry[]> {
 }
 
 /**
- * Lightweight ranked search across the entire category tree, used for
+ * Name-only index (fresh per request — categories are admin-editable now;
+ * 1,652 nodes is cheap to index on every call). Deliberately NOT a
+ * multi-key index over name+breadcrumb: every descendant of, say,
+ * "Electronics" carries "Electronics" in its own breadcrumb, so a
+ * combined weighted score lets a category's own hundred-plus descendants
+ * collectively outscore the category itself for its own (mistyped) name —
+ * verified live where a search for "Electornics" dropped the actual
+ * "Electronics" node out of the top 15 entirely. Keeping name and
+ * breadcrumb as two separate, tiered passes (below) avoids that.
+ */
+const getCategoryNameIndex = cache(async (): Promise<Fuse<FlatCategoryEntry>> => {
+  const entries = await flattenCategories();
+  return new Fuse(entries, { keys: ["name"], threshold: 0.35, ignoreLocation: true, minMatchCharLength: 2, includeScore: true });
+});
+
+const levelRank = (level: CategoryLevel) => (level === "grandchild" ? 0 : level === "child" ? 1 : 2);
+
+/**
+ * Typo-tolerant ranked search across the entire category tree, used for
  * search-bar autocomplete and "suggested categories" panels. Server-only —
- * client components reach this through /api/categories/search.
+ * client components reach this through /api/categories/search. Two tiers,
+ * matching the pre-Fuse design: a name match always outranks a
+ * breadcrumb-only match (e.g. "shoes" surfacing "Athletic Shoes" by name
+ * before it surfaces every other category that merely lives under
+ * "Footwear"), and within a tier, a grandchild — the level products
+ * actually attach to — wins ties over a same-relevance parent category.
  */
 export async function searchCategories(query: string, limit = 8): Promise<CategorySearchResult[]> {
-  const trimmed = query.trim().toLowerCase();
+  const trimmed = query.trim();
   if (!trimmed) return [];
 
-  const scored: { entry: FlatCategoryEntry; score: number }[] = [];
-  for (const entry of await flattenCategories()) {
-    const name = entry.name.toLowerCase();
-    let score = -1;
-    if (name === trimmed) score = 100;
-    else if (name.startsWith(trimmed)) score = 80;
-    else if (name.includes(trimmed)) score = 60;
-    else if (entry.breadcrumb.some((b) => b.toLowerCase().includes(trimmed))) score = 30;
+  const nameIndex = await getCategoryNameIndex();
+  const nameMatches = nameIndex.search(trimmed, { limit: limit * 3 });
+  // Bucket scores into 0.05-wide steps before comparing — sorting by "close
+  // enough" score with a plain epsilon isn't a transitive relation (A≈B and
+  // B≈C doesn't imply A≈C), which silently corrupts Array.sort on anything
+  // past a handful of items. Rounding first makes equality a real
+  // equivalence class, so the level tiebreak only ever applies within a
+  // bucket, never smears across the whole result set.
+  nameMatches.sort((a, b) => {
+    const bucketA = Math.round((a.score ?? 0) * 20);
+    const bucketB = Math.round((b.score ?? 0) * 20);
+    if (bucketA !== bucketB) return bucketA - bucketB;
+    return levelRank(a.item.level) - levelRank(b.item.level);
+  });
 
-    if (score > 0) {
-      score += entry.level === "grandchild" ? 3 : entry.level === "child" ? 1 : 0;
-      scored.push({ entry, score });
-    }
+  const matched: FlatCategoryEntry[] = nameMatches.map((r) => r.item);
+
+  if (matched.length < limit) {
+    const matchedIds = new Set(matched.map((e) => e.id));
+    const needle = trimmed.toLowerCase();
+    const breadcrumbMatches = (await flattenCategories())
+      .filter((e) => !matchedIds.has(e.id) && e.breadcrumb.some((b) => b.toLowerCase().includes(needle)))
+      .sort((a, b) => levelRank(a.level) - levelRank(b.level));
+    matched.push(...breadcrumbMatches);
   }
 
-  scored.sort((a, b) => b.score - a.score || a.entry.name.length - b.entry.name.length);
-
-  return scored.slice(0, limit).map(({ entry }) => ({
+  return matched.slice(0, limit).map((entry) => ({
     id: entry.id,
     name: entry.name,
     href: entry.href,

@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
-import { eq, inArray, like } from "drizzle-orm";
+import Fuse from "fuse.js";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { products as productsTable } from "@/db/schema";
 import { getAllBrands, getBrandById } from "@/lib/brands";
@@ -68,14 +69,37 @@ export async function getProductsByIds(ids: string[]): Promise<Product[]> {
   return ids.map((id) => byId.get(id)).filter((p): p is Product => Boolean(p));
 }
 
+/**
+ * Typo-tolerant, ranked full-text search over the whole catalog — an
+ * in-process Fuse.js index built fresh from getAllProducts() on each call
+ * (that call is itself request-cached, so this is one extra pass over an
+ * already-cheap in-memory array, not a new DB round trip). Field weights
+ * mean a title match always outranks a description-only match; the
+ * threshold is loose enough to survive a one- or two-character typo
+ * without turning into a fuzzy-anything-goes match.
+ */
+const getProductSearchIndex = cache(async (): Promise<Fuse<Product>> => {
+  const products = await getAllProducts();
+  return new Fuse(products, {
+    keys: [
+      { name: "title", weight: 0.5 },
+      { name: "brandName", weight: 0.25 },
+      { name: "description", weight: 0.15 },
+      { name: "features", weight: 0.1 },
+    ],
+    threshold: 0.35,
+    ignoreLocation: true,
+    minMatchCharLength: 2,
+  });
+});
+
 export async function searchProducts(query: string, limit = 24): Promise<Product[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
-  const [rows, brandNameById] = await Promise.all([
-    db.select().from(productsTable).where(like(productsTable.title, `%${trimmed}%`)).limit(limit),
-    getBrandNameById(),
-  ]);
-  return rows.map((r) => toProduct(r, brandNameById));
+  const index = await getProductSearchIndex();
+  return index
+    .search(trimmed, { limit })
+    .map((result) => result.item);
 }
 
 /** Products whose category path starts with the given slug segments. */
