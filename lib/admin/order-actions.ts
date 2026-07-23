@@ -9,6 +9,7 @@ import { generateTrackingNumber } from "@/lib/shipping-provider";
 import { pushOrderToCj } from "@/lib/cj-provider";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
+import { logError } from "@/lib/error-log";
 
 function revalidateOrderViews() {
   revalidatePath("/admin/orders");
@@ -63,7 +64,7 @@ export async function refundOrderAction(orderId: string, orderNumber: string): P
     try {
       await stripe.refunds.create({ payment_intent: order.stripePaymentIntentId });
     } catch (err) {
-      console.error("[refundOrderAction] Stripe refund failed", err);
+      await logError(err, { source: "provider", label: "refundOrderAction" });
       return { error: "Stripe refund failed — order was not updated" };
     }
   }

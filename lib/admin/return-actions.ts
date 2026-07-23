@@ -9,6 +9,7 @@ import { toDollars } from "@/lib/money";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
 import { checkPlainText } from "@/lib/sanitize";
+import { logError } from "@/lib/error-log";
 
 export interface ReturnActionResult {
   error?: string;
@@ -56,7 +57,7 @@ export async function approveReturnAction(returnId: string): Promise<ReturnActio
     try {
       await stripe.refunds.create({ payment_intent: order.stripePaymentIntentId, amount: ret.refundAmountCents });
     } catch (err) {
-      console.error("[approveReturnAction] Stripe refund failed", err);
+      await logError(err, { source: "provider", label: "approveReturnAction" });
       return { error: "Stripe refund failed — return was not updated" };
     }
   }

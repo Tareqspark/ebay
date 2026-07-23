@@ -27,6 +27,7 @@ import {
   cjShippingLines as cjShippingLinesTable,
   cjIntegrationSettings as cjIntegrationSettingsTable,
   cjSourcingRequests as cjSourcingRequestsTable,
+  errorLogs as errorLogsTable,
 } from "@/db/schema";
 import { toCents, toDollars } from "@/lib/money";
 import type { Product, Brand } from "@/lib/types";
@@ -559,6 +560,35 @@ export const getAnnouncements = cache(async (): Promise<Announcement[]> => {
 export const getSystemComponents = cache(async (): Promise<SystemComponent[]> => {
   const rows = await db.select().from(systemComponentsTable);
   return rows.map((s) => ({ id: s.id, name: s.name, status: s.status, latencyMs: s.latencyMs, uptimePercent: Number(s.uptimePercent) }));
+});
+
+// ---------------------------------------------------------------------------
+// Error tracking
+// ---------------------------------------------------------------------------
+
+export interface AdminErrorLogRow {
+  id: string;
+  source: (typeof errorLogsTable.$inferSelect)["source"];
+  label: string;
+  message: string;
+  stack: string | null;
+  url: string | null;
+  resolved: boolean;
+  createdAt: string;
+}
+
+export const getErrorLogs = cache(async (): Promise<AdminErrorLogRow[]> => {
+  const rows = await db.select().from(errorLogsTable).orderBy(desc(errorLogsTable.createdAt)).limit(300);
+  return rows.map((r) => ({
+    id: r.id,
+    source: r.source,
+    label: r.label,
+    message: r.message,
+    stack: r.stack,
+    url: r.url,
+    resolved: r.resolved,
+    createdAt: r.createdAt.toISOString(),
+  }));
 });
 
 // ---------------------------------------------------------------------------

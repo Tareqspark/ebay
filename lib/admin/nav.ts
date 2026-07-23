@@ -139,6 +139,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
           { label: "SEO & Domains", href: "/admin/settings/seo" },
           { label: "Security & API", href: "/admin/settings/security" },
           { label: "Logs", href: "/admin/settings/logs" },
+          { label: "Error Logs", href: "/admin/settings/errors" },
         ],
       },
     ],

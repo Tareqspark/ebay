@@ -472,6 +472,35 @@ export const activityEvents = mysqlTable("activity_events", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// ---------------------------------------------------------------------------
+// Error tracking — a real internal error log rather than a third-party APM
+// integration, since a Sentry-class tool needs a real account/DSN to be
+// more than an inert dependency (same reasoning as Stripe/SendGrid/CJ
+// degrading gracefully without credentials). This is genuinely functional
+// today: server-side failures and client-side render errors both land
+// here and show up in /admin/settings/errors.
+// ---------------------------------------------------------------------------
+
+export const errorLogSource = ["server-action", "route-handler", "render-boundary", "provider"] as const;
+
+export const errorLogs = mysqlTable(
+  "error_logs",
+  {
+    id: varchar("id", { length: 191 }).primaryKey(),
+    source: mysqlEnum("source", errorLogSource).notNull(),
+    // Free-text tag naming where it came from (e.g. "approveReturnAction",
+    // "global-error", "cj-provider") — not an enum, since call sites are
+    // added incrementally and shouldn't require a schema change each time.
+    label: varchar("label", { length: 191 }).notNull(),
+    message: text("message").notNull(),
+    stack: text("stack"),
+    url: varchar("url", { length: 512 }),
+    resolved: boolean("resolved").notNull().default(false),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [index("error_logs_created_at_idx").on(table.createdAt), index("error_logs_resolved_idx").on(table.resolved)]
+);
+
 export const announcementLevel = ["info", "success", "warning"] as const;
 
 export const announcements = mysqlTable("announcements", {
