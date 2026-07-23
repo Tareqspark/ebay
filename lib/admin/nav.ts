@@ -6,6 +6,7 @@ import {
   CreditCard,
   FileText,
   FolderTree,
+  Gift,
   Home,
   Layers,
   Megaphone,
@@ -69,6 +70,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { label: "Inventory", href: "/admin/inventory", icon: Warehouse },
       { label: "Categories", href: "/admin/categories", icon: FolderTree },
       { label: "Collections", href: "/admin/collections", icon: Layers },
+      { label: "Bundles", href: "/admin/bundles", icon: Gift },
     ],
   },
   {

@@ -132,8 +132,14 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals, loyaltyDiscou
 
           <div className="flex justify-between text-muted-foreground">
             <span>Subtotal</span>
-            <span className="tabular-nums text-foreground">{formatPrice(cart.subtotal)}</span>
+            <span className="tabular-nums text-foreground">{formatPrice(cart.subtotal + cart.bundleDiscount)}</span>
           </div>
+          {cart.bundleDiscount > 0 && (
+            <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
+              <span>Bundle savings</span>
+              <span className="tabular-nums">-{formatPrice(cart.bundleDiscount)}</span>
+            </div>
+          )}
           {discount > 0 && (
             <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
               <span>Discount</span>

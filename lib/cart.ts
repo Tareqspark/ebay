@@ -9,6 +9,7 @@ import { auth } from "@/auth";
 import { getProductsByIds } from "@/lib/products";
 import type { Product } from "@/lib/types";
 import { revalidatePath } from "next/cache";
+import { computeBundleAdjustedSubtotal } from "@/lib/bundles";
 
 const GUEST_COOKIE = "baruashop_guest_cart";
 
@@ -23,6 +24,8 @@ export interface CartSummary {
   items: CartLine[];
   itemCount: number;
   subtotal: number;
+  bundleDiscount: number;
+  appliedBundles: { id: string; name: string; discount: number }[];
 }
 
 async function getOrCreateCartId(): Promise<string> {
@@ -73,7 +76,7 @@ export async function peekCart(): Promise<CartSummary> {
     }
   }
 
-  if (!cartId) return { cartId: null, items: [], itemCount: 0, subtotal: 0 };
+  if (!cartId) return { cartId: null, items: [], itemCount: 0, subtotal: 0, bundleDiscount: 0, appliedBundles: [] };
   return buildSummary(cartId);
 }
 
@@ -91,9 +94,11 @@ async function buildSummary(cartId: string): Promise<CartSummary> {
     .filter((line): line is CartLine => line !== null);
 
   const itemCount = items.reduce((sum, line) => sum + line.quantity, 0);
-  const subtotal = Math.round(items.reduce((sum, line) => sum + line.product.price * line.quantity, 0) * 100) / 100;
+  const { subtotal, bundleDiscount, appliedBundles } = await computeBundleAdjustedSubtotal(
+    items.map((line) => ({ productId: line.product.id, quantity: line.quantity, price: line.product.price }))
+  );
 
-  return { cartId, items, itemCount, subtotal };
+  return { cartId, items, itemCount, subtotal, bundleDiscount, appliedBundles };
 }
 
 export async function getCart(): Promise<CartSummary> {

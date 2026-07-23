@@ -13,6 +13,7 @@ import { orderConfirmationEmail } from "@/lib/email-templates";
 import { decrementInventoryForProduct } from "@/lib/inventory";
 import { logActivity } from "@/lib/admin/activity";
 import { getTierByName } from "@/lib/loyalty";
+import { computeBundleAdjustedSubtotal } from "@/lib/bundles";
 
 export const TAX_RATE = 0.0825;
 export const FREE_SHIPPING_THRESHOLD = 50;
@@ -133,7 +134,9 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
     )
   ).filter((x): x is NonNullable<typeof x> => x !== null);
 
-  const subtotal = Math.round(lineItems.reduce((sum, item) => sum + item.price * item.quantity, 0) * 100) / 100;
+  const { subtotal, bundleDiscount } = await computeBundleAdjustedSubtotal(
+    lineItems.map((item) => ({ productId: item.productId, quantity: item.quantity, price: item.price }))
+  );
 
   let promoRow: typeof promoCodes.$inferSelect | null = null;
   let loyaltyTier: string | null = null;
@@ -175,6 +178,7 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
     totalCents: toCents(total),
     promoCode: promoRow?.code ?? null,
     loyaltyTier,
+    bundleDiscountCents: toCents(bundleDiscount),
     discountCents: toCents(discount),
     paymentMethod: "card",
     stripePaymentIntentId: paymentIntentId,

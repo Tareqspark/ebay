@@ -78,8 +78,14 @@ export function CartView() {
         <div className="mt-3 flex flex-col gap-2 text-sm">
           <div className="flex justify-between text-muted-foreground">
             <span>Subtotal ({cart.itemCount} items)</span>
-            <span className="tabular-nums text-foreground">{formatPrice(cart.subtotal)}</span>
+            <span className="tabular-nums text-foreground">{formatPrice(cart.subtotal + cart.bundleDiscount)}</span>
           </div>
+          {cart.bundleDiscount > 0 && (
+            <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
+              <span>Bundle savings{cart.appliedBundles.length === 1 ? ` (${cart.appliedBundles[0].name})` : ""}</span>
+              <span className="tabular-nums">-{formatPrice(cart.bundleDiscount)}</span>
+            </div>
+          )}
           <div className="flex justify-between text-muted-foreground">
             <span>Shipping</span>
             <span>{cart.subtotal >= 50 ? "Free" : "Calculated at checkout"}</span>

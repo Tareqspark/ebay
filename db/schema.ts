@@ -117,6 +117,9 @@ export const orders = mysqlTable(
     // tier discount and a manually-entered promo code never stack, so at
     // most one of these two columns is ever set per order.
     loyaltyTier: varchar("loyalty_tier", { length: 40 }),
+    // Separate from discountCents (promo/loyalty) since a bundle discount
+    // stacks with those rather than competing — see lib/bundles.ts.
+    bundleDiscountCents: int("bundle_discount_cents").notNull().default(0),
     paymentMethod: varchar("payment_method", { length: 60 }).notNull().default("card"),
     stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 191 }),
     // Fulfillment tracking — set by admin ops after the order is placed, not
@@ -627,6 +630,43 @@ export const promoRedemptions = mysqlTable(
     // Hard backstop for "a customer can't use a code more than once" —
     // enforced at the DB level, not just in application code.
     unique("promo_redemptions_code_user_unique").on(table.promoCodeId, table.userId),
+  ]
+);
+
+// ---------------------------------------------------------------------------
+// Bundle pricing — "buy these together, save X" admin-managed sets. Unlike
+// promo codes (typed in) or loyalty tiers (account-wide), a bundle discount
+// applies automatically whenever the cart contains every product in an
+// active bundle, computed as part of the subtotal itself (lib/bundles.ts)
+// so it stacks with a promo code or loyalty discount rather than competing
+// with them the way those two compete with each other.
+// ---------------------------------------------------------------------------
+
+export const bundleDiscountType = ["percent", "fixed"] as const;
+export const bundleStatus = ["active", "draft"] as const;
+
+export const bundles = mysqlTable("bundles", {
+  id: varchar("id", { length: 191 }).primaryKey(),
+  name: varchar("name", { length: 191 }).notNull(),
+  description: text("description"),
+  discountType: mysqlEnum("discount_type", bundleDiscountType).notNull(),
+  discountPercent: int("discount_percent"),
+  discountAmountCents: int("discount_amount_cents"),
+  status: mysqlEnum("status", bundleStatus).notNull().default("draft"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const bundleItems = mysqlTable(
+  "bundle_items",
+  {
+    id: varchar("id", { length: 191 }).primaryKey(),
+    bundleId: varchar("bundle_id", { length: 191 }).notNull(),
+    productId: varchar("product_id", { length: 191 }).notNull(),
+  },
+  (table) => [
+    index("bundle_items_bundle_id_idx").on(table.bundleId),
+    index("bundle_items_product_id_idx").on(table.productId),
+    unique("bundle_items_bundle_product_unique").on(table.bundleId, table.productId),
   ]
 );
 

@@ -10,10 +10,12 @@ import { AddToCart } from "@/components/product/add-to-cart";
 import { RecordRecentlyViewed } from "@/components/product/record-recently-viewed";
 import { ProductRail } from "@/components/product/product-rail";
 import { ReviewsSection } from "@/components/product/reviews-section";
+import { BundlePromo } from "@/components/product/bundle-promo";
 import { auth } from "@/auth";
-import { getProductBySlug, getRelatedProducts } from "@/lib/products";
+import { getProductBySlug, getRelatedProducts, getProductsByIds } from "@/lib/products";
 import { resolveCategoryPath } from "@/lib/category-utils";
 import { recordProductView } from "@/lib/product-views";
+import { getActiveBundlesForProduct } from "@/lib/bundles";
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -42,6 +44,16 @@ export default async function ProductPage({ params }: ProductPageProps) {
   if (session?.user?.id) {
     await recordProductView(session.user.id, product.id, product.categorySlugPath[0]);
   }
+
+  const activeBundles = await getActiveBundlesForProduct(product.id);
+  const bundle = activeBundles[0];
+  const bundleProducts = bundle ? await getProductsByIds(bundle.productIds) : [];
+  const bundleRegularPrice = Math.round(bundleProducts.reduce((sum, p) => sum + p.price, 0) * 100) / 100;
+  const bundleDiscountAmount =
+    bundle?.discountType === "percent" && bundle.discountPercent
+      ? Math.round(bundleRegularPrice * (bundle.discountPercent / 100) * 100) / 100
+      : (bundle?.discountAmount ?? 0);
+  const bundlePrice = Math.round((bundleRegularPrice - bundleDiscountAmount) * 100) / 100;
 
   return (
     <div className="mx-auto flex max-w-[1440px] flex-col gap-10 px-4 py-6 sm:px-6 sm:py-8">
@@ -91,6 +103,15 @@ export default async function ProductPage({ params }: ProductPageProps) {
           </div>
 
           <AddToCart productId={product.id} inStock={product.stock > 0} />
+
+          {bundle && bundleProducts.length >= 2 && (
+            <BundlePromo
+              bundleName={bundle.name}
+              products={bundleProducts.map((p) => ({ id: p.id, slug: p.slug, title: p.title, image: p.images[0], price: p.price }))}
+              bundlePrice={bundlePrice}
+              regularPrice={bundleRegularPrice}
+            />
+          )}
 
           {product.features.length > 0 && (
             <div>
