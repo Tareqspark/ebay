@@ -9,6 +9,7 @@ import { toCents } from "@/lib/money";
 import { checkPlainText } from "@/lib/sanitize";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
+import { requirePermission } from "@/lib/admin/permissions";
 import type { BundleDiscountType, BundleStatus } from "@/lib/admin/bundles";
 
 export interface BundleActionResult {
@@ -47,6 +48,9 @@ function revalidateBundleViews() {
 }
 
 export async function createBundleAction(input: BundleInput): Promise<BundleActionResult> {
+  const guard = await requirePermission("bundles");
+  if (guard) return guard;
+
   const error = validateInput(input);
   if (error) return { error };
   const name = input.name.trim();
@@ -70,6 +74,9 @@ export async function createBundleAction(input: BundleInput): Promise<BundleActi
 }
 
 export async function updateBundleAction(id: string, input: BundleInput): Promise<BundleActionResult> {
+  const guard = await requirePermission("bundles");
+  if (guard) return guard;
+
   const error = validateInput(input);
   if (error) return { error };
   const name = input.name.trim();
@@ -96,6 +103,9 @@ export async function updateBundleAction(id: string, input: BundleInput): Promis
 }
 
 export async function deleteBundleAction(id: string, name: string): Promise<BundleActionResult> {
+  const guard = await requirePermission("bundles");
+  if (guard) return guard;
+
   await db.delete(bundleItems).where(eq(bundleItems.bundleId, id));
   await db.delete(bundles).where(eq(bundles.id, id));
 

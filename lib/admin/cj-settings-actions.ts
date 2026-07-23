@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { cjIntegrationSettings } from "@/db/schema";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
+import { requirePermission } from "@/lib/admin/permissions";
 
 export interface CjSettingsActionResult {
   error?: string;
@@ -18,6 +19,9 @@ export interface CjFulfillmentSettingsInput {
 }
 
 export async function updateCjFulfillmentSettingsAction(input: CjFulfillmentSettingsInput): Promise<CjSettingsActionResult> {
+  const guard = await requirePermission("cj");
+  if (guard) return guard;
+
   await db
     .update(cjIntegrationSettings)
     .set({

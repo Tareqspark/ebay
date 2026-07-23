@@ -8,6 +8,7 @@ import { newId } from "@/lib/id";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
 import { checkPlainText } from "@/lib/sanitize";
+import { requirePermission } from "@/lib/admin/permissions";
 import type { CollectionType, CollectionStatus } from "@/lib/admin/collections";
 
 export interface CollectionActionResult {
@@ -29,6 +30,9 @@ function slugify(name: string): string {
 }
 
 export async function createCollectionAction(input: CollectionInput): Promise<CollectionActionResult> {
+  const guard = await requirePermission("collections");
+  if (guard) return guard;
+
   const name = input.name.trim();
   if (!name) return { error: "Name is required" };
   const textError = checkPlainText(name, "Name") ?? checkPlainText(input.ruleDescription, "Rule description");
@@ -50,6 +54,9 @@ export async function createCollectionAction(input: CollectionInput): Promise<Co
 }
 
 export async function updateCollectionAction(id: string, input: CollectionInput): Promise<CollectionActionResult> {
+  const guard = await requirePermission("collections");
+  if (guard) return guard;
+
   const name = input.name.trim();
   if (!name) return { error: "Name is required" };
   const textError = checkPlainText(name, "Name") ?? checkPlainText(input.ruleDescription, "Rule description");
@@ -72,6 +79,9 @@ export async function updateCollectionAction(id: string, input: CollectionInput)
 }
 
 export async function deleteCollectionAction(id: string, name: string): Promise<CollectionActionResult> {
+  const guard = await requirePermission("collections");
+  if (guard) return guard;
+
   await db.delete(collections).where(eq(collections.id, id));
 
   const actor = await getAdminActorName();

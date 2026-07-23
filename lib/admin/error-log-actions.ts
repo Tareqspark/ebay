@@ -6,12 +6,16 @@ import { db } from "@/db";
 import { errorLogs } from "@/db/schema";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
+import { requirePermission } from "@/lib/admin/permissions";
 
 export interface ErrorLogActionResult {
   error?: string;
 }
 
 export async function resolveErrorLogAction(id: string, resolved: boolean): Promise<ErrorLogActionResult> {
+  const guard = await requirePermission("settings");
+  if (guard) return guard;
+
   const [log] = await db.select().from(errorLogs).where(eq(errorLogs.id, id)).limit(1);
   if (!log) return { error: "Error log not found" };
 

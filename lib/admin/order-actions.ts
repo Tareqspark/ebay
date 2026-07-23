@@ -10,6 +10,7 @@ import { pushOrderToCj } from "@/lib/cj-provider";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
 import { logError } from "@/lib/error-log";
+import { requirePermission } from "@/lib/admin/permissions";
 
 function revalidateOrderViews() {
   revalidatePath("/admin/orders");
@@ -22,6 +23,9 @@ export interface OrderActionResult {
 }
 
 export async function markOrderShippedAction(orderId: string, orderNumber: string): Promise<OrderActionResult> {
+  const guard = await requirePermission("orders");
+  if (guard) return guard;
+
   const [order] = await db.select({ shippingMethod: orders.shippingMethod }).from(orders).where(eq(orders.id, orderId)).limit(1);
   // shippingMethod is a "Carrier — Method" snapshot from the rate chosen at
   // checkout (lib/shipping-rates.ts); fall back to UPS for orders placed
@@ -40,6 +44,9 @@ export async function markOrderShippedAction(orderId: string, orderNumber: strin
 }
 
 export async function cancelOrderAction(orderId: string, orderNumber: string): Promise<OrderActionResult> {
+  const guard = await requirePermission("orders");
+  if (guard) return guard;
+
   await db.update(orders).set({ fulfillmentStatus: "cancelled" }).where(eq(orders.id, orderId));
 
   const actor = await getAdminActorName();
@@ -56,6 +63,9 @@ export async function cancelOrderAction(orderId: string, orderNumber: string): P
  * paymentStatus needs to reflect the refund either way.
  */
 export async function refundOrderAction(orderId: string, orderNumber: string): Promise<OrderActionResult> {
+  const guard = await requirePermission("orders");
+  if (guard) return guard;
+
   const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
   if (!order) return { error: "Order not found" };
 
@@ -86,6 +96,9 @@ export async function refundOrderAction(orderId: string, orderNumber: string): P
  * in CLAUDE.md/PRODUCT.md.
  */
 export async function pushOrderToCjAction(orderId: string, orderNumber: string): Promise<OrderActionResult> {
+  const guard = await requirePermission("orders");
+  if (guard) return guard;
+
   const { cjOrderId } = await pushOrderToCj(orderId);
   await db.update(orders).set({ cjSyncStatus: "queued", cjOrderId }).where(eq(orders.id, orderId));
 

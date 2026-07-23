@@ -8,6 +8,7 @@ import { newId } from "@/lib/id";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
 import { checkPlainText } from "@/lib/sanitize";
+import { requirePermission } from "@/lib/admin/permissions";
 import type { CampaignType, CampaignStatus } from "@/lib/admin/marketing";
 
 export interface MarketingActionResult {
@@ -31,6 +32,9 @@ function parseDate(value: string): Date | null {
 }
 
 export async function createCampaignAction(input: CampaignInput): Promise<MarketingActionResult> {
+  const guard = await requirePermission("marketing");
+  if (guard) return guard;
+
   const name = input.name.trim();
   const channel = input.channel.trim();
   if (!name) return { error: "Name is required" };
@@ -62,6 +66,9 @@ export async function createCampaignAction(input: CampaignInput): Promise<Market
 }
 
 export async function updateCampaignAction(id: string, input: CampaignInput): Promise<MarketingActionResult> {
+  const guard = await requirePermission("marketing");
+  if (guard) return guard;
+
   const name = input.name.trim();
   const channel = input.channel.trim();
   if (!name) return { error: "Name is required" };
@@ -93,6 +100,9 @@ export async function updateCampaignAction(id: string, input: CampaignInput): Pr
 }
 
 export async function deleteCampaignAction(id: string, name: string): Promise<MarketingActionResult> {
+  const guard = await requirePermission("marketing");
+  if (guard) return guard;
+
   await db.delete(campaigns).where(eq(campaigns.id, id));
 
   const actor = await getAdminActorName();

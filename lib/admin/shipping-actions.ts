@@ -9,6 +9,7 @@ import { toCents } from "@/lib/money";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
 import { checkPlainText } from "@/lib/sanitize";
+import { requirePermission } from "@/lib/admin/permissions";
 import type { ShippingRateStatus } from "@/lib/admin/shipping";
 
 export interface ShippingActionResult {
@@ -28,6 +29,9 @@ export interface ShippingRateInput {
 }
 
 export async function createShippingRateAction(input: ShippingRateInput): Promise<ShippingActionResult> {
+  const guard = await requirePermission("shipping");
+  if (guard) return guard;
+
   const zone = input.zone.trim();
   const method = input.method.trim();
   const condition = input.condition.trim();
@@ -64,6 +68,9 @@ export async function createShippingRateAction(input: ShippingRateInput): Promis
 }
 
 export async function updateShippingRateAction(id: string, input: ShippingRateInput): Promise<ShippingActionResult> {
+  const guard = await requirePermission("shipping");
+  if (guard) return guard;
+
   const zone = input.zone.trim();
   const method = input.method.trim();
   const condition = input.condition.trim();
@@ -102,6 +109,9 @@ export async function updateShippingRateAction(id: string, input: ShippingRateIn
 }
 
 export async function deleteShippingRateAction(id: string, label: string): Promise<ShippingActionResult> {
+  const guard = await requirePermission("shipping");
+  if (guard) return guard;
+
   await db.delete(shippingRates).where(eq(shippingRates.id, id));
 
   const actor = await getAdminActorName();
@@ -114,6 +124,9 @@ export async function updateCarrierAction(
   id: string,
   input: { connected: boolean; servicesUsed: string[] }
 ): Promise<ShippingActionResult> {
+  const guard = await requirePermission("shipping");
+  if (guard) return guard;
+
   for (const service of input.servicesUsed) {
     const textError = checkPlainText(service, "Service");
     if (textError) return { error: textError };

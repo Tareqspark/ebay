@@ -7,6 +7,7 @@ import { cjDisputes } from "@/db/schema";
 import { submitCjDispute } from "@/lib/cj-provider";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
+import { requirePermission } from "@/lib/admin/permissions";
 import type { CjDisputeStatus } from "@/lib/admin/cj-types";
 
 export interface CjDisputeActionResult {
@@ -35,6 +36,9 @@ export async function resolveCjDisputeAction(
   disputeId: string,
   resolution: "resolved_reship" | "resolved_refund"
 ): Promise<CjDisputeActionResult> {
+  const guard = await requirePermission("cj");
+  if (guard) return guard;
+
   await submitCjDispute(disputeId, resolution === "resolved_reship" ? "reshipment" : "refund");
   return setDisputeStatus(
     disputeId,
@@ -44,5 +48,8 @@ export async function resolveCjDisputeAction(
 }
 
 export async function rejectCjDisputeAction(disputeId: string): Promise<CjDisputeActionResult> {
+  const guard = await requirePermission("cj");
+  if (guard) return guard;
+
   return setDisputeStatus(disputeId, "rejected", (title) => `Dispute for "${title}" rejected`);
 }

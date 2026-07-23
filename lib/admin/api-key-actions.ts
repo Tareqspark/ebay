@@ -8,6 +8,7 @@ import { newId } from "@/lib/id";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
 import { checkPlainText } from "@/lib/sanitize";
+import { requirePermission } from "@/lib/admin/permissions";
 
 export interface ApiKeyActionResult {
   error?: string;
@@ -20,6 +21,9 @@ function randomPrefix(): string {
 }
 
 export async function createApiKeyAction(name: string): Promise<ApiKeyActionResult> {
+  const guard = await requirePermission("settings");
+  if (guard) return guard;
+
   const trimmed = name.trim();
   if (!trimmed) return { error: "Name is required" };
   const textError = checkPlainText(trimmed, "Name");
@@ -36,6 +40,9 @@ export async function createApiKeyAction(name: string): Promise<ApiKeyActionResu
 }
 
 export async function regenerateApiKeyAction(id: string): Promise<ApiKeyActionResult> {
+  const guard = await requirePermission("settings");
+  if (guard) return guard;
+
   const prefix = randomPrefix();
   await db.update(apiKeys).set({ prefix, lastUsedAt: null }).where(eq(apiKeys.id, id));
 
@@ -46,6 +53,9 @@ export async function regenerateApiKeyAction(id: string): Promise<ApiKeyActionRe
 }
 
 export async function revokeApiKeyAction(id: string): Promise<ApiKeyActionResult> {
+  const guard = await requirePermission("settings");
+  if (guard) return guard;
+
   await db.delete(apiKeys).where(eq(apiKeys.id, id));
 
   const actor = await getAdminActorName();

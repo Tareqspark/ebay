@@ -10,6 +10,7 @@ import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
 import { checkPlainText } from "@/lib/sanitize";
 import { logError } from "@/lib/error-log";
+import { requirePermission } from "@/lib/admin/permissions";
 
 export interface ReturnActionResult {
   error?: string;
@@ -45,6 +46,9 @@ function revalidateReturnViews() {
  * outstanding until those are resolved through the CJ dispute flow.
  */
 export async function approveReturnAction(returnId: string): Promise<ReturnActionResult> {
+  const guard = await requirePermission("returns");
+  if (guard) return guard;
+
   const [ret] = await db.select().from(returns).where(eq(returns.id, returnId)).limit(1);
   if (!ret) return { error: "Return not found" };
   if (ret.status !== "requested") return { error: "This return has already been processed" };
@@ -89,6 +93,9 @@ export async function approveReturnAction(returnId: string): Promise<ReturnActio
 }
 
 export async function rejectReturnAction(returnId: string, adminNote = ""): Promise<ReturnActionResult> {
+  const guard = await requirePermission("returns");
+  if (guard) return guard;
+
   const trimmed = adminNote.trim();
   const textError = checkPlainText(trimmed, "Note");
   if (textError) return { error: textError };

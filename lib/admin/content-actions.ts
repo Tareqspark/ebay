@@ -8,6 +8,7 @@ import { newId } from "@/lib/id";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
 import { checkPlainText } from "@/lib/sanitize";
+import { requirePermission } from "@/lib/admin/permissions";
 import type { ContentType, ContentStatus } from "@/lib/admin/content";
 
 export interface ContentActionResult {
@@ -22,6 +23,9 @@ export interface ContentInput {
 }
 
 export async function createContentAction(input: ContentInput): Promise<ContentActionResult> {
+  const guard = await requirePermission("content");
+  if (guard) return guard;
+
   const title = input.title.trim();
   const location = input.location.trim();
   if (!title) return { error: "Title is required" };
@@ -44,6 +48,9 @@ export async function createContentAction(input: ContentInput): Promise<ContentA
 }
 
 export async function updateContentAction(id: string, input: ContentInput): Promise<ContentActionResult> {
+  const guard = await requirePermission("content");
+  if (guard) return guard;
+
   const title = input.title.trim();
   const location = input.location.trim();
   if (!title) return { error: "Title is required" };
@@ -60,6 +67,9 @@ export async function updateContentAction(id: string, input: ContentInput): Prom
 }
 
 export async function deleteContentAction(id: string, title: string): Promise<ContentActionResult> {
+  const guard = await requirePermission("content");
+  if (guard) return guard;
+
   await db.delete(contentItems).where(eq(contentItems.id, id));
 
   const actor = await getAdminActorName();

@@ -10,6 +10,7 @@ import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
 import { getProducts } from "@/lib/admin/data";
 import { checkPlainText } from "@/lib/sanitize";
+import { requirePermission } from "@/lib/admin/permissions";
 import type { CategoryLevel } from "@/lib/admin/categories";
 
 export interface CategoryActionResult {
@@ -43,6 +44,9 @@ export async function createCategoryAction(
   level: CategoryLevel,
   input: CategoryInput
 ): Promise<CategoryActionResult> {
+  const guard = await requirePermission("categories");
+  if (guard) return guard;
+
   const name = input.name.trim();
   if (!name) return { error: "Name is required" };
   const nameError = checkPlainText(name, "Name") ?? checkPlainText(input.description, "Description") ?? checkPlainText(input.image, "Image URL");
@@ -79,6 +83,9 @@ export async function createCategoryAction(
 }
 
 export async function updateCategoryAction(id: string, input: CategoryInput): Promise<CategoryActionResult> {
+  const guard = await requirePermission("categories");
+  if (guard) return guard;
+
   const name = input.name.trim();
   if (!name) return { error: "Name is required" };
   const nameError = checkPlainText(name, "Name") ?? checkPlainText(input.description, "Description") ?? checkPlainText(input.image, "Image URL");
@@ -109,6 +116,9 @@ export async function updateCategoryAction(id: string, input: CategoryInput): Pr
 }
 
 export async function deleteCategoryAction(id: string): Promise<CategoryActionResult> {
+  const guard = await requirePermission("categories");
+  if (guard) return guard;
+
   const [existing] = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
   if (!existing) return { error: "Category not found" };
 
@@ -144,6 +154,9 @@ async function buildSlugPath(row: typeof categories.$inferSelect): Promise<strin
 }
 
 export async function moveCategoryAction(id: string, direction: "up" | "down"): Promise<CategoryActionResult> {
+  const guard = await requirePermission("categories");
+  if (guard) return guard;
+
   const [existing] = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
   if (!existing) return { error: "Category not found" };
 

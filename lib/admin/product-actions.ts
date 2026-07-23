@@ -7,6 +7,7 @@ import { products, productMeta, inventory } from "@/db/schema";
 import { toCents } from "@/lib/money";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
+import { requirePermission } from "@/lib/admin/permissions";
 import type { ProductStatus, ProductVisibility } from "@/lib/admin/types";
 
 export interface ProductActionResult {
@@ -18,6 +19,9 @@ function revalidateProductViews() {
 }
 
 export async function updateProductPriceAction(productId: string, price: number): Promise<ProductActionResult> {
+  const guard = await requirePermission("products");
+  if (guard) return guard;
+
   if (!Number.isFinite(price) || price < 0) return { error: "Price can't be negative" };
   await db.update(products).set({ priceCents: toCents(price) }).where(eq(products.id, productId));
   revalidateProductViews();
@@ -25,6 +29,9 @@ export async function updateProductPriceAction(productId: string, price: number)
 }
 
 export async function updateProductCostAction(productId: string, cost: number): Promise<ProductActionResult> {
+  const guard = await requirePermission("products");
+  if (guard) return guard;
+
   if (!Number.isFinite(cost) || cost < 0) return { error: "Cost can't be negative" };
   await db.update(productMeta).set({ costCents: toCents(cost) }).where(eq(productMeta.productId, productId));
   revalidateProductViews();
@@ -32,6 +39,9 @@ export async function updateProductCostAction(productId: string, cost: number): 
 }
 
 export async function setProductStatusAction(productIds: string[], status: ProductStatus): Promise<ProductActionResult> {
+  const guard = await requirePermission("products");
+  if (guard) return guard;
+
   if (productIds.length === 0) return {};
   await db.update(productMeta).set({ status }).where(inArray(productMeta.productId, productIds));
 
@@ -51,6 +61,9 @@ export async function setProductVisibilityAction(
   productIds: string[],
   visibility: ProductVisibility
 ): Promise<ProductActionResult> {
+  const guard = await requirePermission("products");
+  if (guard) return guard;
+
   if (productIds.length === 0) return {};
   await db.update(productMeta).set({ visibility }).where(inArray(productMeta.productId, productIds));
 
@@ -74,6 +87,9 @@ export async function setProductVisibilityAction(
  * alongside it.
  */
 export async function deleteProductsAction(productIds: string[]): Promise<ProductActionResult> {
+  const guard = await requirePermission("products");
+  if (guard) return guard;
+
   if (productIds.length === 0) return {};
   await db.delete(inventory).where(inArray(inventory.productId, productIds));
   await db.delete(productMeta).where(inArray(productMeta.productId, productIds));

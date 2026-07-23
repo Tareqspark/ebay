@@ -8,6 +8,7 @@ import { newId } from "@/lib/id";
 import { toCents } from "@/lib/money";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
+import { requirePermission } from "@/lib/admin/permissions";
 import type { PromoDiscountType, PromoCodeStatus } from "@/lib/admin/promos";
 
 export interface PromoActionResult {
@@ -53,6 +54,9 @@ function validateInput(input: PromoCodeInput): string | null {
 }
 
 export async function createPromoCodeAction(input: PromoCodeInput): Promise<PromoActionResult> {
+  const guard = await requirePermission("promo-codes");
+  if (guard) return guard;
+
   const error = validateInput(input);
   if (error) return { error };
   const code = input.code.trim().toUpperCase();
@@ -80,6 +84,9 @@ export async function createPromoCodeAction(input: PromoCodeInput): Promise<Prom
 }
 
 export async function updatePromoCodeAction(id: string, input: PromoCodeInput): Promise<PromoActionResult> {
+  const guard = await requirePermission("promo-codes");
+  if (guard) return guard;
+
   const error = validateInput(input);
   if (error) return { error };
   const code = input.code.trim().toUpperCase();
@@ -109,6 +116,9 @@ export async function updatePromoCodeAction(id: string, input: PromoCodeInput): 
 }
 
 export async function deletePromoCodeAction(id: string, code: string): Promise<PromoActionResult> {
+  const guard = await requirePermission("promo-codes");
+  if (guard) return guard;
+
   await db.delete(promoCodes).where(eq(promoCodes.id, id));
 
   const actor = await getAdminActorName();

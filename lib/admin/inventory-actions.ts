@@ -7,6 +7,7 @@ import { inventory } from "@/db/schema";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
 import { computeInventoryStatus } from "@/lib/inventory";
+import { requirePermission } from "@/lib/admin/permissions";
 
 export interface InventoryActionResult {
   error?: string;
@@ -14,6 +15,9 @@ export interface InventoryActionResult {
 
 /** Manual stock correction (recount, damaged stock write-off, etc.) — sets available to an exact count rather than incrementing/decrementing, and recomputes status the same way checkout's automatic decrement does. */
 export async function adjustInventoryAction(sku: string, nextAvailable: number): Promise<InventoryActionResult> {
+  const guard = await requirePermission("inventory");
+  if (guard) return guard;
+
   if (!Number.isFinite(nextAvailable) || !Number.isInteger(nextAvailable) || nextAvailable < 0) {
     return { error: "Available stock can't be negative" };
   }
