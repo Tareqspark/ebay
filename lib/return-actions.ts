@@ -7,6 +7,7 @@ import { orders, orderItems, returns } from "@/db/schema";
 import { newId } from "@/lib/id";
 import { auth } from "@/auth";
 import { checkPlainText } from "@/lib/sanitize";
+import { computeProportionalRefundCents } from "@/lib/refund-math";
 import type { ReturnReason } from "@/lib/returns";
 
 export interface RequestReturnResult {
@@ -57,9 +58,7 @@ export async function requestReturnAction(orderItemId: string, reason: ReturnRea
   // price, overpaying the customer by the discount amount.
   const itemLineTotalCents = item.priceCents * item.quantity;
   const orderDiscountCents = order.discountCents + order.bundleDiscountCents;
-  const proportionalDiscountCents =
-    order.subtotalCents > 0 ? Math.round((itemLineTotalCents / order.subtotalCents) * orderDiscountCents) : 0;
-  const refundAmountCents = Math.max(0, itemLineTotalCents - proportionalDiscountCents);
+  const refundAmountCents = computeProportionalRefundCents(itemLineTotalCents, order.subtotalCents, orderDiscountCents);
 
   await db.insert(returns).values({
     id: newId(),

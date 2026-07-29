@@ -28,7 +28,7 @@ export function getTierByName(name: string): LoyaltyTier | undefined {
   return LOYALTY_TIERS.find((t) => t.name === name);
 }
 
-function tierForSpend(lifetimeSpend: number): LoyaltyTier {
+export function tierForSpend(lifetimeSpend: number): LoyaltyTier {
   let current = LOYALTY_TIERS[0];
   for (const tier of LOYALTY_TIERS) {
     if (lifetimeSpend >= tier.minLifetimeSpend) current = tier;

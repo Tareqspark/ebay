@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { orders, orderItems, cartItems, payments, promoCodes, promoRedemptions } from "@/db/schema";
 import { newId } from "@/lib/id";
-import { toCents, toDollars } from "@/lib/money";
+import { toCents } from "@/lib/money";
 import { getStripe } from "@/lib/stripe";
 import { sendEmail } from "@/lib/sendgrid";
 import { getProductsByIds } from "@/lib/products";
@@ -16,61 +16,14 @@ import { getTierByName } from "@/lib/loyalty";
 import { computeBundleAdjustedSubtotal } from "@/lib/bundles";
 import { getShippingRateById } from "@/lib/shipping-rates";
 
-export const TAX_RATE = 0.0825;
-export const FREE_SHIPPING_THRESHOLD = 50;
-export const FLAT_SHIPPING = 6.99;
-
-/**
- * shippingOverride, when given, replaces the flat/free-threshold shipping
- * figure with a real chosen shipping_rates rate (see lib/shipping-rates.ts)
- * — omitted, this is unchanged flat-rate behavior for every pre-existing
- * call site (cart page's free-shipping banner, etc).
- */
-export function computeTotals(subtotal: number, shippingOverride?: number) {
-  const shipping = shippingOverride ?? (subtotal >= FREE_SHIPPING_THRESHOLD || subtotal === 0 ? 0 : FLAT_SHIPPING);
-  const tax = Math.round((subtotal + shipping) * TAX_RATE * 100) / 100;
-  const total = Math.round((subtotal + shipping + tax) * 100) / 100;
-  return { shipping, tax, total };
-}
-
-export type PromoDiscountType = (typeof promoCodes.$inferSelect)["discountType"];
-
-export interface PromoForDiscount {
-  discountType: PromoDiscountType;
-  discountPercent: number | null;
-  discountAmountCents: number | null;
-}
-
-/**
- * Same shape as computeTotals(), plus a discount amount — kept as a
- * separate function (rather than an optional param on computeTotals) so
- * every existing no-promo call site stays untouched. shippingOverride
- * behaves the same as on computeTotals() — when a customer picked a real
- * carrier rate, a free_shipping promo waives *that* rate, not the flat one.
- */
-export function computeTotalsWithDiscount(subtotal: number, promo?: PromoForDiscount | null, shippingOverride?: number) {
-  const baseShipping = shippingOverride ?? (subtotal >= FREE_SHIPPING_THRESHOLD || subtotal === 0 ? 0 : FLAT_SHIPPING);
-
-  let discount = 0;
-  let shipping = baseShipping;
-  let discountedSubtotal = subtotal;
-
-  if (promo?.discountType === "percent" && promo.discountPercent) {
-    discount = Math.min(subtotal, Math.round(subtotal * (promo.discountPercent / 100) * 100) / 100);
-    discountedSubtotal = Math.round((subtotal - discount) * 100) / 100;
-  } else if (promo?.discountType === "fixed" && promo.discountAmountCents) {
-    discount = Math.min(subtotal, toDollars(promo.discountAmountCents));
-    discountedSubtotal = Math.round((subtotal - discount) * 100) / 100;
-  } else if (promo?.discountType === "free_shipping") {
-    // Waives the shipping fee only — the product subtotal is untouched.
-    discount = baseShipping;
-    shipping = 0;
-  }
-
-  const tax = Math.round((discountedSubtotal + shipping) * TAX_RATE * 100) / 100;
-  const total = Math.round((discountedSubtotal + shipping + tax) * 100) / 100;
-  return { discount, shipping, tax, total };
-}
+// The pure arithmetic (computeTotals, computeTotalsWithDiscount, the
+// TAX_RATE/FREE_SHIPPING_THRESHOLD/FLAT_SHIPPING constants) lives in
+// lib/checkout-math.ts, which has no DB/Stripe/SendGrid imports and is
+// unit-tested directly — re-exported here so every existing call site
+// (`from "@/lib/checkout"`) is unaffected.
+export * from "@/lib/checkout-math";
+import type { PromoForDiscount } from "@/lib/checkout-math";
+import { computeTotalsWithDiscount } from "@/lib/checkout-math";
 
 async function generateOrderNumber(): Promise<string> {
   for (let attempt = 0; attempt < 5; attempt++) {
