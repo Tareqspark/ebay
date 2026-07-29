@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/db";
 import { errorLogs } from "@/db/schema";
 import { newId } from "@/lib/id";
+import { maybeSendErrorAlert } from "@/lib/admin/alerts";
 
 export type ErrorLogSource = (typeof errorLogs.$inferSelect)["source"];
 
@@ -39,4 +40,6 @@ export async function logError(
   } catch (loggingError) {
     console.error("[logError] failed to persist error log", loggingError);
   }
+
+  await maybeSendErrorAlert({ source: options.source, label: options.label, message, url: options.url });
 }
