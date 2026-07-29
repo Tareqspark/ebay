@@ -63,6 +63,7 @@ export type CjSourcingRequestStatus = "submitted" | "sourcing" | "found" | "not_
 export interface CjSourcingRequest {
   id: string;
   productName: string;
+  productImage?: string;
   referenceUrl?: string;
   notes: string;
   status: CjSourcingRequestStatus;

@@ -15,6 +15,7 @@ import type { CjSourcingRequest } from "@/lib/admin/cj-types";
 export function CjSourcingRequests({ initialRequests }: { initialRequests: CjSourcingRequest[] }) {
   const [requests, setRequests] = useState(initialRequests);
   const [productName, setProductName] = useState("");
+  const [productImage, setProductImage] = useState("");
   const [referenceUrl, setReferenceUrl] = useState("");
   const [notes, setNotes] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -24,8 +25,12 @@ export function CjSourcingRequests({ initialRequests }: { initialRequests: CjSou
       toast.error("Product name is required");
       return;
     }
+    if (!productImage.trim()) {
+      toast.error("Product image URL is required");
+      return;
+    }
     startTransition(async () => {
-      const result = await submitSourcingRequestAction(productName, referenceUrl, notes);
+      const result = await submitSourcingRequestAction(productName, productImage, referenceUrl, notes);
       if (result.error) {
         toast.error(result.error);
         return;
@@ -33,6 +38,7 @@ export function CjSourcingRequests({ initialRequests }: { initialRequests: CjSou
       const request: CjSourcingRequest = {
         id: crypto.randomUUID(),
         productName: productName.trim(),
+        productImage: productImage.trim(),
         referenceUrl: referenceUrl.trim() || undefined,
         notes: notes.trim(),
         status: "submitted",
@@ -40,6 +46,7 @@ export function CjSourcingRequests({ initialRequests }: { initialRequests: CjSou
       };
       setRequests((prev) => [request, ...prev]);
       setProductName("");
+      setProductImage("");
       setReferenceUrl("");
       setNotes("");
       toast.success("Sourcing request submitted to CJdropshipping");
@@ -65,6 +72,10 @@ export function CjSourcingRequests({ initialRequests }: { initialRequests: CjSou
             <Label>Reference URL (optional)</Label>
             <Input value={referenceUrl} onChange={(e) => setReferenceUrl(e.target.value)} placeholder="https://..." />
           </div>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Product image URL</Label>
+          <Input value={productImage} onChange={(e) => setProductImage(e.target.value)} placeholder="https://..." />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label>Notes</Label>

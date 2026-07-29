@@ -16,6 +16,7 @@ export interface CjSourcingActionResult {
 
 export async function submitSourcingRequestAction(
   productName: string,
+  productImage: string,
   referenceUrl: string,
   notes: string
 ): Promise<CjSourcingActionResult> {
@@ -23,18 +24,23 @@ export async function submitSourcingRequestAction(
   if (guard) return guard;
 
   const trimmedName = productName.trim();
+  const trimmedImage = productImage.trim();
   const trimmedUrl = referenceUrl.trim();
   const trimmedNotes = notes.trim();
   if (!trimmedName) return { error: "Product name is required" };
+  // Required by CJ's real sourcing-request API (product/sourcing/create),
+  // not just a nice-to-have here — a request without one is rejected.
+  if (!trimmedImage) return { error: "Product image URL is required" };
 
   const textError = checkPlainText(trimmedName, "Product name") ?? checkPlainText(trimmedNotes, "Notes");
   if (textError) return { error: textError };
 
-  const { cjRequestId } = await submitCjSourcingRequest(trimmedName, trimmedUrl || null, trimmedNotes);
+  const { cjRequestId } = await submitCjSourcingRequest(trimmedName, trimmedImage, trimmedUrl || null, trimmedNotes);
 
   await db.insert(cjSourcingRequests).values({
     id: newId(),
     productName: trimmedName,
+    productImage: trimmedImage,
     referenceUrl: trimmedUrl || null,
     notes: trimmedNotes,
     status: "submitted",

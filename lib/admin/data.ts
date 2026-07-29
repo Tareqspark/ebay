@@ -649,7 +649,15 @@ export const getCjIntegrationSettings = cache(async (): Promise<CjIntegrationSet
 
 export const getCjSourcingRequests = cache(async (): Promise<CjSourcingRequest[]> => {
   const rows = await db.select().from(cjSourcingRequestsTable).orderBy(desc(cjSourcingRequestsTable.submittedAt));
-  return rows.map((r) => ({ id: r.id, productName: r.productName, referenceUrl: r.referenceUrl ?? undefined, notes: r.notes, status: r.status, submittedAt: r.submittedAt.toISOString() }));
+  return rows.map((r) => ({
+    id: r.id,
+    productName: r.productName,
+    productImage: r.productImage ?? undefined,
+    referenceUrl: r.referenceUrl ?? undefined,
+    notes: r.notes,
+    status: r.status,
+    submittedAt: r.submittedAt.toISOString(),
+  }));
 });
 
 export interface AdminCjDisputeRow extends CjDispute {

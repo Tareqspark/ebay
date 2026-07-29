@@ -553,6 +553,10 @@ export const cjSourcingRequestStatus = ["submitted", "sourcing", "found", "not_f
 export const cjSourcingRequests = mysqlTable("cj_sourcing_requests", {
   id: varchar("id", { length: 191 }).primaryKey(),
   productName: varchar("product_name", { length: 255 }).notNull(),
+  // Nullable here (existing rows predate this column, and the mock
+  // fulfillment path doesn't need it) but required by the admin form —
+  // CJ's real product/sourcing/create endpoint rejects a request without one.
+  productImage: text("product_image"),
   referenceUrl: text("reference_url"),
   notes: text("notes").notNull(),
   status: mysqlEnum("status", cjSourcingRequestStatus).notNull().default("submitted"),
