@@ -57,7 +57,7 @@ export default function PrivacyPolicyPage() {
         <p>We retain account and order information for as long as your account is active and as needed to comply with our legal and tax obligations, resolve disputes, and enforce our agreements. You may request deletion of your account as described below.</p>
       </LegalSection>
 
-      <LegalSection heading="6. Your Privacy Rights">
+      <LegalSection id="your-privacy-rights" heading="6. Your Privacy Rights">
         <p>You can access, update, or delete much of your information directly from your <Link href="/account">account settings</Link>. You may also contact us at <a href="mailto:privacy@baruashop.com">privacy@baruashop.com</a> to request access to, correction of, or deletion of your personal information.</p>
         <p><strong>California residents (CCPA/CPRA).</strong> If you are a California resident, you have the right to know what personal information we collect, request deletion of it, correct inaccurate information, and opt out of the &ldquo;sale&rdquo; or &ldquo;sharing&rdquo; of personal information. Baruashop does not sell your personal information and does not share it for cross-context behavioral advertising. To exercise these rights, contact us at the email above; we will not discriminate against you for exercising them.</p>
         <p><strong>Other states.</strong> Depending on your state of residence, you may have similar rights under state privacy laws (for example Virginia, Colorado, Connecticut, or Utah). Contact us and we will honor applicable requests.</p>

@@ -9,7 +9,7 @@ export function FeaturedCategoriesGrid({ categories }: { categories: Category[] 
         <h2 className="text-xl font-semibold tracking-tight text-foreground">Shop by Category</h2>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-        {categories.map((category) => {
+        {categories.map((category, i) => {
           const Icon = category.icon;
           return (
             <Link
@@ -22,6 +22,9 @@ export function FeaturedCategoriesGrid({ categories }: { categories: Category[] 
                   src={category.image}
                   alt={category.name}
                   fill
+                  // First row renders above the fold alongside the hero —
+                  // one of these was Next's actual measured LCP element.
+                  priority={i < 6}
                   sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 16vw"
                   className="object-cover transition-transform duration-500 group-hover:scale-105"
                 />

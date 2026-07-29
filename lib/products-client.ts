@@ -39,13 +39,23 @@ export function filterProducts(products: Product[], filters: ProductFilters): Pr
   });
 }
 
+/**
+ * Always returns max > min, strictly — the price Slider that consumes this
+ * (components/product/product-explorer.tsx) errors otherwise. Both an empty
+ * product list and a list where every product shares the same price (a
+ * single-product category, common in a real, unevenly-sized catalog) can
+ * degenerate to min === max after flooring/ceiling; both are widened by 1
+ * rather than left equal.
+ */
 export function getPriceBounds(products: Product[]): { min: number; max: number } {
-  if (products.length === 0) return { min: 0, max: 0 };
+  if (products.length === 0) return { min: 0, max: 1 };
   let min = Infinity;
   let max = 0;
   for (const p of products) {
     if (p.price < min) min = p.price;
     if (p.price > max) max = p.price;
   }
-  return { min: Math.floor(min), max: Math.ceil(max) };
+  const flooredMin = Math.floor(min);
+  const ceiledMax = Math.ceil(max);
+  return { min: flooredMin, max: ceiledMax > flooredMin ? ceiledMax : flooredMin + 1 };
 }

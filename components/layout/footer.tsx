@@ -21,7 +21,7 @@ const legalLinks = [
   { label: "Privacy Policy", href: "/legal/privacy" },
   { label: "Terms of Service", href: "/legal/terms" },
   { label: "Legal Notice", href: "/legal/notice" },
-  { label: "Do Not Sell My Info", href: "/legal/privacy" },
+  { label: "Do Not Sell My Info", href: "/legal/privacy#your-privacy-rights" },
 ];
 
 export async function Footer() {
