@@ -8,6 +8,7 @@ import { getLoyaltyStatus } from "@/lib/loyalty";
 import { getShippingRateById } from "@/lib/shipping-rates";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
 import { toCents } from "@/lib/money";
+import { getAvailableStock } from "@/lib/inventory";
 
 export interface ShippingAddressInput {
   name: string;
@@ -44,6 +45,23 @@ export async function createPaymentIntentAction(
   const cart = await getCart();
   if (cart.items.length === 0 || !cart.cartId) {
     return { error: "Your cart is empty." };
+  }
+
+  // Hard stock check — this is the actual money-committing step, same
+  // reasoning as the promo-code usage reservation below. Cart-time capping
+  // (lib/cart.ts) already keeps this from happening in the normal flow,
+  // but stock can still shrink between then and now (another customer
+  // buying the last units), so it's re-checked here rather than trusted.
+  for (const item of cart.items) {
+    const available = await getAvailableStock(item.product.id);
+    if (available != null && item.quantity > available) {
+      return {
+        error:
+          available === 0
+            ? `${item.product.title} is out of stock — remove it from your cart to continue.`
+            : `Only ${available} of "${item.product.title}" left — update the quantity in your cart to continue.`,
+      };
+    }
   }
 
   // Re-validated here, independent of whatever the client showed — this is

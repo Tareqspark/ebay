@@ -10,6 +10,22 @@ export function computeInventoryStatus(available: number, incoming: number): "in
 }
 
 /**
+ * Available stock for a self-fulfilled product, or null when it isn't
+ * tracked here (CJ-sourced/dropshipped, or no inventory row at all) — same
+ * "source === 'self'" signal decrementInventoryForProduct already uses.
+ * null means "not subject to a stock check", not "zero available".
+ */
+export async function getAvailableStock(productId: string): Promise<number | null> {
+  const [row] = await db
+    .select({ available: inventoryTable.available })
+    .from(inventoryTable)
+    .where(and(eq(inventoryTable.productId, productId), eq(inventoryTable.source, "self")))
+    .orderBy(asc(inventoryTable.sku))
+    .limit(1);
+  return row ? row.available : null;
+}
+
+/**
  * Decrements on-hand inventory for a self-fulfilled order line. Only
  * "self"-sourced items hold real Baruashop-owned stock (CJ-sourced items
  * are dropshipped — CJ holds that inventory, not us — see CLAUDE.md /

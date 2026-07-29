@@ -10,6 +10,7 @@ import { getProductsByIds } from "@/lib/products";
 import type { Product } from "@/lib/types";
 import { revalidatePath } from "next/cache";
 import { computeBundleAdjustedSubtotal } from "@/lib/bundles";
+import { getAvailableStock } from "@/lib/inventory";
 
 const GUEST_COOKIE = "baruashop_guest_cart";
 
@@ -106,21 +107,41 @@ export async function getCart(): Promise<CartSummary> {
   return buildSummary(cartId);
 }
 
+/**
+ * quantity is rejected outright (no-op) unless it's a positive integer —
+ * previously accepted anything, including negative numbers, which both
+ * subtracted from the cart subtotal and, if the order completed, added
+ * phantom stock instead of removing it (decrementInventoryForProduct
+ * subtracts whatever quantity the order line carried). The combined
+ * (existing + requested) quantity is then capped to real available stock
+ * for self-fulfilled products — getAvailableStock returns null for
+ * CJ-sourced/untracked products, which aren't capped here.
+ */
 export async function addToCart(productId: string, quantity = 1): Promise<CartSummary> {
   const cartId = await getOrCreateCartId();
+
+  if (!Number.isInteger(quantity) || quantity < 1) {
+    return buildSummary(cartId);
+  }
+
   const [existing] = await db
     .select()
     .from(cartItems)
     .where(and(eq(cartItems.cartId, cartId), eq(cartItems.productId, productId)))
     .limit(1);
 
+  const requestedQuantity = (existing?.quantity ?? 0) + quantity;
+  const available = await getAvailableStock(productId);
+  const finalQuantity = available != null ? Math.min(requestedQuantity, available) : requestedQuantity;
+
   if (existing) {
-    await db
-      .update(cartItems)
-      .set({ quantity: existing.quantity + quantity })
-      .where(eq(cartItems.id, existing.id));
-  } else {
-    await db.insert(cartItems).values({ id: newId(), cartId, productId, quantity });
+    if (finalQuantity <= 0) {
+      await db.delete(cartItems).where(eq(cartItems.id, existing.id));
+    } else {
+      await db.update(cartItems).set({ quantity: finalQuantity }).where(eq(cartItems.id, existing.id));
+    }
+  } else if (finalQuantity > 0) {
+    await db.insert(cartItems).values({ id: newId(), cartId, productId, quantity: finalQuantity });
   }
 
   revalidatePath("/cart");
@@ -129,10 +150,23 @@ export async function addToCart(productId: string, quantity = 1): Promise<CartSu
 
 export async function updateCartItemQuantity(itemId: string, quantity: number): Promise<CartSummary> {
   const cartId = await getOrCreateCartId();
-  if (quantity <= 0) {
+
+  if (!Number.isFinite(quantity) || quantity <= 0) {
     await db.delete(cartItems).where(and(eq(cartItems.id, itemId), eq(cartItems.cartId, cartId)));
   } else {
-    await db.update(cartItems).set({ quantity }).where(and(eq(cartItems.id, itemId), eq(cartItems.cartId, cartId)));
+    const [item] = await db
+      .select({ productId: cartItems.productId })
+      .from(cartItems)
+      .where(and(eq(cartItems.id, itemId), eq(cartItems.cartId, cartId)))
+      .limit(1);
+    const available = item ? await getAvailableStock(item.productId) : null;
+    const finalQuantity = available != null ? Math.min(Math.floor(quantity), available) : Math.floor(quantity);
+
+    if (finalQuantity <= 0) {
+      await db.delete(cartItems).where(and(eq(cartItems.id, itemId), eq(cartItems.cartId, cartId)));
+    } else {
+      await db.update(cartItems).set({ quantity: finalQuantity }).where(and(eq(cartItems.id, itemId), eq(cartItems.cartId, cartId)));
+    }
   }
   revalidatePath("/cart");
   return buildSummary(cartId);

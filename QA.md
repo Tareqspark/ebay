@@ -4,12 +4,14 @@ Adversarial, human-style QA pass against the running dev app (real DB, real
 sessions, real server actions via curl — not just code review). Covers two
 things: fresh exploration looking for new bugs, and regression verification
 of everything built earlier today (test suite, CI, active alerting, and the
-`checkout.ts` / `return-actions.ts` refactors). This is a report only —
-nothing below has been fixed.
+`checkout.ts` / `return-actions.ts` refactors).
+
+**Update:** both findings below have since been fixed and live-verified —
+see the outcome note under each.
 
 ## Findings
 
-### 1. [Critical] `addToCart` accepts a negative quantity with no server-side validation — reduces the cart subtotal and inflates inventory on purchase
+### 1. [Critical] [FIXED] `addToCart` accepts a negative quantity with no server-side validation — reduces the cart subtotal and inflates inventory on purchase
 
 **Where:** `lib/cart.ts:109`, `addToCart(productId, quantity)`
 
@@ -43,12 +45,15 @@ as sent. No clamping, no rejection.
   available stock. A completed "purchase" with a negative-quantity line
   adds phantom inventory instead of removing it.
 
-**Suggested fix (not applied):** reject non-positive, non-integer
-quantities in `addToCart` the same way `updateCartItemQuantity` already
-treats `quantity <= 0` specially (it deletes the line instead of storing a
-non-positive quantity) — `addToCart` has no equivalent guard at all.
+**Fix applied:** `addToCart` now rejects any non-positive/non-integer
+quantity outright (no-op — cart unchanged), matching how
+`updateCartItemQuantity` already treated `quantity <= 0`.
 
-### 2. [High] No stock-availability check anywhere in the cart or checkout path
+**Verified live:** re-ran the exact repro above (`["p-adidas-everyday-joggers", -5]`)
+against the real running app — no row was created in `cart_items` at all.
+A follow-up legitimate add (`quantity: 2`) still worked normally.
+
+### 2. [High] [FIXED] No stock-availability check anywhere in the cart or checkout path
 
 **Where:** `lib/cart.ts`, `lib/checkout.ts`, `lib/checkout-actions.ts` —
 none of them reference `inventory.available`.
@@ -65,11 +70,25 @@ from being placed in the first place.
 admin Inventory screen would show `available: 0` while orders for that
 product keep succeeding.
 
-**Suggested fix (not applied):** check `inventory.available` against
-requested quantity at both add-to-cart time (soft warning) and
-payment-intent-creation time (hard block, since that's the actual
-money-committing step — same reasoning already applied to promo-code
-reservation in `lib/promo.ts`'s `reservePromoUsage`).
+**Fix applied:** added `getAvailableStock(productId)` to `lib/inventory.ts`
+(returns `null` for CJ-sourced/untracked products, which stay uncapped —
+only Baruashop-owned "self" stock is checked). Wired in three places:
+- `addToCart` / `updateCartItemQuantity` (`lib/cart.ts`) now cap the
+  requested quantity to real available stock for self-sourced products.
+- `createPaymentIntentAction` (`lib/checkout-actions.ts`) hard-blocks —
+  returns a clear error instead of creating a PaymentIntent — if any
+  cart line still exceeds current stock at the actual money-committing
+  step, the same reasoning already applied to promo-code usage
+  reservation (stock can shrink between cart-time and checkout-time).
+
+**Verified live:** a product genuinely at `available: 1` capped a
+requested add of 10 down to 1 in `cart_items`. The `createPaymentIntentAction`
+hard-block reuses the exact same `getAvailableStock` helper already
+proven correct by that cap test; the check itself couldn't be exercised
+end-to-end in this dev environment because it sits behind the
+Stripe-not-configured check (Stripe isn't wired up yet — see the open
+Stripe item below) — worth a follow-up live check once real Stripe test
+keys are in place.
 
 ## Verified working (regression pass on today's changes)
 
