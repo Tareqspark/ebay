@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# resumable-script run state, not source
+scripts/.cj-import-checkpoint.json
