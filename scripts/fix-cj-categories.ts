@@ -10,11 +10,13 @@
  * Word overlap, not Fuse (see lib/admin/permissions.ts's RBAC matching for
  * the same lesson) — Fuse's fuzzy edit-distance search is built for a short
  * query against long documents, not two short-to-medium phrases. Matching
- * uses length-ratio-gated substring containment: "hat"/"hats" and
- * "scarf"/"scarves" (near-equal length) still match, but "sports" isn't
- * absorbed into the unrelated "powersports" (a 6-vs-11-character mismatch)
- * the way naive substring containment allowed in the first version of this
- * logic — that bug is what produced the dumping grounds in the first place.
+ * requires a leaf to match ALL of its (non-generic) words in the title
+ * (see bestLeafForTitle), and word equality allows only plural/gerund/
+ * past-tense inflection of a shared prefix (see wordsMatch/
+ * INFLECTION_SUFFIXES) — not arbitrary substring containment, which is what
+ * let "sports" get absorbed into "powersports" and, later, "dress" into
+ * "dressers" in earlier versions of this logic (both verified live by
+ * sampling actual mismatched products, not assumed).
  *
  * Run with: npx tsx scripts/fix-cj-categories.ts
  */
@@ -44,7 +46,13 @@ const COLOR_WORDS = [
   "violet", "indigo", "turquoise", "magenta", "lavender", "olive", "tan", "burgundy", "rose", "mint",
   "coral", "peach", "wine", "bronze", "copper", "charcoal", "multicolor", "multi",
 ];
-const STOPWORDS = new Set(["pet", "the", "and", "for", "with", "new", "set", "pcs", "pack", "size", "color", "style", "option", "all", "one", "two", ...COLOR_WORDS]);
+// "short" specifically: verified live it matched "Shorts" (the garment leaf)
+// via the plural-suffix rule in wordsMatch, but nearly every real-world
+// occurrence of the bare singular is adjectival ("Short-sleeved",
+// "Short Sleeve T-Shirt", "Short Dress") rather than a reference to the
+// garment itself — genuine shorts products still say the plural "shorts"
+// in their title, so excluding the singular loses no real matches.
+const STOPWORDS = new Set(["pet", "the", "and", "for", "with", "new", "set", "pcs", "pack", "size", "color", "style", "option", "all", "one", "two", "short", ...COLOR_WORDS]);
 
 function words(s: string, minLength = 3): string[] {
   return s
@@ -53,16 +61,26 @@ function words(s: string, minLength = 3): string[] {
     .filter((w) => w.length >= minLength && !STOPWORDS.has(w));
 }
 
-/** True if a and b are close enough in length that containment is meaningful (blocks e.g. "car" swallowing "scarf", or "sports" swallowing "powersports"). */
-function lengthCompatible(a: string, b: string): boolean {
-  const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
-  return shorter.length / longer.length >= 0.6;
-}
+// Suffixes that turn one word into an inflected form of the SAME word
+// (plural/gerund/past-tense) rather than a different, derived word. Deliberately
+// excludes "er"/"ers" even though it's a common English suffix: agentive/
+// instrumental nouns regularly drift in meaning from their root ("dress" ->
+// "dresser"/"dressers" — verified live, a garment "Dress" title matched the
+// furniture "Dressers" leaf purely because "dress" is a literal prefix of
+// "dressers" and the two are within the old length-ratio threshold).
+// "ing"/"ed" deliberately excluded despite being real English inflections:
+// verified live that "car" + "ing" spells "caring" (a real word, derived
+// from "care", not "car") and matched a coffee-cup product into "Car
+// Covers" purely on that coincidence. Plain "s"/"es" pluralization doesn't
+// have this failure mode — every verified legitimate case (cover/covers,
+// car/cars, swimsuit/swimsuits, glass/glasses) only ever needed those two.
+const INFLECTION_SUFFIXES = new Set(["", "s", "es"]);
 
 function wordsMatch(a: string, b: string): boolean {
   if (a === b) return true;
-  if (!lengthCompatible(a, b)) return false;
-  return a.includes(b) || b.includes(a);
+  const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
+  if (!longer.startsWith(shorter)) return false;
+  return INFLECTION_SUFFIXES.has(longer.slice(shorter.length));
 }
 
 interface LeafCategory {
@@ -87,21 +105,86 @@ async function loadLeafCategories(): Promise<LeafCategory[]> {
   return leaves;
 }
 
-/** Best-scoring leaf by count of matched words, requiring at least 1; ties keep the FIRST candidate seen (stable, not random) rather than whatever iteration order happens to produce. */
+// Words that are individually too generic to trust as a lone match signal —
+// confirmed live: "covers" alone matched swimsuits, pet cone collars, a
+// badminton racket cover, and a fish-tank net cover into "Car Covers",
+// none of which ever mentioned "car". Excluded only from the fallback
+// partial-match tier below (see bestLeafForTitle) — a full match still
+// requires every leaf word, so "Car Covers" itself is unaffected as long
+// as "car" is also present in the title.
+const AMBIGUOUS_WORDS = new Set(["cover", "covers"]);
+
+/**
+ * Two-tier match: prefer a leaf where ALL of its words appear in the title
+ * (tier 1). If none exists, fall back to a leaf where a STRICT MAJORITY of
+ * its words appear (tier 2) — not just one, which was tried first and
+ * verified live to reintroduce the exact single-word-coincidence bug tier 1
+ * exists to prevent, just via a different word each time ("winter" alone
+ * matching "Winter Tires" onto pet clothing, "bags" alone matching
+ * "Sleeping Bags for Kids" onto a pet travel bag, "floor" alone matching
+ * "Floor Mats" onto loose-fit pants). For a 2-word leaf this makes tier 2
+ * equivalent to tier 1 (both words required); it only adds rescue value for
+ * leaves with 3+ words, where 1-of-3 was clearly too weak but 2-of-3 is a
+ * reasonable partial signal. This still exists so a product doesn't get
+ * stuck forever in a stale wrong category from an earlier, looser run just
+ * because no leaf achieves a full match.
+ */
+// "&"/"and" inside a leaf name lists independent alternatives ("Mugs &
+// Cups" = a mug OR a cup, "Brushes & Combs" = a brush OR a comb), not a
+// single compound noun phrase where every word describes the same thing
+// ("Car Covers", "Wine Glasses"). Verified live: a coffee-cup product's
+// title only said "cup", never "mug" — requiring the whole leaf name as
+// one word set meant it could never match "Mugs & Cups" at all and stayed
+// stuck in a stale wrong category. Splitting into groups and requiring a
+// full/majority match within any ONE group fixes this without weakening
+// the compound-phrase case, since a leaf with no "&"/"and" just yields a
+// single group identical to the old flat word list.
+function leafWordGroups(name: string): string[][] {
+  return name
+    .split(/\s*(?:&|\band\b)\s*/i)
+    .map((segment) => words(segment, 3))
+    .filter((group) => group.length > 0);
+}
+
+/**
+ * Two-tier match: prefer a leaf with a word-group (see leafWordGroups)
+ * where ALL of its words appear in the title (tier 1). If none exists,
+ * fall back to a leaf with a group where a STRICT MAJORITY of its words
+ * appear (tier 2) — not just one, which was tried first and verified live
+ * to reintroduce the exact single-word-coincidence bug tier 1 exists to
+ * prevent, just via a different word each time ("winter" alone matching
+ * "Winter Tires" onto pet clothing, "bags" alone matching "Sleeping Bags
+ * for Kids" onto a pet travel bag, "floor" alone matching "Floor Mats"
+ * onto loose-fit pants). For a 2-word group this makes tier 2 equivalent
+ * to tier 1 (both words required); it only adds rescue value for groups
+ * with 3+ words, where 1-of-3 was clearly too weak but 2-of-3 is a
+ * reasonable partial signal. This still exists so a product doesn't get
+ * stuck forever in a stale wrong category from an earlier, looser run just
+ * because no leaf achieves a full match.
+ */
 function bestLeafForTitle(titleWords: string[], candidates: LeafCategory[]): { leaf: LeafCategory; score: number } | null {
-  let best: { leaf: LeafCategory; score: number } | null = null;
+  let bestFull: { leaf: LeafCategory; score: number } | null = null;
+  let bestPartial: { leaf: LeafCategory; score: number } | null = null;
   for (const leaf of candidates) {
-    // Leaf words need a higher minimum length than title words — a short
-    // leaf-name word (e.g. "Blu" in "Blu-ray") is far more likely to
-    // coincidentally substring-match an unrelated common word in some
-    // title (verified: "Blu" matched "Blue" as a color variant, hijacking
-    // blue-colored products across the whole catalog into "Blu-ray").
-    const leafWords = words(leaf.name, 4);
-    if (leafWords.length === 0) continue;
-    const score = leafWords.filter((lw) => titleWords.some((tw) => wordsMatch(tw, lw))).length;
-    if (score > 0 && (!best || score > best.score)) best = { leaf, score };
+    for (const leafWords of leafWordGroups(leaf.name)) {
+      const score = leafWords.filter((lw) => titleWords.some((tw) => wordsMatch(tw, lw))).length;
+      // ALL of a group's words must appear, not just one — a single shared
+      // word is too often a coincidence between unrelated domains
+      // (verified live: "Car Covers" — leaf words "car"+"covers" — matched
+      // swimsuits and pet cone collars on "cover"/"covers" alone, without
+      // "car" ever appearing in either title; "covers" is a common word in
+      // its own right, unrelated to cars specifically). Requiring the full
+      // set means a product only lands here if its title actually says
+      // "car" somewhere too.
+      if (score === leafWords.length && (!bestFull || score > bestFull.score)) bestFull = { leaf, score };
+
+      const safeLeafWords = leafWords.filter((w) => !AMBIGUOUS_WORDS.has(w));
+      if (safeLeafWords.length === 0) continue;
+      const partialScore = safeLeafWords.filter((lw) => titleWords.some((tw) => wordsMatch(tw, lw))).length;
+      if (partialScore > safeLeafWords.length / 2 && (!bestPartial || partialScore > bestPartial.score)) bestPartial = { leaf, score: partialScore };
+    }
   }
-  return best;
+  return bestFull ?? bestPartial;
 }
 
 async function main() {

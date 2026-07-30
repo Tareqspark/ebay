@@ -252,10 +252,32 @@ function words(s: string): string[] {
   return s.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3);
 }
 
+// Suffixes that turn one word into an inflected form of the SAME word
+// (plural/gerund/past-tense) rather than a different, derived word.
+// Deliberately excludes "er"/"ers": agentive/instrumental nouns regularly
+// drift in meaning from their root — the equivalent fix in
+// scripts/fix-cj-categories.ts was written after verifying live that a
+// garment "Dress" title matched the furniture "Dressers" leaf purely
+// because "dress" is a literal prefix of "dressers" under naive
+// containment. Applying the same fix here preemptively, since this
+// function's job (matching CJ's own leaf/segment names, still real English
+// phrases) is exposed to the identical collision class.
+// "ing"/"ed" deliberately excluded — see the identical constant and its
+// fuller rationale in scripts/fix-cj-categories.ts ("car" + "ing" spells
+// the unrelated real word "caring", verified live to cause a false match).
+const INFLECTION_SUFFIXES = new Set(["", "s", "es"]);
+
+function wordsMatch(a: string, b: string): boolean {
+  if (a === b) return true;
+  const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
+  if (!longer.startsWith(shorter)) return false;
+  return INFLECTION_SUFFIXES.has(longer.slice(shorter.length));
+}
+
 /**
- * Fraction of `leafWords` that appear (exactly, or as a substring of a
- * segment word — "hat" inside "hats") somewhere in `segmentWords`. Plain
- * word overlap, not Fuse: our leaf names are short controlled vocabulary
+ * Fraction of `leafWords` that appear (exactly, or as a same-word
+ * inflection — see wordsMatch) somewhere in `segmentWords`. Plain word
+ * overlap, not Fuse: our leaf names are short controlled vocabulary
  * ("Hats", "Gloves", "Scarves") and CJ's segment names are longer
  * descriptive phrases ("Woman Hats & Caps") — Fuse's fuzzy edit-distance
  * search is built for a short query against long documents, the opposite
@@ -267,7 +289,7 @@ function overlapScore(leafWords: string[], segmentWords: string[]): number {
   if (leafWords.length === 0) return 0;
   let matched = 0;
   for (const lw of leafWords) {
-    if (segmentWords.some((sw) => sw === lw || sw.includes(lw) || lw.includes(sw))) matched++;
+    if (segmentWords.some((sw) => wordsMatch(sw, lw))) matched++;
   }
   return matched / leafWords.length;
 }
