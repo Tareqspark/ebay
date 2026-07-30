@@ -1,20 +1,33 @@
 /**
- * One-time real-catalog import: replaces the synthetic product catalog with
- * real CJdropshipping products (and their real variants, each stored as its
- * own storefront listing per the chosen approach — no product_variants
- * table/UI exists in this app).
+ * Real-catalog import from CJdropshipping — real products, real variants
+ * (each stored as its own storefront listing per the chosen approach; no
+ * product_variants table/UI exists in this app), real category mapping onto
+ * this site's existing tree.
  *
  * Run with: npx tsx scripts/import-cj-products.ts
+ *
+ * Additive and duplicate-safe: loads every already-imported CJ product id
+ * from product_meta at startup and skips them, so re-running (e.g. to widen
+ * category coverage after the first pass) only pulls genuinely new
+ * products — never re-inserts or duplicates what's already there.
+ *
+ * Targets breadth over depth: PRODUCTS_PER_LEAF distinct base products per
+ * CJ leaf category, capped at MAX_VARIANTS_PER_PRODUCT variants each — not
+ * a fixed total listing count. Reaching more of this site's 1,416
+ * category leaves (CJ's own taxonomy only has ~540) depends on distinct
+ * product titles to match against, not on more colors of the same item.
  *
  * Resumable: writes progress to scripts/.cj-import-checkpoint.json after
  * every CJ leaf category it finishes, and skips categories already marked
  * done on a re-run (a crash/interrupt loses at most one in-progress
- * category, not the whole run). Does NOT delete the existing mock catalog —
- * that's scripts/remove-mock-products.ts, run separately, after this
- * completes and the import is spot-checked.
+ * category, not the whole run). Delete that file to start a fresh full
+ * sweep instead of resuming.
  *
- * Dev knobs: CJ_IMPORT_TARGET (default 5500), CJ_IMPORT_MAX_LEAVES (default
- * unlimited — caps how many CJ leaf categories are swept, for smoke tests).
+ * Dev knobs: CJ_IMPORT_PRODUCTS_PER_LEAF (default 25), CJ_IMPORT_MAX_VARIANTS
+ * (default 2), CJ_IMPORT_MAX_PAGES (default 4), CJ_IMPORT_TARGET (a total
+ * safety cap, default 100000 — not the primary target), CJ_IMPORT_MAX_LEAVES
+ * (default unlimited — caps how many CJ leaf categories are swept, for
+ * smoke tests).
  */
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
@@ -29,9 +42,17 @@ const pool = mysql.createPool({ uri: process.env.DATABASE_URL, connectionLimit: 
 const db = drizzle(pool, { schema, mode: "default" });
 
 const CJ_BASE = "https://developers.cjdropshipping.com/api2.0/v1";
-const TARGET_TOTAL = Number(process.env.CJ_IMPORT_TARGET ?? 5500);
-const MAX_VARIANTS_PER_PRODUCT = 6;
-const MAX_PAGES_PER_LEAF = 2; // 100/page — bounds worst-case work per leaf
+// Distinct BASE products per CJ leaf category — not listings. The first
+// import pass targeted a fixed total listing count and let variants
+// (colors/sizes of the same item) count toward it, which favored depth
+// (many colors of few products) over breadth (many distinct product
+// types) — and breadth is what actually reaches more of our finer-grained
+// category tree (1,416 leaves vs. CJ's own 540), since matching runs per
+// distinct product title. This pass targets breadth directly.
+const PRODUCTS_PER_LEAF = Number(process.env.CJ_IMPORT_PRODUCTS_PER_LEAF ?? 25);
+const MAX_VARIANTS_PER_PRODUCT = Number(process.env.CJ_IMPORT_MAX_VARIANTS ?? 2);
+const TOTAL_SAFETY_CAP = Number(process.env.CJ_IMPORT_TARGET ?? 100000); // guards against runaway behavior, not the primary target
+const MAX_PAGES_PER_LEAF = Number(process.env.CJ_IMPORT_MAX_PAGES ?? 4); // 100/page — bounds worst-case work per leaf
 const MAX_LEAVES = Number(process.env.CJ_IMPORT_MAX_LEAVES ?? Infinity); // dev/smoke-test knob
 const CHECKPOINT_FILE = new URL("./.cj-import-checkpoint.json", import.meta.url);
 const GENERIC_BRAND_ID = "cj-marketplace";
@@ -136,7 +157,11 @@ async function cjGet<T>(path: string, params: Record<string, string> = {}): Prom
     }
 
     if (body.result ?? body.success) return body.data;
-    if (/quota|limit exceeded|too many requests/i.test(body.message ?? "") && res.status !== 429) {
+    // code 16900500 is CJ's real "Insufficient API points" response (verified
+    // live — the message text itself doesn't contain "quota"/"limit exceeded"
+    // at all, so matching on message alone missed this and the script kept
+    // retrying every call for the rest of the run instead of stopping).
+    if (body.code === 16900500 || /quota|insufficient.*points|limit exceeded|too many requests/i.test(body.message ?? "")) {
       throw new QuotaExceededError(body.message);
     }
     if (res.status === 429 || res.status >= 500) {
@@ -405,10 +430,17 @@ async function importVariant(
   return true;
 }
 
+async function loadExistingCjProductIds(): Promise<Set<string>> {
+  const rows = await db.select({ cjProductId: schema.productMeta.cjProductId }).from(schema.productMeta);
+  return new Set(rows.map((r) => r.cjProductId).filter((id): id is string => Boolean(id)));
+}
+
 async function main() {
-  console.log(`Starting CJ catalog import — target ${TARGET_TOTAL} listings\n`);
+  console.log(`Starting CJ catalog import — target ${PRODUCTS_PER_LEAF} distinct products per leaf (up to ${MAX_VARIANTS_PER_PRODUCT} variants each)\n`);
 
   await ensureGenericBrand();
+  const existingCjProductIds = await loadExistingCjProductIds();
+  console.log(`${existingCjProductIds.size} CJ products already imported — will be skipped\n`);
   const allLeaves = await loadLeafCategories();
   const leavesByTopSlug = new Map<string, LeafCategory[]>();
   for (const leaf of allLeaves) {
@@ -433,17 +465,17 @@ async function main() {
   const checkpoint = loadCheckpoint();
   const doneSet = new Set(checkpoint.doneLeafIds);
   let totalImported = checkpoint.totalImported;
-  const perLeafTarget = Math.max(5, Math.min(60, Math.ceil(TARGET_TOTAL / sweepLeaves.length)));
 
   try {
     for (const leaf of sweepLeaves) {
-      if (totalImported >= TARGET_TOTAL) break;
+      if (totalImported >= TOTAL_SAFETY_CAP) break;
       if (doneSet.has(leaf.id)) continue;
 
       const category = matchCjLeafToOurTree(leaf, leavesByTopSlug, ultimateFallback);
-      let importedForLeaf = 0;
+      let productsForLeaf = 0;
+      let listingsForLeaf = 0;
 
-      for (let page = 1; page <= MAX_PAGES_PER_LEAF && importedForLeaf < perLeafTarget; page++) {
+      for (let page = 1; page <= MAX_PAGES_PER_LEAF && productsForLeaf < PRODUCTS_PER_LEAF; page++) {
         let listData: CjListResponse;
         try {
           listData = await cjGet<CjListResponse>("/product/listV2", { categoryId: leaf.id, page: String(page), size: "100" });
@@ -456,7 +488,9 @@ async function main() {
         if (list.length === 0) break;
 
         for (const item of list) {
-          if (importedForLeaf >= perLeafTarget || totalImported >= TARGET_TOTAL) break;
+          if (productsForLeaf >= PRODUCTS_PER_LEAF || totalImported >= TOTAL_SAFETY_CAP) break;
+          if (existingCjProductIds.has(item.id)) continue;
+
           let detail: CjProductDetail;
           try {
             detail = await cjGet<CjProductDetail>("/product/query", { pid: item.id });
@@ -480,24 +514,27 @@ async function main() {
             console.error(`  [warn] stock lookup failed for ${item.id}, defaulting to 0: ${(err as Error).message}`);
           }
 
+          let importedAnyVariant = false;
           for (const variant of variants) {
-            if (importedForLeaf >= perLeafTarget || totalImported >= TARGET_TOTAL) break;
             try {
               const ok = await importVariant(detail, variant, stockByVid, category);
               if (ok) {
-                importedForLeaf++;
+                importedAnyVariant = true;
+                listingsForLeaf++;
                 totalImported++;
               }
             } catch (err) {
               console.error(`  [skip] insert failed for variant ${variant.vid}: ${(err as Error).message}`);
             }
           }
+          existingCjProductIds.add(item.id);
+          if (importedAnyVariant) productsForLeaf++;
         }
       }
 
       doneSet.add(leaf.id);
       saveCheckpoint({ doneLeafIds: [...doneSet], totalImported });
-      console.log(`[${totalImported}/${TARGET_TOTAL}] ${leaf.path} -> ${category.name} (+${importedForLeaf})`);
+      console.log(`[+${listingsForLeaf} listings / ${productsForLeaf} products, total ${totalImported}] ${leaf.path} -> ${category.name}`);
     }
   } catch (err) {
     if (err instanceof QuotaExceededError) {
@@ -508,7 +545,7 @@ async function main() {
     throw err;
   }
 
-  console.log(`\nDone. Imported ${totalImported} real CJ listings.`);
+  console.log(`\nDone. Imported ${totalImported} real CJ listings this run.`);
   process.exit(0);
 }
 
