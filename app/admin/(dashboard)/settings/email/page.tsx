@@ -24,7 +24,7 @@ export default function AdminEmailSettingsPage() {
 
       <SettingsSection title="Email footer" description="Appended to every transactional email">
         <Textarea
-          defaultValue={"Cartebay Commerce, Inc. — 500 Market Street, Wilmington, DE 19801\nQuestions? Reply to this email or visit our Help Center."}
+          defaultValue={"Cartebay Commerce, Inc. — 1310 Pine Ave #D, Long Beach, CA 90813\nQuestions? Reply to this email or visit our Help Center."}
           rows={4}
         />
       </SettingsSection>

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Mail, Clock, MapPin, MessageCircle } from "lucide-react";
+import { Mail, Clock, MapPin, MessageCircle, Phone } from "lucide-react";
 import { ContactForm } from "@/components/help/contact-form";
 
 export const metadata: Metadata = { title: "Contact Information" };
@@ -28,14 +28,23 @@ export default function ContactInformationPage() {
           <Clock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           <div>
             <p className="text-sm font-medium text-foreground">Support hours</p>
-            <p className="text-sm text-muted-foreground">Monday–Friday, 9am–6pm ET</p>
+            <p className="text-sm text-muted-foreground">Monday–Friday, 9am–6pm PT</p>
           </div>
         </div>
         <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-4">
           <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           <div>
             <p className="text-sm font-medium text-foreground">Mailing address</p>
-            <p className="text-sm text-muted-foreground">[Business Address]</p>
+            <p className="text-sm text-muted-foreground">1310 Pine Ave #D, Long Beach, CA 90813</p>
+          </div>
+        </div>
+        <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-4">
+          <Phone className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <div>
+            <p className="text-sm font-medium text-foreground">Phone</p>
+            <a href="tel:+15622733989" className="text-sm text-muted-foreground hover:text-foreground hover:underline">
+              (562) 273-3989
+            </a>
           </div>
         </div>
         <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-4">

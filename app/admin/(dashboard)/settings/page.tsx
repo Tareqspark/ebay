@@ -19,7 +19,7 @@ export default function AdminStoreSettingsPage() {
         <div className="grid grid-cols-2 gap-4">
           <Field label="Store name" defaultValue="Cartebay" />
           <Field label="Support email" defaultValue="support@cartebay.com" type="email" />
-          <Field label="Support phone" defaultValue="+1 (800) 555-0142" />
+          <Field label="Support phone" defaultValue="+1 (562) 273-3989" />
           <Field label="Storefront URL" defaultValue="https://cartebay.com" disabled />
         </div>
       </SettingsSection>
@@ -39,7 +39,7 @@ export default function AdminStoreSettingsPage() {
           <div className="flex flex-col gap-1.5">
             <Label>Timezone</Label>
             <Select
-              defaultValue="et"
+              defaultValue="pt"
               items={{ et: "Eastern Time (ET)", ct: "Central Time (CT)", mt: "Mountain Time (MT)", pt: "Pacific Time (PT)" }}
             >
               <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
@@ -56,10 +56,10 @@ export default function AdminStoreSettingsPage() {
 
       <SettingsSection title="Business address" description="Used on invoices and shipping labels">
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Address line 1" defaultValue="500 Market Street" className="col-span-2" />
-          <Field label="City" defaultValue="Wilmington" />
-          <Field label="State" defaultValue="DE" />
-          <Field label="ZIP code" defaultValue="19801" />
+          <Field label="Address line 1" defaultValue="1310 Pine Ave #D" className="col-span-2" />
+          <Field label="City" defaultValue="Long Beach" />
+          <Field label="State" defaultValue="CA" />
+          <Field label="ZIP code" defaultValue="90813" />
           <Field label="Country" defaultValue="United States" disabled />
         </div>
       </SettingsSection>

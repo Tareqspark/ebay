@@ -11,9 +11,9 @@ export default function LegalNoticePage() {
         <p>
           This website, cartebay.com, is operated by Cartebay.
           <br />
-          Business address: [Business Address]
+          Business address: 1310 Pine Ave #D, Long Beach, CA 90813
           <br />
-          Phone: [Support Phone Number]
+          Phone: <a href="tel:+15622733989">(562) 273-3989</a>
           <br />
           Email: <a href="mailto:legal@cartebay.com">legal@cartebay.com</a>
         </p>
@@ -44,12 +44,12 @@ export default function LegalNoticePage() {
           <br />
           Email: <a href="mailto:legal@cartebay.com">legal@cartebay.com</a>
           <br />
-          Address: [Business Address]
+          Address: 1310 Pine Ave #D, Long Beach, CA 90813
         </p>
       </LegalSection>
 
       <LegalSection heading="7. Governing Law">
-        <p>This Legal Notice is governed by the laws of the State of [State], consistent with our <Link href="/legal/terms">Terms of Service</Link>.</p>
+        <p>This Legal Notice is governed by the laws of the State of California, consistent with our <Link href="/legal/terms">Terms of Service</Link>.</p>
       </LegalSection>
 
       <LegalSection heading="8. Contact">

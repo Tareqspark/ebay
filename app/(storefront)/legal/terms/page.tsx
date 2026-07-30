@@ -57,7 +57,7 @@ export default function TermsOfServicePage() {
       </LegalSection>
 
       <LegalSection heading="12. Governing Law">
-        <p>These Terms are governed by the laws of the State of [State], without regard to conflict-of-law principles, except where superseded by federal law.</p>
+        <p>These Terms are governed by the laws of the State of California, without regard to conflict-of-law principles, except where superseded by federal law.</p>
       </LegalSection>
 
       <LegalSection heading="13. Changes to These Terms">
