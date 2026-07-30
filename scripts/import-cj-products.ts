@@ -372,7 +372,13 @@ async function importVariant(
   const countryCode: "CN" | "US" = "CN"; // getInventoryByPid's sample data is CN-warehouse-only for every product seen so far
 
   const title = variant.variantKey && variant.variantKey !== baseProduct.productNameEn ? `${baseProduct.productNameEn} - ${variant.variantKey}` : baseProduct.productNameEn;
-  const images = [variant.variantImage, baseProduct.bigImage, ...(baseProduct.productImageSet ?? [])].filter((x): x is string => Boolean(x)).slice(0, 6);
+  // Deduplicated — variant.variantImage frequently equals baseProduct.bigImage
+  // (a variant with no distinct photo of its own just inherits the product's
+  // main image), and that same image often also appears inside
+  // productImageSet, so combining all three sources unfiltered produced a
+  // gallery with the same photo 2-3 times (React key warning was the
+  // symptom; the real bug was showing a customer a duplicated thumbnail).
+  const images = [...new Set([variant.variantImage, baseProduct.bigImage, ...(baseProduct.productImageSet ?? [])].filter((x): x is string => Boolean(x)))].slice(0, 6);
   if (images.length === 0) return false;
 
   const productId = newId();
