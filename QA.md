@@ -72,7 +72,7 @@ product keep succeeding.
 
 **Fix applied:** added `getAvailableStock(productId)` to `lib/inventory.ts`
 (returns `null` for CJ-sourced/untracked products, which stay uncapped —
-only Baruashop-owned "self" stock is checked). Wired in three places:
+only Cartebay-owned "self" stock is checked). Wired in three places:
 - `addToCart` / `updateCartItemQuantity` (`lib/cart.ts`) now cap the
   requested quantity to real available stock for self-sourced products.
 - `createPaymentIntentAction` (`lib/checkout-actions.ts`) hard-blocks —

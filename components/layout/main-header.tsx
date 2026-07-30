@@ -42,7 +42,7 @@ export function MainHeader({
             <ShoppingBag className="h-5 w-5" />
           </span>
           <span className="hidden text-xl font-bold tracking-tight text-foreground sm:inline">
-            Baruashop
+            Cartebay
           </span>
         </Link>
 

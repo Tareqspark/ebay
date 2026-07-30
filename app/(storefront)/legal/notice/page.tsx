@@ -9,13 +9,13 @@ export default function LegalNoticePage() {
     <LegalPage title="Legal Notice" updated="July 22, 2026">
       <LegalSection heading="1. Site Operator">
         <p>
-          This website, baruashop.com, is operated by Baruashop.
+          This website, cartebay.com, is operated by Cartebay.
           <br />
           Business address: [Business Address]
           <br />
           Phone: [Support Phone Number]
           <br />
-          Email: <a href="mailto:legal@baruashop.com">legal@baruashop.com</a>
+          Email: <a href="mailto:legal@cartebay.com">legal@cartebay.com</a>
         </p>
       </LegalSection>
 
@@ -24,7 +24,7 @@ export default function LegalNoticePage() {
       </LegalSection>
 
       <LegalSection heading="3. Intellectual Property">
-        <p>All trademarks, logos, product names, and original content on this site are the property of Baruashop or their respective owners. Product images not belonging to Baruashop are used under license or with permission from our suppliers and brand partners.</p>
+        <p>All trademarks, logos, product names, and original content on this site are the property of Cartebay or their respective owners. Product images not belonging to Cartebay are used under license or with permission from our suppliers and brand partners.</p>
       </LegalSection>
 
       <LegalSection heading="4. Accuracy of Information">
@@ -40,9 +40,9 @@ export default function LegalNoticePage() {
         <p>
           Designated Agent for Copyright Notices:
           <br />
-          Baruashop Legal Department
+          Cartebay Legal Department
           <br />
-          Email: <a href="mailto:legal@baruashop.com">legal@baruashop.com</a>
+          Email: <a href="mailto:legal@cartebay.com">legal@cartebay.com</a>
           <br />
           Address: [Business Address]
         </p>
@@ -53,7 +53,7 @@ export default function LegalNoticePage() {
       </LegalSection>
 
       <LegalSection heading="8. Contact">
-        <p>For legal inquiries, contact <a href="mailto:legal@baruashop.com">legal@baruashop.com</a>. For general support, visit our <Link href="/help">Contact Information</Link> page.</p>
+        <p>For legal inquiries, contact <a href="mailto:legal@cartebay.com">legal@cartebay.com</a>. For general support, visit our <Link href="/help">Contact Information</Link> page.</p>
       </LegalSection>
     </LegalPage>
   );

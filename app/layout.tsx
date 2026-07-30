@@ -15,11 +15,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Baruashop — Shop Electronics, Home, Fashion & More",
-    template: "%s | Baruashop",
+    default: "Cartebay — Shop Electronics, Home, Fashion & More",
+    template: "%s | Cartebay",
   },
   description:
-    "Baruashop is a premium online store for electronics, home goods, fashion, and thousands more categories — all in one place.",
+    "Cartebay is a premium online store for electronics, home goods, fashion, and thousands more categories — all in one place.",
 };
 
 export default function RootLayout({

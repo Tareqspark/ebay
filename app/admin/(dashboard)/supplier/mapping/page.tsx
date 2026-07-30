@@ -10,7 +10,7 @@ export default async function AdminSupplierMappingPage() {
   const [suppliers, mappings] = await Promise.all([getSuppliers(), getFieldMappings()]);
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title="Supplier" description="How each supplier's feed maps onto Baruashop product fields" />
+      <PageHeader title="Supplier" description="How each supplier's feed maps onto Cartebay product fields" />
       <SupplierTabs />
       <FieldMappingView suppliers={suppliers} mappings={mappings} />
     </div>

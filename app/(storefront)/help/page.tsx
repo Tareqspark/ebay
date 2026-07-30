@@ -19,8 +19,8 @@ export default function ContactInformationPage() {
           <Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           <div>
             <p className="text-sm font-medium text-foreground">Email</p>
-            <a href="mailto:support@baruashop.com" className="text-sm text-muted-foreground hover:text-foreground hover:underline">
-              support@baruashop.com
+            <a href="mailto:support@cartebay.com" className="text-sm text-muted-foreground hover:text-foreground hover:underline">
+              support@cartebay.com
             </a>
           </div>
         </div>

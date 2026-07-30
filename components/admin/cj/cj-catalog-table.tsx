@@ -152,7 +152,7 @@ export function CjCatalogTable({ categoryOptions, shippingLines }: CjCatalogTabl
           <span className="text-sm font-medium text-foreground">{selected.size} selected</span>
           <Button size="sm" className="gap-1.5" onClick={importSelected}>
             <Download className="h-3.5 w-3.5" />
-            Import to Baruashop
+            Import to Cartebay
           </Button>
           <Button variant="ghost" size="sm" className="ml-auto" onClick={() => setSelected(new Set())}>
             Clear

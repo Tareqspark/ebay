@@ -38,7 +38,7 @@ export const CONTENT_ITEMS = [
   { id: "cnt-2", title: "Computers & Tablets — Featured Collection", type: "hero_slide", location: "Homepage hero", status: "published", updatedAt: "2026-07-18T10:00:00Z" },
   { id: "cnt-3", title: "Free shipping over $50", type: "banner", location: "Top bar", status: "published", updatedAt: "2026-06-01T09:00:00Z" },
   { id: "cnt-4", title: "Flash Sale — ends tonight", type: "banner", location: "Homepage", status: "published", updatedAt: "2026-07-19T06:00:00Z" },
-  { id: "cnt-5", title: "About Baruashop", type: "page", location: "/about", status: "published", updatedAt: "2026-03-12T09:00:00Z" },
+  { id: "cnt-5", title: "About Cartebay", type: "page", location: "/about", status: "published", updatedAt: "2026-03-12T09:00:00Z" },
   { id: "cnt-6", title: "Shipping & Delivery", type: "page", location: "/help/shipping", status: "published", updatedAt: "2026-04-02T09:00:00Z" },
   { id: "cnt-7", title: "Returns & Refunds", type: "page", location: "/help/returns", status: "published", updatedAt: "2026-04-02T09:00:00Z" },
   { id: "cnt-8", title: "Sustainability", type: "page", location: "/sustainability", status: "draft", updatedAt: "2026-06-20T09:00:00Z" },
@@ -92,12 +92,12 @@ export const CARRIERS = [
 ] as const;
 
 export const ADMIN_TEAM = [
-  { id: "u-1", name: "Priya Patel", email: "priya@baruashop.com", role: "Owner", status: "active", lastActiveAt: "2026-07-19T13:00:00Z" },
-  { id: "u-2", name: "Marcus Chen", email: "marcus@baruashop.com", role: "Admin", status: "active", lastActiveAt: "2026-07-19T10:30:00Z" },
-  { id: "u-3", name: "Sofia Ricci", email: "sofia@baruashop.com", role: "Merchandiser", status: "active", lastActiveAt: "2026-07-18T16:45:00Z" },
-  { id: "u-4", name: "Daniel Osei", email: "daniel@baruashop.com", role: "Catalog Manager", status: "active", lastActiveAt: "2026-07-19T08:15:00Z" },
-  { id: "u-5", name: "Grace Kim", email: "grace@baruashop.com", role: "Support", status: "active", lastActiveAt: "2026-07-19T11:20:00Z" },
-  { id: "u-6", name: "Elena Vargas", email: "elena@baruashop.com", role: "Support", status: "invited", lastActiveAt: "2026-07-17T09:00:00Z" },
+  { id: "u-1", name: "Priya Patel", email: "priya@cartebay.com", role: "Owner", status: "active", lastActiveAt: "2026-07-19T13:00:00Z" },
+  { id: "u-2", name: "Marcus Chen", email: "marcus@cartebay.com", role: "Admin", status: "active", lastActiveAt: "2026-07-19T10:30:00Z" },
+  { id: "u-3", name: "Sofia Ricci", email: "sofia@cartebay.com", role: "Merchandiser", status: "active", lastActiveAt: "2026-07-18T16:45:00Z" },
+  { id: "u-4", name: "Daniel Osei", email: "daniel@cartebay.com", role: "Catalog Manager", status: "active", lastActiveAt: "2026-07-19T08:15:00Z" },
+  { id: "u-5", name: "Grace Kim", email: "grace@cartebay.com", role: "Support", status: "active", lastActiveAt: "2026-07-19T11:20:00Z" },
+  { id: "u-6", name: "Elena Vargas", email: "elena@cartebay.com", role: "Support", status: "invited", lastActiveAt: "2026-07-17T09:00:00Z" },
 ] as const;
 
 export const API_KEYS = [

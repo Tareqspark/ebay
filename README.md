@@ -1,4 +1,4 @@
-# Baruashop
+# Cartebay
 
 A premium, single-vendor ecommerce storefront built with Next.js 15, React 19, TypeScript, Tailwind CSS, and shadcn/ui. Inspired by the browsing experience of major US ecommerce sites — original branding and UI, not a marketplace.
 

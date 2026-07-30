@@ -27,7 +27,7 @@ export async function getAvailableStock(productId: string): Promise<number | nul
 
 /**
  * Decrements on-hand inventory for a self-fulfilled order line. Only
- * "self"-sourced items hold real Baruashop-owned stock (CJ-sourced items
+ * "self"-sourced items hold real Cartebay-owned stock (CJ-sourced items
  * are dropshipped — CJ holds that inventory, not us — see CLAUDE.md /
  * PRODUCT.md's hybrid sourcing model), so callers should only invoke this
  * for lineItems with source === "self". Picks the first matching SKU row

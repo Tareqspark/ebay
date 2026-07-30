@@ -19,7 +19,7 @@ import {
 import { CJ_SHIPPING_LINES, CJ_DISPUTE_REASONS } from "./cj-source.mjs";
 
 // Hybrid fulfillment split: share of the catalog that's dropshipped via CJ
-// vs. wholesale-restocked into Baruashop's own warehouses (self).
+// vs. wholesale-restocked into Cartebay's own warehouses (self).
 const CJ_SHARE = 0.35;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -399,9 +399,9 @@ const inventory = inventorySample.map((p, i) => {
   const base = { sku, productId: p.id, title: p.title, image: p.images[0], updatedAt: recentIso(10, 1.4) };
 
   if (meta.source === "cj") {
-    // CJ holds this stock — Baruashop never reserves or receives it, so
+    // CJ holds this stock — Cartebay never reserves or receives it, so
     // "available" mirrors CJ's own reported stock status, and
-    // reserved/incoming (Baruashop-DC concepts) are always zero.
+    // reserved/incoming (Cartebay-DC concepts) are always zero.
     const available =
       meta.cjStockStatus === "out_of_stock" ? 0 : meta.cjStockStatus === "low_stock" ? randInt(1, 9) : randInt(10, 900);
     return {

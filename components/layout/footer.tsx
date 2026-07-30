@@ -10,7 +10,7 @@ const helpLinks = [
 ];
 
 const companyLinks = [
-  { label: "About Baruashop", href: "/about" },
+  { label: "About Cartebay", href: "/about" },
   { label: "Careers", href: "/careers" },
   { label: "Press", href: "/press" },
   { label: "Sustainability", href: "/sustainability" },
@@ -111,11 +111,12 @@ export async function Footer() {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <ShoppingBag className="h-4 w-4" />
             </span>
-            <span className="text-lg font-bold text-background">Baruashop</span>
+            <span className="text-lg font-bold text-background">Cartebay</span>
           </Link>
-          <p className="text-xs text-background/60">
-            © {new Date().getFullYear()} Baruashop Commerce, Inc. All rights reserved.
-          </p>
+          <div className="text-center text-xs text-background/60 sm:text-right">
+            <p>© {new Date().getFullYear()} Cartebay Commerce, Inc. All rights reserved.</p>
+            <p>Developed by Fhavi Ltd</p>
+          </div>
         </div>
       </div>
     </footer>

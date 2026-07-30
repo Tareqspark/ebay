@@ -1,6 +1,6 @@
 # FEATURES.md
 
-This is the detailed development plan for Baruashop, organized into the same five phases as the client-facing proposal (`Baruashop-Proposed-Feature-List.pdf`) and `PRODUCT.md`'s **Development roadmap** section. `PRODUCT.md` defines *what* and *why* at a glance; `CLAUDE.md` documents *how the current code works*; this file is the engineering-detail expansion of each phase — technical decisions (made or still open), checklists, and acceptance criteria.
+This is the detailed development plan for Cartebay, organized into the same five phases as the client-facing proposal (`Cartebay-Proposed-Feature-List.pdf`) and `PRODUCT.md`'s **Development roadmap** section. `PRODUCT.md` defines *what* and *why* at a glance; `CLAUDE.md` documents *how the current code works*; this file is the engineering-detail expansion of each phase — technical decisions (made or still open), checklists, and acceptance criteria.
 
 **Phase numbering is deliberately identical across all three documents** — the proposal, `PRODUCT.md`, and this file — so a phase name means the same scope everywhere:
 

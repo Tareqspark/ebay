@@ -176,7 +176,7 @@ export function ProductsTable({ initialRows, categoryOptions }: ProductsTablePro
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `baruashop-products-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `cartebay-products-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success(`Exported ${exportRows.length.toLocaleString()} products`);

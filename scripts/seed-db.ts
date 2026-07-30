@@ -65,7 +65,7 @@ async function bulkInsert<T extends Record<string, unknown>>(table: Parameters<t
 }
 
 async function main() {
-  console.log("Seeding Baruashop database...\n");
+  console.log("Seeding Cartebay database...\n");
 
   // -------------------------------------------------------------------
   // Taxonomy + catalog
@@ -215,7 +215,7 @@ async function main() {
   // customer is a usable dev-login account. NOT for production use.
   // -------------------------------------------------------------------
   console.log("\nCustomers -> users:");
-  const seedPasswordHash = await hash("baruashop-dev-2026", 10);
+  const seedPasswordHash = await hash("cartebay-dev-2026", 10);
   await db.delete(schema.customerNotes);
   await db.delete(schema.users).where(sql`id LIKE 'cus-%'`);
   await bulkInsert(

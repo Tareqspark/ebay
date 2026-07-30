@@ -17,10 +17,10 @@ export default function AdminStoreSettingsPage() {
     <div className="flex max-w-2xl flex-col gap-4">
       <SettingsSection title="Store details" description="Basic information about your store">
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Store name" defaultValue="Baruashop" />
-          <Field label="Support email" defaultValue="support@baruashop.com" type="email" />
+          <Field label="Store name" defaultValue="Cartebay" />
+          <Field label="Support email" defaultValue="support@cartebay.com" type="email" />
           <Field label="Support phone" defaultValue="+1 (800) 555-0142" />
-          <Field label="Storefront URL" defaultValue="https://baruashop.com" disabled />
+          <Field label="Storefront URL" defaultValue="https://cartebay.com" disabled />
         </div>
       </SettingsSection>
 

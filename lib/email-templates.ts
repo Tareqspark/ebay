@@ -46,6 +46,6 @@ export function orderConfirmationEmail(input: OrderConfirmationInput): string {
       ${input.shippingAddress.line1}<br/>
       ${input.shippingAddress.city}, ${input.shippingAddress.state} ${input.shippingAddress.zip}
     </p>
-    <p style="color:#8a92a3;font-size:12px;margin-top:24px;">Baruashop</p>
+    <p style="color:#8a92a3;font-size:12px;margin-top:24px;">Cartebay</p>
   </div>`;
 }

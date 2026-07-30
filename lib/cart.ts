@@ -12,7 +12,7 @@ import { revalidatePath } from "next/cache";
 import { computeBundleAdjustedSubtotal } from "@/lib/bundles";
 import { getAvailableStock } from "@/lib/inventory";
 
-const GUEST_COOKIE = "baruashop_guest_cart";
+const GUEST_COOKIE = "cartebay_guest_cart";
 
 export interface CartLine {
   itemId: string;

@@ -16,7 +16,7 @@ export default async function AdminLoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted/20 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold text-foreground">Baruashop Admin</h1>
+          <h1 className="text-2xl font-bold text-foreground">Cartebay Admin</h1>
           <p className="mt-1 text-sm text-muted-foreground">Sign in with your staff account.</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-6">

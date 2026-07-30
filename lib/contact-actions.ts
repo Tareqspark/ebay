@@ -17,7 +17,7 @@ export interface ContactFormState {
   success?: boolean;
 }
 
-const SUPPORT_INBOX = process.env.SENDGRID_FROM_EMAIL || "support@baruashop.com";
+const SUPPORT_INBOX = process.env.SENDGRID_FROM_EMAIL || "support@cartebay.com";
 
 // A given IP can submit at most 5 messages per 10 minutes — good enough to
 // blunt a scripted spam/flood burst against this unauthenticated form.

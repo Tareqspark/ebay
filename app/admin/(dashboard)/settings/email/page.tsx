@@ -13,18 +13,18 @@ export default function AdminEmailSettingsPage() {
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-1.5">
             <Label>Sender name</Label>
-            <Input defaultValue="Baruashop" />
+            <Input defaultValue="Cartebay" />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label>Sender email</Label>
-            <Input defaultValue="orders@baruashop.com" type="email" />
+            <Input defaultValue="orders@cartebay.com" type="email" />
           </div>
         </div>
       </SettingsSection>
 
       <SettingsSection title="Email footer" description="Appended to every transactional email">
         <Textarea
-          defaultValue={"Baruashop Commerce, Inc. — 500 Market Street, Wilmington, DE 19801\nQuestions? Reply to this email or visit our Help Center."}
+          defaultValue={"Cartebay Commerce, Inc. — 500 Market Street, Wilmington, DE 19801\nQuestions? Reply to this email or visit our Help Center."}
           rows={4}
         />
       </SettingsSection>

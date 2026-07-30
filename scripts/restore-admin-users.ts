@@ -20,7 +20,7 @@ async function main() {
     process.exit(0);
   }
 
-  const seedPasswordHash = await hash("baruashop-dev-2026", 10);
+  const seedPasswordHash = await hash("cartebay-dev-2026", 10);
   await db.insert(schema.adminUsers).values(
     ADMIN_TEAM.map((a) => ({
       id: a.id,

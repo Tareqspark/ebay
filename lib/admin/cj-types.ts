@@ -1,7 +1,7 @@
 import type { CjStockStatus, CjWarehouse } from "@/lib/admin/types";
 
 /**
- * A product in CJdropshipping's own catalog, not yet imported into Baruashop.
+ * A product in CJdropshipping's own catalog, not yet imported into Cartebay.
  * This is the browse/import source — see cj-catalog.ts for how it's loaded
  * (server-only, paginated; the full set is never shipped to the client).
  */

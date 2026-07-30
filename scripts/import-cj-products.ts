@@ -352,8 +352,8 @@ async function ensureGenericBrand(): Promise<void> {
   // attributing genuine CJ dropshipped generic goods to a real trademark
   // would be a false, potentially trademark-infringing claim. One honest,
   // generic brand for every CJ-sourced import instead.
-  await db.insert(schema.brands).values({ id: GENERIC_BRAND_ID, name: "Baruashop Marketplace", slug: "baruashop-marketplace", categorySlugs: [] });
-  console.log("Created generic brand: Baruashop Marketplace");
+  await db.insert(schema.brands).values({ id: GENERIC_BRAND_ID, name: "Cartebay Marketplace", slug: "cartebay-marketplace", categorySlugs: [] });
+  console.log("Created generic brand: Cartebay Marketplace");
 }
 
 // ---------------------------------------------------------------------------

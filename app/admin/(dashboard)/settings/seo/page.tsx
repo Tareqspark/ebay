@@ -8,9 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 export const metadata: Metadata = { title: "SEO & Domains" };
 
 const DOMAINS = [
-  { domain: "baruashop.com", primary: true },
-  { domain: "www.baruashop.com", primary: false },
-  { domain: "shop.baruashop.com", primary: false },
+  { domain: "cartebay.com", primary: true },
+  { domain: "www.cartebay.com", primary: false },
+  { domain: "shop.cartebay.com", primary: false },
 ];
 
 export default function AdminSeoSettingsPage() {
@@ -19,12 +19,12 @@ export default function AdminSeoSettingsPage() {
       <SettingsSection title="Default meta tags" description="Used on pages that don't set their own">
         <div className="flex flex-col gap-1.5">
           <Label>Meta title</Label>
-          <Input defaultValue="Baruashop — Shop Electronics, Home, Fashion & More" />
+          <Input defaultValue="Cartebay — Shop Electronics, Home, Fashion & More" />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label>Meta description</Label>
           <Textarea
-            defaultValue="Baruashop is a premium online store for electronics, home goods, fashion, and thousands more categories — all in one place."
+            defaultValue="Cartebay is a premium online store for electronics, home goods, fashion, and thousands more categories — all in one place."
             rows={3}
           />
         </div>

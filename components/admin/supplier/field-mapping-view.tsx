@@ -40,7 +40,7 @@ export function FieldMappingView({ suppliers, mappings }: { suppliers: Supplier[
         <div className="grid grid-cols-[1fr_auto_1fr_1fr] gap-3 border-b border-border px-4 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           <span>Source field</span>
           <span></span>
-          <span>Baruashop field</span>
+          <span>Cartebay field</span>
           <span>Transform</span>
         </div>
         {mapping?.mappings.map((m) => (

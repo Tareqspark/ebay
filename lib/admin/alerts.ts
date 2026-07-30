@@ -36,7 +36,7 @@ export async function maybeSendErrorAlert(input: { source: ErrorLogSource; label
     const owners = await db.select({ email: adminUsers.email }).from(adminUsers).where(eq(adminUsers.role, "Owner"));
     if (owners.length === 0) return;
 
-    const subject = `[Baruashop] Error: ${input.label}`;
+    const subject = `[Cartebay] Error: ${input.label}`;
     const html = `
       <p><strong>Source:</strong> ${escapeHtml(input.source)}</p>
       <p><strong>Label:</strong> ${escapeHtml(input.label)}</p>

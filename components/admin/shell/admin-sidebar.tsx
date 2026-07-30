@@ -25,7 +25,7 @@ export function AdminSidebar() {
             <span className="flex h-7 w-7 items-center justify-center rounded-md bg-foreground text-background">
               <ShoppingBag className="h-4 w-4" />
             </span>
-            <span className="text-sm font-semibold tracking-tight text-foreground">Baruashop</span>
+            <span className="text-sm font-semibold tracking-tight text-foreground">Cartebay</span>
           </Link>
         )}
         <button
@@ -57,7 +57,7 @@ export function AdminSidebar() {
 
       {!collapsed && (
         <div className="border-t border-border px-4 py-3">
-          <p className="text-xs text-muted-foreground">Baruashop Admin v1.0</p>
+          <p className="text-xs text-muted-foreground">Cartebay Admin v1.0</p>
         </div>
       )}
     </aside>

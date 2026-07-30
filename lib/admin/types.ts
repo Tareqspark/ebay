@@ -20,8 +20,8 @@ export type ProductVisibility = "visible" | "hidden";
 
 /**
  * Hybrid fulfillment sourcing: "self" products are wholesale-restocked into
- * Baruashop's own warehouses (existing Supplier model). "cj" products are
- * dropshipped through CJdropshipping — Baruashop never holds this stock;
+ * Cartebay's own warehouses (existing Supplier model). "cj" products are
+ * dropshipped through CJdropshipping — Cartebay never holds this stock;
  * CJ ships direct to the customer per order. See CLAUDE.md / PRODUCT.md.
  */
 export type ProductSource = "self" | "cj";
@@ -179,12 +179,12 @@ export interface InventoryRecord {
   title: string;
   image: string;
   source: ProductSource;
-  /** Self: a Baruashop DC. CJ: the CJ warehouse the item ships from ("CJ Warehouse (US)" / "CJ Warehouse (CN)"). */
+  /** Self: a Cartebay DC. CJ: the CJ warehouse the item ships from ("CJ Warehouse (US)" / "CJ Warehouse (CN)"). */
   warehouse: string;
   available: number;
-  /** Always 0 for CJ items — Baruashop never reserves CJ-held stock. */
+  /** Always 0 for CJ items — Cartebay never reserves CJ-held stock. */
   reserved: number;
-  /** Self: units inbound to a Baruashop DC. Not applicable to CJ (always 0). */
+  /** Self: units inbound to a Cartebay DC. Not applicable to CJ (always 0). */
   incoming: number;
   status: InventoryStatus;
   supplierId?: string;

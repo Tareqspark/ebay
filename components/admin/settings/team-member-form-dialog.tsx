@@ -66,7 +66,7 @@ export function TeamMemberFormDialog({ open, onOpenChange, member, onSubmit, sub
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="member-email">Email</Label>
-            <Input id="member-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jordan@baruashop.com" />
+            <Input id="member-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jordan@cartebay.com" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">

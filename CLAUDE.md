@@ -16,7 +16,7 @@ There is no test suite/runner configured in this repo.
 
 ### Database & environment setup
 
-Accounts/cart/checkout/orders/reviews (`db/schema.ts`) run against a real MySQL database — everything else (catalog, taxonomy, `/admin`) is still the generated static data above. Local dev connects to a MacPorts MySQL 8 instance at `/opt/local/bin/mysql` that is **shared with other unrelated projects on this machine** — Baruashop only has access to its own `baruashop` database via a dedicated scoped user (`baruashop`@`localhost`), created once and never using root for app access. `.env.local` (gitignored) holds `DATABASE_URL` plus `AUTH_SECRET`/`AUTH_URL`, and empty placeholders for `STRIPE_SECRET_KEY`/`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`/`STRIPE_WEBHOOK_SECRET`/`SENDGRID_API_KEY`/`SENDGRID_FROM_EMAIL`.
+Accounts/cart/checkout/orders/reviews (`db/schema.ts`) run against a real MySQL database — everything else (catalog, taxonomy, `/admin`) is still the generated static data above. Local dev connects to a MacPorts MySQL 8 instance at `/opt/local/bin/mysql` that is **shared with other unrelated projects on this machine** — Cartebay only has access to its own `baruashop` database via a dedicated scoped user (`baruashop`@`localhost`, an internal service-account name predating the Cartebay rebrand and deliberately left as-is), created once and never using root for app access. `.env.local` (gitignored) holds `DATABASE_URL` plus `AUTH_SECRET`/`AUTH_URL`, and empty placeholders for `STRIPE_SECRET_KEY`/`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`/`STRIPE_WEBHOOK_SECRET`/`SENDGRID_API_KEY`/`SENDGRID_FROM_EMAIL`.
 
 ```bash
 npx drizzle-kit push    # apply db/schema.ts to the database (no migration files yet — see PRODUCT.md Database conventions)
@@ -40,7 +40,7 @@ node scripts/generate-cj-catalog.mjs   # scripts/product-data.mjs -> data/cj-cat
 
 ## Architecture
 
-Single-vendor storefront (Next.js 15 App Router, React 19, TypeScript, Tailwind v4, shadcn/ui). Brand name is "Baruashop" (appears in `app/layout.tsx` metadata, `main-header.tsx`, `footer.tsx`, category page metadata — grep for it if renaming again).
+Single-vendor storefront (Next.js 15 App Router, React 19, TypeScript, Tailwind v4, shadcn/ui). Brand name is "Cartebay" (appears in `app/layout.tsx` metadata, `main-header.tsx`, `footer.tsx`, category page metadata — grep for it if renaming again). Renamed from "Baruashop"; the MySQL database name and scoped user are still literally `baruashop` (internal plumbing, left alone on purpose — see Database & environment setup above).
 
 ### Category tree
 

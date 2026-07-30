@@ -198,7 +198,7 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
 
   await clearCartById(cartId);
 
-  // Only self-fulfilled items hold real Baruashop-owned stock — CJ-sourced
+  // Only self-fulfilled items hold real Cartebay-owned stock — CJ-sourced
   // items are dropshipped and CJ holds that inventory, not us.
   await Promise.all(
     lineItems
@@ -209,7 +209,7 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
   if (email) {
     await sendEmail({
       to: email,
-      subject: `Your Baruashop order ${orderNumber} is confirmed`,
+      subject: `Your Cartebay order ${orderNumber} is confirmed`,
       html: orderConfirmationEmail({ orderNumber, items: lineItems, subtotal, shipping, tax, total, shippingAddress }),
     });
   }

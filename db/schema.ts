@@ -191,7 +191,7 @@ export const productViews = mysqlTable(
  * already have their own after-sales flow (cj_disputes below), which
  * covers a different problem (a supplier-side claim: lost/damaged/wrong
  * item) with a different resolution shape (reship vs. refund). A return
- * is a customer-initiated "I don't want this" on stock Baruashop itself
+ * is a customer-initiated "I don't want this" on stock Cartebay itself
  * holds, so it's a separate, simpler table rather than folding into
  * cj_disputes.
  */

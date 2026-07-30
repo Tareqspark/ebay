@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: {
-    default: "Baruashop Admin",
-    template: "%s | Baruashop Admin",
+    default: "Cartebay Admin",
+    template: "%s | Cartebay Admin",
   },
-  description: "Operations console for the Baruashop storefront.",
+  description: "Operations console for the Cartebay storefront.",
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

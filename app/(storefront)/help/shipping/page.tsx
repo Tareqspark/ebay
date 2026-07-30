@@ -9,7 +9,7 @@ export default function ShippingPolicyPage() {
     <LegalPage
       title="Shipping Policy"
       updated="July 22, 2026"
-      intro="Baruashop currently ships to addresses within the United States, including Alaska, Hawaii, and US territories. Here&rsquo;s what to expect once you place an order."
+      intro="Cartebay currently ships to addresses within the United States, including Alaska, Hawaii, and US territories. Here&rsquo;s what to expect once you place an order."
     >
       <LegalSection heading="1. Processing Time">
         <p>Orders are typically processed within 1–2 business days of payment confirmation. You&apos;ll receive an email as soon as your order ships.</p>
@@ -24,7 +24,7 @@ export default function ShippingPolicyPage() {
       </LegalSection>
 
       <LegalSection heading="3. Delivery Estimates">
-        <p>Baruashop sells two kinds of products, and they ship a little differently:</p>
+        <p>Cartebay sells two kinds of products, and they ship a little differently:</p>
         <ul>
           <li><strong>Self-stocked items</strong> ship from our own warehouse and typically arrive in <strong>4–6 business days</strong> via standard shipping to the continental US (longer to Alaska, Hawaii, and US territories).</li>
           <li><strong>Supplier-fulfilled items</strong> (noted on the product page) ship directly from our supplier network and typically arrive in <strong>7–20 business days</strong>, depending on the item and warehouse location.</li>
@@ -37,7 +37,7 @@ export default function ShippingPolicyPage() {
       </LegalSection>
 
       <LegalSection heading="5. Delivery Address">
-        <p>Please double-check your shipping address at checkout — we&apos;re unable to redirect a package once it has shipped. If you notice an error immediately after placing your order, contact us right away at <a href="mailto:support@baruashop.com">support@baruashop.com</a> and we&apos;ll do our best to correct it before it ships.</p>
+        <p>Please double-check your shipping address at checkout — we&apos;re unable to redirect a package once it has shipped. If you notice an error immediately after placing your order, contact us right away at <a href="mailto:support@cartebay.com">support@cartebay.com</a> and we&apos;ll do our best to correct it before it ships.</p>
       </LegalSection>
 
       <LegalSection heading="6. Delays">
@@ -45,11 +45,11 @@ export default function ShippingPolicyPage() {
       </LegalSection>
 
       <LegalSection heading="7. Lost or Stolen Packages">
-        <p>If tracking shows your package as delivered but you haven&apos;t received it, please check with neighbors and your building&apos;s front desk/mailroom first, then contact us within 7 days at <a href="mailto:support@baruashop.com">support@baruashop.com</a> so we can investigate with the carrier and make it right.</p>
+        <p>If tracking shows your package as delivered but you haven&apos;t received it, please check with neighbors and your building&apos;s front desk/mailroom first, then contact us within 7 days at <a href="mailto:support@cartebay.com">support@cartebay.com</a> so we can investigate with the carrier and make it right.</p>
       </LegalSection>
 
       <LegalSection heading="8. Questions">
-        <p>See our <Link href="/help/returns">Refund Policy</Link> for returns, or reach us any time at <a href="mailto:support@baruashop.com">support@baruashop.com</a>.</p>
+        <p>See our <Link href="/help/returns">Refund Policy</Link> for returns, or reach us any time at <a href="mailto:support@cartebay.com">support@cartebay.com</a>.</p>
       </LegalSection>
     </LegalPage>
   );

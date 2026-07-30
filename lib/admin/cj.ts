@@ -14,7 +14,7 @@ export const CJ_SHIPPING_LINES: CjShippingLine[] = [
 
 export const CJ_INTEGRATION_SETTINGS: CjIntegrationSettings = {
   connected: true,
-  accountEmail: "sourcing@baruashop.com",
+  accountEmail: "sourcing@cartebay.com",
   apiKeyMasked: "cj_live_7f2a••••••••••••",
   walletBalance: 18420.5,
   autoPushOrders: true,

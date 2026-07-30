@@ -31,7 +31,7 @@ export async function sendEmail({ to, subject, html }: SendEmailInput): Promise<
   }
   await sgMail.send({
     to,
-    from: process.env.SENDGRID_FROM_EMAIL || "orders@baruashop.com",
+    from: process.env.SENDGRID_FROM_EMAIL || "orders@cartebay.com",
     subject,
     html,
   });
