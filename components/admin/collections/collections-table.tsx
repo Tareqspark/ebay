@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { DataTable } from "@/components/admin/table/data-table";
@@ -22,13 +23,21 @@ import { createCollectionAction, updateCollectionAction, deleteCollectionAction 
 import type { CollectionInput } from "@/lib/admin/collection-actions";
 import type { Collection } from "@/lib/admin/collections";
 
-export function CollectionsTable({ collections: initial }: { collections: Collection[] }) {
-  const [collections, setCollections] = useState(initial);
+interface CollectionsTableProps {
+  collections: Collection[];
+  topCategoryOptions: { value: string; label: string }[];
+}
+
+export function CollectionsTable({ collections, topCategoryOptions }: CollectionsTableProps) {
+  const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Collection | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Collection | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Real product counts, slugs, and membership are all server-computed —
+  // refetching via router.refresh() after a mutation is simpler and more
+  // correct than hand-patching an optimistic guess for those values.
   async function handleSubmit(input: CollectionInput) {
     setSubmitting(true);
     const result = editing
@@ -39,27 +48,8 @@ export function CollectionsTable({ collections: initial }: { collections: Collec
       toast.error(result.error);
       return;
     }
-    if (editing) {
-      setCollections((prev) =>
-        prev.map((c) => (c.id === editing.id ? { ...c, ...input, ruleDescription: input.ruleDescription || undefined, updatedAt: new Date().toISOString() } : c))
-      );
-      toast.success("Collection updated");
-    } else {
-      setCollections((prev) => [
-        {
-          id: crypto.randomUUID(),
-          name: input.name,
-          type: input.type,
-          ruleDescription: input.ruleDescription || undefined,
-          status: input.status,
-          updatedAt: new Date().toISOString(),
-          imageSeed: input.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-          productCount: 0,
-        },
-        ...prev,
-      ]);
-      toast.success("Collection created");
-    }
+    toast.success(editing ? "Collection updated" : "Collection created");
+    router.refresh();
     setFormOpen(false);
     setEditing(null);
   }
@@ -72,8 +62,8 @@ export function CollectionsTable({ collections: initial }: { collections: Collec
       setPendingDelete(null);
       return;
     }
-    setCollections((prev) => prev.filter((c) => c.id !== pendingDelete.id));
     toast.success("Collection deleted");
+    router.refresh();
     setPendingDelete(null);
   }
 
@@ -121,6 +111,7 @@ export function CollectionsTable({ collections: initial }: { collections: Collec
           if (!open) setEditing(null);
         }}
         collection={editing}
+        topCategoryOptions={topCategoryOptions}
         onSubmit={handleSubmit}
         submitting={submitting}
       />

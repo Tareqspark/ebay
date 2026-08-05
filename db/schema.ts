@@ -596,12 +596,41 @@ export const collectionStatus = ["active", "draft"] as const;
 export const collections = mysqlTable("collections", {
   id: varchar("id", { length: 191 }).primaryKey(),
   name: varchar("name", { length: 191 }).notNull(),
+  // Nullable only so this can be added to a table with existing rows
+  // without an interactive drizzle-kit migration prompt — every insert
+  // path (createCollectionAction) always sets a real one; see the
+  // one-time backfill for the rows that predate this column.
+  slug: varchar("slug", { length: 191 }).unique(),
   type: mysqlEnum("type", collectionType).notNull().default("manual"),
+  // Public-facing blurb shown on the collection's storefront landing page —
+  // originally free-text meant to double as an "automated" rule, but that
+  // was never evaluated by anything (see rule* columns below for the real
+  // thing). Kept as a description now that it has an honest purpose.
   ruleDescription: text("rule_description"),
+  // Automated-collection membership, evaluated live against the catalog
+  // (see lib/collections.ts) rather than stored — a product added to
+  // Electronics tomorrow shows up here automatically. All optional and
+  // ANDed together; unset means "no constraint on this dimension". Ignored
+  // for manual collections, which use collection_items below instead.
+  ruleTopCategorySlug: varchar("rule_top_category_slug", { length: 191 }),
+  ruleMinPriceCents: int("rule_min_price_cents"),
+  ruleMaxPriceCents: int("rule_max_price_cents"),
+  ruleMinRating: decimal("rule_min_rating", { precision: 2, scale: 1 }),
   status: mysqlEnum("status", collectionStatus).notNull().default("draft"),
   updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
   imageSeed: varchar("image_seed", { length: 191 }).notNull(),
 });
+
+/** Manual-collection membership — which products an admin explicitly added. Irrelevant for automated collections. */
+export const collectionItems = mysqlTable(
+  "collection_items",
+  {
+    id: varchar("id", { length: 26 }).primaryKey(),
+    collectionId: varchar("collection_id", { length: 191 }).notNull(),
+    productId: varchar("product_id", { length: 191 }).notNull(),
+  },
+  (table) => [index("collection_items_collection_id_idx").on(table.collectionId)]
+);
 
 export const campaignType = ["discount", "email", "banner"] as const;
 export const campaignStatus = ["active", "scheduled", "ended", "draft"] as const;

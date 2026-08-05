@@ -13,6 +13,18 @@ interface CollectionColumnActions {
   onDelete: (collection: Collection) => void;
 }
 
+function summarizeRule(collection: Collection): string {
+  if (collection.type === "manual") return "Manually curated";
+  const { rule } = collection;
+  const parts: string[] = [];
+  if (rule.topCategorySlug) parts.push(rule.topCategorySlug.replace(/-/g, " "));
+  if (rule.minPrice != null && rule.maxPrice != null) parts.push(`$${rule.minPrice}–$${rule.maxPrice}`);
+  else if (rule.minPrice != null) parts.push(`$${rule.minPrice}+`);
+  else if (rule.maxPrice != null) parts.push(`under $${rule.maxPrice}`);
+  if (rule.minRating != null) parts.push(`${rule.minRating}+ stars`);
+  return parts.length > 0 ? parts.join(" · ") : "No conditions set";
+}
+
 export function getCollectionColumns(actions: CollectionColumnActions): ColumnDef<Collection, unknown>[] {
   return [
   {
@@ -43,9 +55,9 @@ export function getCollectionColumns(actions: CollectionColumnActions): ColumnDe
     header: "Rule",
     size: 260,
     enableSorting: false,
-    accessorFn: (row) => row.ruleDescription ?? "",
+    accessorFn: (row) => summarizeRule(row),
     cell: ({ row }) => (
-      <span className="font-mono text-xs text-muted-foreground">{row.original.ruleDescription ?? "Manually curated"}</span>
+      <span className="text-xs text-muted-foreground">{summarizeRule(row.original)}</span>
     ),
   },
   {

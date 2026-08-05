@@ -5,7 +5,9 @@ import { FlashSaleSection } from "@/components/home/flash-sale-section";
 import { RecentlyViewedSection } from "@/components/home/recently-viewed-section";
 import { NewsletterSection } from "@/components/home/newsletter-section";
 import { ProductRail } from "@/components/product/product-rail";
+import { FeaturedCollections, type FeaturedCollectionItem } from "@/components/category/featured-collections";
 import { getFeaturedCategories } from "@/lib/category-utils";
+import { getActiveCollections } from "@/lib/collections";
 import {
   getBestSellerProducts,
   getDealsProducts,
@@ -23,6 +25,14 @@ import { auth } from "@/auth";
 export default async function HomePage() {
   const session = await auth();
   const featuredCategories = await getFeaturedCategories();
+  const activeCollections = await getActiveCollections();
+  const collectionItems: FeaturedCollectionItem[] = activeCollections.map((c) => ({
+    id: c.id,
+    name: c.name,
+    href: `/collection/${c.slug}`,
+    imageSeed: c.imageSeed,
+    tagline: c.description ?? "Shop the collection",
+  }));
   const heroSlides = featuredCategories.slice(0, 5).map((c) => ({
     id: c.id,
     name: c.name,
@@ -49,6 +59,8 @@ export default async function HomePage() {
       <HeroBanner slides={heroSlides} />
 
       <FeaturedCategoriesGrid categories={featuredCategories} />
+
+      <FeaturedCollections items={collectionItems} />
 
       <div id="deals">
         <ProductRail
