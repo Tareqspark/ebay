@@ -1,9 +1,9 @@
 import "server-only";
 import { cache } from "react";
 import Fuse from "fuse.js";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, desc, gt, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { products as productsTable } from "@/db/schema";
+import { products as productsTable, orderItems as orderItemsTable, orders as ordersTable } from "@/db/schema";
 import { getAllBrands, getBrandById } from "@/lib/brands";
 import { toDollars } from "@/lib/money";
 import type { Brand, Product } from "@/lib/types";
@@ -39,6 +39,8 @@ function toProduct(row: ProductRow, brandNameById: Map<string, string>): Product
     isTrending: row.isTrending,
     isFlashSale: row.isFlashSale,
     isDeal: row.isDeal,
+    isFeaturedDeal: row.isFeaturedDeal,
+    isWeeklyTopDeal: row.isWeeklyTopDeal,
     flashSaleEndsAt: row.flashSaleEndsAt ? row.flashSaleEndsAt.toISOString() : undefined,
     freeShipping: row.freeShipping,
     stock: row.stock,
@@ -143,6 +145,46 @@ export async function getNewArrivalProducts(limit = 12): Promise<Product[]> {
 export async function getBestSellerProducts(limit = 12): Promise<Product[]> {
   const [rows, brandNameById] = await Promise.all([
     db.select().from(productsTable).where(eq(productsTable.isBestSeller, true)).limit(limit),
+    getBrandNameById(),
+  ]);
+  return rows.map((r) => toProduct(r, brandNameById));
+}
+
+/** Ranked by real sales — SUM(order_items.quantity) across paid orders, not a seeded flag like the other rails above. Empty until real orders exist. */
+export async function getTopSellingProducts(limit = 12): Promise<Product[]> {
+  const rows = await db
+    .select({ productId: orderItemsTable.productId, totalSold: sql<number>`sum(${orderItemsTable.quantity})`.as("total_sold") })
+    .from(orderItemsTable)
+    .innerJoin(ordersTable, eq(ordersTable.id, orderItemsTable.orderId))
+    .where(eq(ordersTable.paymentStatus, "paid"))
+    .groupBy(orderItemsTable.productId)
+    .orderBy(desc(sql`total_sold`))
+    .limit(limit);
+  return getProductsByIds(rows.map((r) => r.productId));
+}
+
+/** Ranked by ratingCount — the review-count field already shown on every product card, not the (currently empty) reviews table. */
+export async function getMostReviewedProducts(limit = 12): Promise<Product[]> {
+  const [rows, brandNameById] = await Promise.all([
+    db.select().from(productsTable).where(gt(productsTable.ratingCount, 0)).orderBy(desc(productsTable.ratingCount)).limit(limit),
+    getBrandNameById(),
+  ]);
+  return rows.map((r) => toProduct(r, brandNameById));
+}
+
+/** Admin-curated (see lib/admin/homepage-deals-actions.ts) — hand-picked, not computed. */
+export async function getFeaturedDealProducts(limit = 12): Promise<Product[]> {
+  const [rows, brandNameById] = await Promise.all([
+    db.select().from(productsTable).where(eq(productsTable.isFeaturedDeal, true)).limit(limit),
+    getBrandNameById(),
+  ]);
+  return rows.map((r) => toProduct(r, brandNameById));
+}
+
+/** Admin-curated (see lib/admin/homepage-deals-actions.ts) — hand-picked, not computed. */
+export async function getWeeklyTopDealProducts(limit = 12): Promise<Product[]> {
+  const [rows, brandNameById] = await Promise.all([
+    db.select().from(productsTable).where(eq(productsTable.isWeeklyTopDeal, true)).limit(limit),
     getBrandNameById(),
   ]);
   return rows.map((r) => toProduct(r, brandNameById));

@@ -82,6 +82,8 @@ export const getProducts = cache(async (): Promise<Product[]> => {
     isTrending: row.isTrending,
     isFlashSale: row.isFlashSale,
     isDeal: row.isDeal,
+    isFeaturedDeal: row.isFeaturedDeal,
+    isWeeklyTopDeal: row.isWeeklyTopDeal,
     flashSaleEndsAt: row.flashSaleEndsAt ? row.flashSaleEndsAt.toISOString() : undefined,
     freeShipping: row.freeShipping,
     stock: row.stock,

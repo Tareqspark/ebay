@@ -29,6 +29,8 @@ function renderProduct(p) {
     isTrending: ${p.isTrending},
     isFlashSale: ${p.isFlashSale},
     isDeal: ${p.isDeal},
+    isFeaturedDeal: false,
+    isWeeklyTopDeal: false,
     freeShipping: ${p.freeShipping},
     stock: ${p.stock},
     description: ${tsString(p.description)},

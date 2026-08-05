@@ -78,7 +78,15 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     items: [
       { label: "Customers", href: "/admin/customers", icon: Users },
       { label: "Reviews", href: "/admin/reviews", icon: Star },
-      { label: "Marketing", href: "/admin/marketing", icon: Megaphone },
+      {
+        label: "Marketing",
+        href: "/admin/marketing",
+        icon: Megaphone,
+        children: [
+          { label: "Campaigns", href: "/admin/marketing" },
+          { label: "Homepage Deals", href: "/admin/marketing/homepage-deals" },
+        ],
+      },
       { label: "Promo Codes", href: "/admin/promo-codes", icon: Ticket },
     ],
   },

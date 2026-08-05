@@ -18,6 +18,8 @@ function product(price: number): Product {
     isTrending: false,
     isFlashSale: false,
     isDeal: false,
+    isFeaturedDeal: false,
+    isWeeklyTopDeal: false,
     freeShipping: false,
     stock: 10,
     description: "",

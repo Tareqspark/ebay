@@ -299,6 +299,11 @@ export const products = mysqlTable(
     isTrending: boolean("is_trending").notNull().default(false),
     isFlashSale: boolean("is_flash_sale").notNull().default(false),
     isDeal: boolean("is_deal").notNull().default(false),
+    // Admin-curated homepage sections (see lib/admin/homepage-deals-actions.ts)
+    // — unlike the flags above, these aren't seeded/generated, they're
+    // toggled by hand from a dedicated admin picker.
+    isFeaturedDeal: boolean("is_featured_deal").notNull().default(false),
+    isWeeklyTopDeal: boolean("is_weekly_top_deal").notNull().default(false),
     flashSaleEndsAt: timestamp("flash_sale_ends_at"),
     freeShipping: boolean("free_shipping").notNull().default(false),
     stock: int("stock").notNull().default(0),

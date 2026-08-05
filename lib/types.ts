@@ -33,6 +33,8 @@ export interface Product {
   isTrending: boolean;
   isFlashSale: boolean;
   isDeal: boolean;
+  isFeaturedDeal: boolean;
+  isWeeklyTopDeal: boolean;
   flashSaleEndsAt?: string;
   freeShipping: boolean;
   stock: number;

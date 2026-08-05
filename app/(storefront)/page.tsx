@@ -1,4 +1,4 @@
-import { Award, Sparkles, Tag, TrendingUp, Wand2 } from "lucide-react";
+import { Award, Flame, Sparkles, Star, Tag, TrendingUp, Wand2 } from "lucide-react";
 import { HeroBanner } from "@/components/home/hero-banner";
 import { FeaturedCategoriesGrid } from "@/components/home/featured-categories-grid";
 import { FlashSaleSection } from "@/components/home/flash-sale-section";
@@ -9,9 +9,13 @@ import { getFeaturedCategories } from "@/lib/category-utils";
 import {
   getBestSellerProducts,
   getDealsProducts,
+  getFeaturedDealProducts,
   getFlashSaleProducts,
+  getMostReviewedProducts,
   getNewArrivalProducts,
+  getTopSellingProducts,
   getTrendingProducts,
+  getWeeklyTopDealProducts,
 } from "@/lib/products";
 import { getPersonalizedRecommendations } from "@/lib/personalization";
 import { auth } from "@/auth";
@@ -26,14 +30,19 @@ export default async function HomePage() {
     image: c.image,
     description: c.description,
   }));
-  const [deals, flashSale, trending, newArrivals, bestSellers, recommended] = await Promise.all([
-    getDealsProducts(14),
-    getFlashSaleProducts(14),
-    getTrendingProducts(14),
-    getNewArrivalProducts(14),
-    getBestSellerProducts(14),
-    getPersonalizedRecommendations(session?.user?.id ?? null, 14),
-  ]);
+  const [deals, flashSale, trending, topSelling, mostReviewed, featuredDeals, weeklyTopDeals, newArrivals, bestSellers, recommended] =
+    await Promise.all([
+      getDealsProducts(14),
+      getFlashSaleProducts(14),
+      getTrendingProducts(14),
+      getTopSellingProducts(14),
+      getMostReviewedProducts(14),
+      getFeaturedDealProducts(14),
+      getWeeklyTopDealProducts(14),
+      getNewArrivalProducts(14),
+      getBestSellerProducts(14),
+      getPersonalizedRecommendations(session?.user?.id ?? null, 14),
+    ]);
 
   return (
     <div className="mx-auto flex max-w-[1440px] flex-col gap-12 px-4 py-6 sm:px-6 sm:py-8">
@@ -58,6 +67,34 @@ export default async function HomePage() {
         subtitle="What everyone's adding to their cart"
         icon={<TrendingUp className="h-5 w-5" />}
         products={trending}
+      />
+
+      <ProductRail
+        title="Top Selling"
+        subtitle="Ranked by real sales, updated as orders come in"
+        icon={<Award className="h-5 w-5" />}
+        products={topSelling}
+      />
+
+      <ProductRail
+        title="Most Reviewed"
+        subtitle="The products shoppers talk about most"
+        icon={<Star className="h-5 w-5" />}
+        products={mostReviewed}
+      />
+
+      <ProductRail
+        title="Featured Deals"
+        subtitle="Hand-picked by our team"
+        icon={<Tag className="h-5 w-5" />}
+        products={featuredDeals}
+      />
+
+      <ProductRail
+        title="This Week's Top Deals"
+        subtitle="Curated weekly, don't miss these"
+        icon={<Flame className="h-5 w-5" />}
+        products={weeklyTopDeals}
       />
 
       <ProductRail
