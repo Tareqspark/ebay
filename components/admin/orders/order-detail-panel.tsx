@@ -39,7 +39,7 @@ export function OrderDetailPanel({
   const hasSelfItems = order.items.some((item) => item.source === "self");
   const hasCjItems = order.items.some((item) => item.source === "cj");
   const canShip = hasSelfItems && (order.fulfillmentStatus === "unfulfilled" || order.fulfillmentStatus === "processing");
-  const canPushToCj = hasCjItems && order.cjSyncStatus === "not_sent";
+  const canPushToCj = hasCjItems && (order.cjSyncStatus ?? "not_sent") === "not_sent";
   const canRefund = order.paymentStatus === "paid";
   const canCancel = !["delivered", "cancelled"].includes(order.fulfillmentStatus);
 

@@ -31,7 +31,7 @@ export function CjOrdersTable({ initialOrders }: CjOrdersTableProps) {
   const detailOrder = detailOrderId ? ordersById.get(detailOrderId) ?? null : null;
 
   const filtered = useMemo(
-    () => orders.filter((o) => syncStatus === "all" || o.cjSyncStatus === syncStatus),
+    () => orders.filter((o) => syncStatus === "all" || (o.cjSyncStatus ?? "not_sent") === syncStatus),
     [orders, syncStatus]
   );
 
@@ -146,7 +146,7 @@ export function CjOrdersTable({ initialOrders }: CjOrdersTableProps) {
           const selectedIds = table
             .getFilteredSelectedRowModel()
             .rows.map((r) => r.original)
-            .filter((o) => o.cjSyncStatus === "not_sent")
+            .filter((o) => (o.cjSyncStatus ?? "not_sent") === "not_sent")
             .map((o) => o.id);
           return (
             <Button

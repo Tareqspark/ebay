@@ -90,10 +90,11 @@ export async function refundOrderAction(orderId: string, orderNumber: string): P
 }
 
 /**
- * Routed through lib/cj-provider.ts, which is mocked at the external-API
- * boundary (there's no live CJdropshipping integration) but the DB write
- * and audit trail are real — matches the hybrid-sourcing model documented
- * in CLAUDE.md/PRODUCT.md.
+ * Routed through lib/cj-provider.ts's pushOrderToCj(), which calls the real
+ * CJdropshipping order-creation API when CJ_API_KEY is configured (as it is
+ * in both dev and production) — this places a real wholesale order and
+ * draws from the real CJ account balance, it is not a mock. Falls back to
+ * a local-only mock id only when CJ_API_KEY is unset.
  */
 export async function pushOrderToCjAction(orderId: string, orderNumber: string): Promise<OrderActionResult> {
   const guard = await requirePermission("orders");

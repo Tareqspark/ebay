@@ -157,6 +157,13 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
     paymentMethod: "card",
     stripePaymentIntentId: paymentIntentId,
     shippingAddress,
+    // Without this, cj_sync_status stays NULL — the admin CJ Orders page's
+    // "Push to CJ" button (both per-row and bulk) checks
+    // `cjSyncStatus === "not_sent"` by strict equality, which NULL never
+    // satisfies, so the button silently does nothing for every order this
+    // creates (verified live: a real order's checkbox showed selected but
+    // the bulk push button had nothing to act on).
+    cjSyncStatus: lineItems.some((item) => item.source === "cj") ? "not_sent" : null,
   });
 
   await db.insert(orderItems).values(
