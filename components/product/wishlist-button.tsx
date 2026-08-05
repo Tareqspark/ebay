@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import { Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useWishlist } from "@/hooks/use-wishlist";
 
-export function WishlistButton({ className }: { className?: string }) {
-  const [saved, setSaved] = useState(false);
+export function WishlistButton({ productId, className }: { productId: string; className?: string }) {
+  const { isInWishlist, toggle } = useWishlist();
+  const saved = isInWishlist(productId);
 
   return (
     <button
@@ -15,7 +16,7 @@ export function WishlistButton({ className }: { className?: string }) {
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        setSaved((s) => !s);
+        toggle(productId);
       }}
       className={cn(
         "flex h-8 w-8 items-center justify-center rounded-full bg-background/90 shadow-sm ring-1 ring-border backdrop-blur transition hover:scale-105 hover:bg-background",

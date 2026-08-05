@@ -33,7 +33,7 @@ export function ProductCard({ product, className, priority }: ProductCardProps) 
           priority={priority}
         />
         <ProductBadges product={product} className="absolute left-2 top-2" />
-        <WishlistButton className="absolute right-2 top-2" />
+        <WishlistButton productId={product.id} className="absolute right-2 top-2" />
       </div>
       <div className="flex flex-1 flex-col gap-1.5 p-3">
         <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
