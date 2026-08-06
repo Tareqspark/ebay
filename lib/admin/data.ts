@@ -216,7 +216,7 @@ export const getAdminProductRows = cache(async (): Promise<AdminProductRow[]> =>
   const supplierById = new Map(suppliers.map((s) => [s.id, s]));
   const categoryNameBySlug = new Map(categories.map((c) => [c.slug, c.name]));
 
-  return products.map((product) => {
+  const rows = products.map((product) => {
     const meta = metaByProductId.get(product.id)!;
     const totalCost = meta.cost + (meta.source === "cj" ? meta.cjShippingFee ?? 0 : 0);
     const margin = Math.round((product.price - totalCost) * 100) / 100;
@@ -231,6 +231,11 @@ export const getAdminProductRows = cache(async (): Promise<AdminProductRow[]> =>
       marginPercent: Math.round((margin / product.price) * 1000) / 10,
     };
   });
+
+  // Newest first. Without this the list came back in whatever order MySQL
+  // returned and the table applied no default sort, so a product created
+  // just now landed at an arbitrary page of ~470 — present, but unfindable.
+  return rows.sort((a, b) => new Date(b.meta.importedAt).getTime() - new Date(a.meta.importedAt).getTime());
 });
 
 /** Lean variant for the client-side products table — see the original comment this preserves from before the DB migration. */
