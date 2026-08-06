@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { Download, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Download, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { DataTable } from "@/components/admin/table/data-table";
 import { TableSearch } from "@/components/admin/table/table-search";
@@ -26,7 +27,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { getProductColumns } from "@/components/admin/products/columns";
 import { ProductDetailPanel } from "@/components/admin/products/product-detail-panel";
+import { ProductFormDialog, type CategoryNode } from "@/components/admin/products/product-form-dialog";
 import {
+  createProductAction,
+  type CreateProductInput,
   updateProductPriceAction,
   updateProductCostAction,
   setProductStatusAction,
@@ -51,11 +55,32 @@ const visibilityItems = { visible: "Visible", hidden: "Hidden" };
 interface ProductsTableProps {
   initialRows: AdminProductRow[];
   categoryOptions: { value: string; label: string }[];
+  categoryTree: CategoryNode[];
+  brandOptions: { value: string; label: string }[];
   /** Seeds the search box, so a ?q= deep link lands pre-filtered. */
   initialQuery?: string;
+  /** Opens the create dialog straight away, for the command palette's "Create product" entry. */
+  openNew?: boolean;
 }
 
-export function ProductsTable({ initialRows, categoryOptions, initialQuery }: ProductsTableProps) {
+export function ProductsTable({ initialRows, categoryOptions, categoryTree, brandOptions, initialQuery, openNew }: ProductsTableProps) {
+  const router = useRouter();
+  const [createOpen, setCreateOpen] = useState(openNew ?? false);
+  const [creating, setCreating] = useState(false);
+
+  async function handleCreate(input: CreateProductInput) {
+    setCreating(true);
+    const result = await createProductAction(input);
+    setCreating(false);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(`"${input.title.trim()}" created`);
+    setCreateOpen(false);
+    router.refresh();
+  }
+
   const [rows, setRows] = useState(initialRows);
   const [status, setStatus] = useState("all");
   const [visibility, setVisibility] = useState("all");
@@ -221,6 +246,10 @@ export function ProductsTable({ initialRows, categoryOptions, initialQuery }: Pr
         toolbar={(table) => (
           <>
             <TableSearch table={table} placeholder="Search products..." />
+            <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
+              <Plus className="h-3.5 w-3.5" />
+              New product
+            </Button>
             <FilterSelect value={status} onChange={setStatus} allLabel="All statuses" options={[
               { value: "active", label: "Active" },
               { value: "draft", label: "Draft" },
@@ -302,6 +331,15 @@ export function ProductsTable({ initialRows, categoryOptions, initialQuery }: Pr
             </>
           );
         }}
+      />
+
+      <ProductFormDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        categoryTree={categoryTree}
+        brandOptions={brandOptions}
+        onSubmit={handleCreate}
+        submitting={creating}
       />
 
       <ProductDetailPanel

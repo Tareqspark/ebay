@@ -57,8 +57,12 @@ export interface UploadError {
   error: string;
 }
 
-/** Writes a validated image under UPLOAD_DIR/banners and returns the public path app/uploads/banners/[file] serves it from. */
-export async function saveBannerImage(file: File): Promise<SavedUpload | UploadError> {
+/** Subdirectories under UPLOAD_DIR that may be written to or served — an allowlist so a folder name can never widen into an arbitrary path. */
+export const UPLOAD_FOLDERS = ["banners", "products"] as const;
+export type UploadFolder = (typeof UPLOAD_FOLDERS)[number];
+
+/** Writes a validated image under UPLOAD_DIR/<folder> and returns the public path app/uploads/[folder]/[file] serves it from. */
+export async function saveUploadedImage(file: File, folder: UploadFolder): Promise<SavedUpload | UploadError> {
   if (file.size === 0) return { error: "That file is empty" };
   if (file.size > MAX_BYTES) {
     return { error: `Image must be under ${MAX_BYTES / 1024 / 1024}MB — that one is ${(file.size / 1024 / 1024).toFixed(1)}MB` };
@@ -71,11 +75,16 @@ export async function saveBannerImage(file: File): Promise<SavedUpload | UploadE
   }
 
   const filename = `${ulid()}.${ALLOWED[actualType]}`;
-  const dir = path.join(UPLOAD_DIR, "banners");
+  const dir = path.join(UPLOAD_DIR, folder);
   await mkdir(dir, { recursive: true });
   await writeFile(path.join(dir, filename), bytes);
 
-  return { url: `/uploads/banners/${filename}` };
+  return { url: `/uploads/${folder}/${filename}` };
+}
+
+/** Banner-specific wrapper kept so existing call sites read clearly. */
+export function saveBannerImage(file: File): Promise<SavedUpload | UploadError> {
+  return saveUploadedImage(file, "banners");
 }
 
 /**
@@ -100,11 +109,12 @@ export interface ServedUpload {
   contentType: string;
 }
 
-export async function readBannerImage(filename: string): Promise<ServedUpload | null> {
+export async function readUploadedImage(folder: string, filename: string): Promise<ServedUpload | null> {
+  if (!(UPLOAD_FOLDERS as readonly string[]).includes(folder)) return null;
   if (!SAFE_FILENAME.test(filename)) return null;
   const ext = filename.split(".").pop()!;
   try {
-    const file = await readFile(path.join(UPLOAD_DIR, "banners", filename));
+    const file = await readFile(path.join(UPLOAD_DIR, folder, filename));
     // Copied into a standalone ArrayBuffer rather than handing back
     // file.buffer, which is a pooled allocation Node shares between reads and
     // would expose unrelated bytes either side of this file's slice.
@@ -116,12 +126,13 @@ export async function readBannerImage(filename: string): Promise<ServedUpload | 
   }
 }
 
-/** Best-effort cleanup when a banner is deleted or its image replaced — a leftover file is harmless, so a failure here never blocks the mutation. */
-export async function deleteBannerImage(url: string): Promise<void> {
-  const filename = url.split("/").pop();
-  if (!filename || !SAFE_FILENAME.test(filename)) return;
+/** Best-effort cleanup when an upload is deleted or replaced — a leftover file is harmless, so a failure here never blocks the mutation. */
+export async function deleteUploadedImage(url: string): Promise<void> {
+  const [, , folder, filename] = url.split("/");
+  if (!folder || !filename) return;
+  if (!(UPLOAD_FOLDERS as readonly string[]).includes(folder) || !SAFE_FILENAME.test(filename)) return;
   try {
-    await unlink(path.join(UPLOAD_DIR, "banners", filename));
+    await unlink(path.join(UPLOAD_DIR, folder, filename));
   } catch {
     // Already gone, or never written — nothing to clean up.
   }

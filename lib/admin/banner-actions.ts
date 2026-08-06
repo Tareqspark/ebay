@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { banners } from "@/db/schema";
 import { newId } from "@/lib/id";
 import { checkPlainText, checkSafeUrl } from "@/lib/sanitize";
-import { deleteBannerImage } from "@/lib/uploads";
+import { deleteUploadedImage } from "@/lib/uploads";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
 import { requirePermission } from "@/lib/admin/permissions";
@@ -105,7 +105,7 @@ export async function updateBannerAction(id: string, input: BannerInput): Promis
   const [existing] = await db.select({ imageUrl: banners.imageUrl }).from(banners).where(eq(banners.id, id)).limit(1);
   await db.update(banners).set(toRow(input)).where(eq(banners.id, id));
   if (existing && existing.imageUrl !== input.imageUrl.trim()) {
-    await deleteBannerImage(existing.imageUrl);
+    await deleteUploadedImage(existing.imageUrl);
   }
 
   const actor = await getAdminActorName();
@@ -120,7 +120,7 @@ export async function deleteBannerAction(id: string, name: string): Promise<Bann
 
   const [existing] = await db.select({ imageUrl: banners.imageUrl }).from(banners).where(eq(banners.id, id)).limit(1);
   await db.delete(banners).where(eq(banners.id, id));
-  if (existing) await deleteBannerImage(existing.imageUrl);
+  if (existing) await deleteUploadedImage(existing.imageUrl);
 
   const actor = await getAdminActorName();
   await logActivity("product", `Banner "${name}" deleted`, actor);

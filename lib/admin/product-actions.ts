@@ -3,8 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { products, productMeta, inventory } from "@/db/schema";
+import { products, productMeta, inventory, categories } from "@/db/schema";
 import { toCents } from "@/lib/money";
+import { newId } from "@/lib/id";
+import { checkPlainText } from "@/lib/sanitize";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
 import { requirePermission } from "@/lib/admin/permissions";
@@ -103,5 +105,133 @@ export async function deleteProductsAction(productIds: string[]): Promise<Produc
   );
   revalidateProductViews();
   revalidatePath("/admin/inventory");
+  return {};
+}
+
+export interface CreateProductInput {
+  title: string;
+  description: string;
+  price: number;
+  cost: number;
+  /** Optional compare-at price shown struck through on the storefront. */
+  originalPrice?: number;
+  images: string[];
+  /** Leaf category the product belongs to; its ancestors are derived from the tree. */
+  categorySlugPath: string[];
+  brandId: string;
+  stock: number;
+  sku: string;
+  warehouse: string;
+  freeShipping: boolean;
+  status: ProductStatus;
+  visibility: ProductVisibility;
+}
+
+function slugifyTitle(title: string): string {
+  return (
+    title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "") || newId().toLowerCase()
+  );
+}
+
+async function uniqueProductSlug(title: string): Promise<string> {
+  const base = slugifyTitle(title).slice(0, 180);
+  let candidate = base;
+  let suffix = 2;
+  for (;;) {
+    const [existing] = await db.select({ id: products.id }).from(products).where(eq(products.slug, candidate)).limit(1);
+    if (!existing) return candidate;
+    candidate = `${base}-${suffix}`;
+    suffix++;
+  }
+}
+
+function validateCreate(input: CreateProductInput): string | null {
+  const title = input.title.trim();
+  if (!title) return "Title is required";
+  const textError = checkPlainText(title, "Title") ?? checkPlainText(input.description, "Description");
+  if (textError) return textError;
+  if (input.images.length === 0) return "Add at least one product photo";
+  if (input.categorySlugPath.length !== 3) return "Choose a category down to the third level";
+  if (!input.brandId) return "Choose a brand";
+  if (!(input.price > 0)) return "Price must be greater than $0";
+  if (input.cost < 0) return "Cost can't be negative";
+  if (input.originalPrice != null && input.originalPrice <= input.price) {
+    return "Compare-at price must be higher than the selling price";
+  }
+  if (!Number.isInteger(input.stock) || input.stock < 0) return "Stock must be a whole number of units";
+  if (!input.sku.trim()) return "SKU is required";
+  return null;
+}
+
+/**
+ * Creates an own-brand ("self") product — the other half of the hybrid model
+ * from CJ imports, which reach the catalog through scripts/import-cj-products.ts.
+ * Writes the same three tables that importer does, because the storefront and
+ * admin both assume all three exist for every product: `products` (what
+ * shoppers see), `product_meta` (source/cost/status, which drives margin and
+ * visibility) and `inventory` (the stock record the fulfilment side reads).
+ * Missing any one of them yields a product that renders but can't be sold or
+ * counted.
+ */
+export async function createProductAction(input: CreateProductInput): Promise<ProductActionResult> {
+  const guard = await requirePermission("products");
+  if (guard) return guard;
+
+  const error = validateCreate(input);
+  if (error) return { error };
+
+  const title = input.title.trim();
+  const slug = await uniqueProductSlug(title);
+  const productId = newId();
+  const leafSlug = input.categorySlugPath[2];
+
+  const [category] = await db.select({ id: categories.id }).from(categories).where(eq(categories.slug, leafSlug)).limit(1);
+  if (!category) return { error: "That category no longer exists — pick another" };
+
+  const [existingSku] = await db.select({ sku: inventory.sku }).from(inventory).where(eq(inventory.sku, input.sku.trim())).limit(1);
+  if (existingSku) return { error: `SKU "${input.sku.trim()}" is already in use` };
+
+  await db.insert(products).values({
+    id: productId,
+    slug,
+    title,
+    brandId: input.brandId,
+    priceCents: toCents(input.price),
+    originalPriceCents: input.originalPrice != null ? toCents(input.originalPrice) : null,
+    images: input.images,
+    categoryId: category.id,
+    categorySlugPath: input.categorySlugPath,
+    freeShipping: input.freeShipping,
+    stock: input.stock,
+    description: input.description.trim(),
+    features: [],
+  });
+
+  await db.insert(productMeta).values({
+    productId,
+    source: "self",
+    costCents: toCents(input.cost),
+    status: input.status,
+    visibility: input.visibility,
+  });
+
+  await db.insert(inventory).values({
+    sku: input.sku.trim(),
+    productId,
+    source: "self",
+    warehouse: input.warehouse.trim() || "Main",
+    available: input.stock,
+    reserved: 0,
+    incoming: 0,
+    status: input.stock === 0 ? "out_of_stock" : input.stock <= 10 ? "low_stock" : "in_stock",
+  });
+
+  const actor = await getAdminActorName();
+  await logActivity("product", `Product "${title}" created`, actor);
+  revalidateProductViews();
+  revalidatePath("/", "layout");
   return {};
 }

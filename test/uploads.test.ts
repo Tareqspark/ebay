@@ -65,7 +65,7 @@ describe("readBannerImage", () => {
   it("serves back a file it wrote, with the right content type", async () => {
     const saved = await uploads.saveBannerImage(fileFrom([...PNG_HEADER], "image/png"));
     const filename = saved.url!.split("/").pop()!;
-    const served = await uploads.readBannerImage(filename);
+    const served = await uploads.readUploadedImage("banners", filename);
     expect(served?.contentType).toBe("image/png");
   });
 
@@ -76,11 +76,11 @@ describe("readBannerImage", () => {
     "evil.php",
     "notaulid.png",
   ])("refuses to read %s", async (name) => {
-    expect(await uploads.readBannerImage(name)).toBeNull();
+    expect(await uploads.readUploadedImage("banners", name)).toBeNull();
   });
 
   it("returns null for a well-formed name that does not exist", async () => {
-    expect(await uploads.readBannerImage("01ARZ3NDEKTSV4RRFFQ69G5FAV.png")).toBeNull();
+    expect(await uploads.readUploadedImage("banners", "01ARZ3NDEKTSV4RRFFQ69G5FAV.png")).toBeNull();
   });
 
   it("cannot be tricked into reading a real file placed outside the banners dir", async () => {
@@ -88,7 +88,25 @@ describe("readBannerImage", () => {
     // to UPLOAD_DIR/banners, so it must not resolve.
     await mkdir(path.join(dir, "banners"), { recursive: true });
     await writeFile(path.join(dir, "01ARZ3NDEKTSV4RRFFQ69G5FAW.png"), "secret");
-    expect(await uploads.readBannerImage("01ARZ3NDEKTSV4RRFFQ69G5FAW.png")).toBeNull();
+    expect(await uploads.readUploadedImage("banners", "01ARZ3NDEKTSV4RRFFQ69G5FAW.png")).toBeNull();
+  });
+});
+
+describe("upload folders", () => {
+  it("stores a product photo under its own folder", async () => {
+    const result = await uploads.saveUploadedImage(fileFrom([...PNG_HEADER], "image/png"), "products");
+    expect(result.url).toMatch(/^\/uploads\/products\/[0-9A-HJKMNP-TV-Z]{26}\.png$/);
+  });
+
+  it.each(["../banners", "etc", "", "banners/../.."])("refuses to serve from folder %s", async (folder) => {
+    // Correctly shaped filename, but a folder outside the allowlist.
+    expect(await uploads.readUploadedImage(folder, "01ARZ3NDEKTSV4RRFFQ69G5FAV.png")).toBeNull();
+  });
+
+  it("does not serve a banners file through the products folder", async () => {
+    const saved = await uploads.saveUploadedImage(fileFrom([...PNG_HEADER], "image/png"), "banners");
+    const filename = saved.url!.split("/").pop()!;
+    expect(await uploads.readUploadedImage("products", filename)).toBeNull();
   });
 });
 
