@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Clock, Search, TrendingUp, X } from "lucide-react";
 import {
   Select,
@@ -12,9 +13,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { formatPrice } from "@/lib/format";
 import { useRecentSearches } from "@/hooks/use-recent-searches";
 import { POPULAR_SEARCHES } from "@/lib/category-client";
 import type { CategorySearchResult, ClientCategory } from "@/lib/category-utils";
+
+interface ProductHit {
+  id: string;
+  slug: string;
+  title: string;
+  image: string;
+  price: number;
+}
 
 interface SearchBarProps {
   className?: string;
@@ -29,6 +39,7 @@ export function SearchBar({ className, featuredCategories, allCategories }: Sear
   const [scope, setScope] = useState("all");
   const [open, setOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<CategorySearchResult[]>([]);
+  const [productHits, setProductHits] = useState<ProductHit[]>([]);
   const { searches, addSearch, removeSearch } = useRecentSearches();
 
   const categoryScopeItems: Record<string, string> = { all: "All Categories" };
@@ -37,12 +48,14 @@ export function SearchBar({ className, featuredCategories, allCategories }: Sear
   useEffect(() => {
     if (!query) {
       setSuggestions([]);
+      setProductHits([]);
       return;
     }
     const timeout = setTimeout(async () => {
-      const res = await fetch(`/api/categories/search?q=${encodeURIComponent(query)}&limit=7`);
+      const res = await fetch(`/api/search/suggest?q=${encodeURIComponent(query)}`);
       const data = await res.json();
-      setSuggestions(data.results ?? []);
+      setSuggestions(data.categories ?? []);
+      setProductHits(data.products ?? []);
     }, 250);
     return () => clearTimeout(timeout);
   }, [query]);
@@ -126,11 +139,39 @@ export function SearchBar({ className, featuredCategories, allCategories }: Sear
         <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 max-h-[70vh] overflow-y-auto rounded-lg border border-border bg-popover p-4 shadow-xl">
           {query ? (
             <div className="flex flex-col gap-1">
-              {suggestions.length > 0 ? (
+              {suggestions.length > 0 || productHits.length > 0 ? (
                 <>
-                  <p className="mb-1 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Suggestions
+                  {productHits.length > 0 && (
+                    <>
+                      <p className="mb-1 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Products
+                      </p>
+                      {productHits.map((p) => (
+                        <Link
+                          key={p.id}
+                          href={`/product/${p.slug}`}
+                          onClick={() => {
+                            addSearch(p.title);
+                            setOpen(false);
+                          }}
+                          className="flex items-center gap-2.5 rounded-md px-2 py-2 text-sm hover:bg-muted"
+                        >
+                          <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded border border-border bg-muted">
+                            <Image src={p.image} alt="" fill sizes="32px" className="object-cover" />
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-foreground">{p.title}</span>
+                          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                            {formatPrice(p.price)}
+                          </span>
+                        </Link>
+                      ))}
+                    </>
+                  )}
+                  {suggestions.length > 0 && (
+                  <p className="mb-1 mt-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Categories
                   </p>
+                  )}
                   {suggestions.map((s) => (
                     <Link
                       key={s.id}
