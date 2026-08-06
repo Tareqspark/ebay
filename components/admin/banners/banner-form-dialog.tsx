@@ -15,7 +15,7 @@ import {
   type BannerPlacement,
   type BannerLinkType,
   type BannerStatus,
-} from "@/lib/admin/banners";
+} from "@/lib/admin/banner-constants";
 import type { BannerInput } from "@/lib/admin/banner-actions";
 
 const statusItems: Record<BannerStatus, string> = { active: "Active", draft: "Draft" };

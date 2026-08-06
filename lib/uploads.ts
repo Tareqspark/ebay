@@ -95,7 +95,8 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 
 export interface ServedUpload {
-  body: Uint8Array;
+  /** A plain ArrayBuffer, not a Uint8Array: only the former is accepted as a Response BodyInit. */
+  body: ArrayBuffer;
   contentType: string;
 }
 
@@ -103,8 +104,13 @@ export async function readBannerImage(filename: string): Promise<ServedUpload | 
   if (!SAFE_FILENAME.test(filename)) return null;
   const ext = filename.split(".").pop()!;
   try {
-    const body = await readFile(path.join(UPLOAD_DIR, "banners", filename));
-    return { body: new Uint8Array(body), contentType: CONTENT_TYPES[ext] };
+    const file = await readFile(path.join(UPLOAD_DIR, "banners", filename));
+    // Copied into a standalone ArrayBuffer rather than handing back
+    // file.buffer, which is a pooled allocation Node shares between reads and
+    // would expose unrelated bytes either side of this file's slice.
+    const body = new ArrayBuffer(file.byteLength);
+    new Uint8Array(body).set(file);
+    return { body, contentType: CONTENT_TYPES[ext] };
   } catch {
     return null;
   }

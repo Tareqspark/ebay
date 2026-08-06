@@ -6,7 +6,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/admin/shared/status-badge";
 import { formatDate } from "@/lib/admin/format";
-import { PLACEMENT_LABELS, LINK_TYPE_LABELS, type AdminBanner } from "@/lib/admin/banners";
+import { PLACEMENT_LABELS, LINK_TYPE_LABELS, type AdminBanner } from "@/lib/admin/banner-constants";
 
 interface BannerColumnActions {
   onEdit: (banner: AdminBanner) => void;

@@ -21,7 +21,7 @@ import { getBannerColumns } from "@/components/admin/banners/columns";
 import { BannerFormDialog } from "@/components/admin/banners/banner-form-dialog";
 import { createBannerAction, updateBannerAction, deleteBannerAction } from "@/lib/admin/banner-actions";
 import type { BannerInput } from "@/lib/admin/banner-actions";
-import type { AdminBanner } from "@/lib/admin/banners";
+import type { AdminBanner } from "@/lib/admin/banner-constants";
 
 interface BannersTableProps {
   banners: AdminBanner[];

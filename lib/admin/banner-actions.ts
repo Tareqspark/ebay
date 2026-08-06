@@ -10,7 +10,7 @@ import { deleteBannerImage } from "@/lib/uploads";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
 import { requirePermission } from "@/lib/admin/permissions";
-import type { BannerPlacement, BannerLinkType, BannerStatus } from "@/lib/admin/banners";
+import type { BannerPlacement, BannerLinkType, BannerStatus } from "@/lib/admin/banner-constants";
 
 export interface BannerActionResult {
   error?: string;
