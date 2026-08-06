@@ -59,6 +59,7 @@ export async function getCollectionProducts(collectionId: string, limit = 60): P
       minPriceCents: row.ruleMinPriceCents,
       maxPriceCents: row.ruleMaxPriceCents,
       minRating: row.ruleMinRating,
+      bundledOnly: row.ruleBundledOnly,
     },
     limit
   );
