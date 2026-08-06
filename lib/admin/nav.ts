@@ -85,6 +85,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
         children: [
           { label: "Campaigns", href: "/admin/marketing" },
           { label: "Homepage Deals", href: "/admin/marketing/homepage-deals" },
+          { label: "Banners", href: "/admin/marketing/banners" },
         ],
       },
       { label: "Promo Codes", href: "/admin/promo-codes", icon: Ticket },

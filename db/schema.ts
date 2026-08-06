@@ -637,6 +637,51 @@ export const collectionItems = mysqlTable(
   (table) => [index("collection_items_collection_id_idx").on(table.collectionId)]
 );
 
+// Promotional banner ads. Placement is a fixed enum rather than free text
+// (contrast content_items.location, which is unconstrained and therefore
+// unrenderable) — the storefront looks a slot up by name, so a value that
+// isn't one of these could never appear anywhere.
+export const bannerPlacement = [
+  "top-bar",
+  "homepage-top",
+  "homepage-mid",
+  "homepage-bottom",
+  "category-top",
+  "product-sidebar",
+  "cart-page",
+] as const;
+
+// Where clicking the banner goes. Internal kinds store a slug and are
+// resolved to a real href at render time (so a renamed product doesn't
+// leave a hardcoded dead URL behind); "external" stores an absolute URL,
+// validated by checkSafeUrl on the way in. "none" is a display-only banner.
+export const bannerLinkType = ["product", "category", "collection", "external", "none"] as const;
+export const bannerStatus = ["active", "draft"] as const;
+
+export const banners = mysqlTable(
+  "banners",
+  {
+    id: varchar("id", { length: 26 }).primaryKey(),
+    /** Admin-facing label only — never shown on the storefront. */
+    name: varchar("name", { length: 191 }).notNull(),
+    /** Path served by app/uploads/[...path]/route.ts, e.g. /uploads/banners/<id>.webp */
+    imageUrl: varchar("image_url", { length: 500 }).notNull(),
+    altText: varchar("alt_text", { length: 255 }).notNull(),
+    placement: mysqlEnum("placement", bannerPlacement).notNull(),
+    linkType: mysqlEnum("link_type", bannerLinkType).notNull().default("none"),
+    /** Slug for internal link types, absolute URL for "external", unused for "none". */
+    linkValue: varchar("link_value", { length: 500 }),
+    status: mysqlEnum("status", bannerStatus).notNull().default("draft"),
+    /** Both nullable — an unscheduled banner runs as soon as it's active. */
+    startsAt: timestamp("starts_at"),
+    endsAt: timestamp("ends_at"),
+    /** Tie-break when several live banners share a slot; lowest wins. */
+    sortOrder: int("sort_order").notNull().default(0),
+    updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
+  },
+  (table) => [index("banners_placement_idx").on(table.placement)]
+);
+
 export const campaignType = ["discount", "email", "banner"] as const;
 export const campaignStatus = ["active", "scheduled", "ended", "draft"] as const;
 

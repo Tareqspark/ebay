@@ -20,6 +20,35 @@ export function checkPlainText(value: string, fieldLabel: string): string | null
 }
 
 /**
+ * Validates a link an admin typed before it becomes an `href` on the
+ * storefront. `checkPlainText` doesn't help here: `javascript:alert(1)`
+ * contains no `<` or `>`, yet rendering it as a link hands script execution
+ * to whoever clicks the banner. Allows only absolute http(s) URLs and
+ * site-relative paths, which between them cover every legitimate case.
+ */
+export function checkSafeUrl(value: string, fieldLabel: string): string | null {
+  const url = value.trim();
+  if (!url) return `${fieldLabel} is required`;
+
+  if (url.startsWith("/")) {
+    // Protocol-relative ("//evil.com") is an off-site jump wearing a
+    // relative-looking prefix, so it doesn't count as site-relative.
+    return url.startsWith("//") ? `${fieldLabel} must be a full https:// URL or a path starting with /` : null;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return `${fieldLabel} must be a full https:// URL or a path starting with /`;
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return `${fieldLabel} must use https:// — ${parsed.protocol} links aren't allowed`;
+  }
+  return null;
+}
+
+/**
  * Prefixes a leading `=`, `+`, `-`, or `@` with a tab character before a value
  * is written into a CSV export. Excel/Sheets treat a cell starting with any of
  * those as a formula, so a product title like `=cmd|'/c calc'!A1` opened by

@@ -6,6 +6,7 @@ import { SubcategoryGrid, type SubcategoryGridItem } from "@/components/category
 import { FeaturedCollections, type FeaturedCollectionItem } from "@/components/category/featured-collections";
 import { BrandsRow } from "@/components/category/brands-row";
 import { ProductExplorer } from "@/components/product/product-explorer";
+import { BannerSlot } from "@/components/storefront/banner-slot";
 import { categoryHref, resolveCategoryPath } from "@/lib/category-utils";
 import { getBrandsForCategory } from "@/lib/brands";
 import { getBrandsInProducts, getProductsByCategoryPath } from "@/lib/products";
@@ -86,6 +87,8 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
         image={top.image}
         productCount={products.length}
       />
+
+      <BannerSlot placement="category-top" />
 
       <SubcategoryGrid title={subcategoryTitle} items={subItems} />
 

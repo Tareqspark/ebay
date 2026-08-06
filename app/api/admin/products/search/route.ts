@@ -6,6 +6,8 @@ export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get("q") ?? "";
   const results = await searchProducts(q, 10);
   return NextResponse.json({
-    products: results.map((p) => ({ id: p.id, title: p.title, image: p.images[0], price: p.price })),
+    // slug is additive for the banner link picker (it builds /product/<slug>
+    // hrefs); the bundle/collection pickers key off id and ignore it.
+    products: results.map((p) => ({ id: p.id, slug: p.slug, title: p.title, image: p.images[0], price: p.price })),
   });
 }

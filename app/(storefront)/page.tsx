@@ -6,6 +6,7 @@ import { RecentlyViewedSection } from "@/components/home/recently-viewed-section
 import { NewsletterSection } from "@/components/home/newsletter-section";
 import { ProductRail } from "@/components/product/product-rail";
 import { FeaturedCollections, type FeaturedCollectionItem } from "@/components/category/featured-collections";
+import { BannerSlot } from "@/components/storefront/banner-slot";
 import { getFeaturedCategories } from "@/lib/category-utils";
 import { getActiveCollections } from "@/lib/collections";
 import {
@@ -58,6 +59,8 @@ export default async function HomePage() {
     <div className="mx-auto flex max-w-[1440px] flex-col gap-12 px-4 py-6 sm:px-6 sm:py-8">
       <HeroBanner slides={heroSlides} />
 
+      <BannerSlot placement="homepage-top" />
+
       <FeaturedCategoriesGrid categories={featuredCategories} />
 
       <FeaturedCollections items={collectionItems} />
@@ -109,6 +112,8 @@ export default async function HomePage() {
         products={weeklyTopDeals}
       />
 
+      <BannerSlot placement="homepage-mid" />
+
       <ProductRail
         title="New Arrivals"
         subtitle="Fresh finds, just landed"
@@ -131,6 +136,8 @@ export default async function HomePage() {
         icon={<Wand2 className="h-5 w-5" />}
         products={recommended}
       />
+
+      <BannerSlot placement="homepage-bottom" />
 
       <NewsletterSection />
     </div>

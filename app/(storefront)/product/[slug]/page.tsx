@@ -11,6 +11,7 @@ import { RecordRecentlyViewed } from "@/components/product/record-recently-viewe
 import { ProductRail } from "@/components/product/product-rail";
 import { ReviewsSection } from "@/components/product/reviews-section";
 import { BundlePromo } from "@/components/product/bundle-promo";
+import { BannerSlot } from "@/components/storefront/banner-slot";
 import { auth } from "@/auth";
 import { getProductBySlug, getRelatedProducts, getProductsByIds } from "@/lib/products";
 import { resolveCategoryPath } from "@/lib/category-utils";
@@ -126,6 +127,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </ul>
             </div>
           )}
+
+          <BannerSlot placement="product-sidebar" />
         </div>
       </div>
 
