@@ -2,6 +2,7 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import Image from "next/image";
+import Link from "next/link";
 import { StatusBadge } from "@/components/admin/shared/status-badge";
 import { EditableNumberCell } from "@/components/admin/table/editable-cell";
 import { formatRelative } from "@/lib/admin/format";
@@ -18,9 +19,18 @@ export function getInventoryColumns(actions: InventoryColumnActions): ColumnDef<
     id: "sku",
     header: "SKU",
     size: 220,
-    accessorFn: (row) => row.sku,
+    // The title is rendered in this cell but the global filter only sees what
+    // accessorFn returns, so it has to include every string shown here —
+    // otherwise searching a product by name silently matches nothing.
+    accessorFn: (row) => `${row.title} ${row.sku}`,
     cell: ({ row }) => (
-      <div className="flex min-w-0 items-center gap-2.5">
+      // Linked on the title rather than the whole row: the Available column
+      // is an inline editor, and a row-level click target would fire every
+      // time someone went to adjust stock.
+      <Link
+        href={`/admin/products?q=${encodeURIComponent(row.original.title)}`}
+        className="flex min-w-0 items-center gap-2.5 hover:underline"
+      >
         <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
           <Image src={row.original.image} alt="" fill sizes="32px" className="object-cover" />
         </div>
@@ -28,8 +38,20 @@ export function getInventoryColumns(actions: InventoryColumnActions): ColumnDef<
           <p className="truncate text-sm font-medium text-foreground">{row.original.title}</p>
           <p className="text-xs text-muted-foreground">{row.original.sku}</p>
         </div>
-      </div>
+      </Link>
     ),
+  },
+  {
+    id: "cj",
+    header: "CJ number",
+    size: 150,
+    accessorFn: (row) => row.cjProductId ?? "",
+    cell: ({ row }) =>
+      row.original.cjProductId ? (
+        <span className="font-mono text-xs text-muted-foreground">{row.original.cjProductId}</span>
+      ) : (
+        <span className="text-xs text-muted-foreground">—</span>
+      ),
   },
   {
     id: "warehouse",

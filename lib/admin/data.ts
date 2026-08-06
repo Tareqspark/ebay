@@ -440,16 +440,28 @@ export const getPayouts = cache(async (): Promise<Payout[]> => {
 
 export interface AdminInventoryRow extends InventoryRecord {
   supplierName?: string;
+  /** CJ's own product number, surfaced so stock can be searched by the identifier CJ support quotes back. */
+  cjProductId?: string;
+  /** Storefront slug, so a row can link through to the product it tracks. */
+  slug?: string;
 }
 
 export const getInventory = cache(async (): Promise<AdminInventoryRow[]> => {
-  const [rows, products, suppliers] = await Promise.all([db.select().from(inventoryTable), getProducts(), getSuppliers()]);
+  const [rows, products, suppliers, meta] = await Promise.all([
+    db.select().from(inventoryTable),
+    getProducts(),
+    getSuppliers(),
+    db.select({ productId: productMetaTable.productId, cjProductId: productMetaTable.cjProductId }).from(productMetaTable),
+  ]);
   const productById = new Map(products.map((p) => [p.id, p]));
   const supplierById = new Map(suppliers.map((s) => [s.id, s]));
+  const cjIdByProduct = new Map(meta.map((m) => [m.productId, m.cjProductId]));
 
   return rows.map((r) => {
     const product = productById.get(r.productId);
     return {
+      cjProductId: cjIdByProduct.get(r.productId) ?? undefined,
+      slug: product?.slug,
       sku: r.sku,
       productId: r.productId,
       title: product?.title ?? r.productId,

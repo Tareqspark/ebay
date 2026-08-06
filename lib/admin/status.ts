@@ -1,5 +1,13 @@
 export type StatusTone = "success" | "warning" | "danger" | "info" | "neutral";
 
+/**
+ * What the dashboard's "Pending orders" KPI counts. Shared with the orders
+ * table's "pending" filter so the number on the card and the rows you get
+ * when you click it are always derived from the same definition — they were
+ * previously computed in two places and the card opened an empty list.
+ */
+export const PENDING_FULFILLMENT: string[] = ["unfulfilled", "processing"];
+
 const TONE_CLASSES: Record<StatusTone, string> = {
   success: "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20",
   warning: "bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/20",

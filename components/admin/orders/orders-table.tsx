@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { PENDING_FULFILLMENT } from "@/lib/admin/status";
 import { DataTable } from "@/components/admin/table/data-table";
 import { TableSearch } from "@/components/admin/table/table-search";
 import { FilterSelect } from "@/components/admin/table/filter-select";
@@ -36,7 +37,13 @@ export function OrdersTable({ initialOrders, initialStatusFilter, initialQuery }
   const filtered = useMemo(
     () =>
       orders.filter((o) => {
-        if (fulfillment !== "all" && o.fulfillmentStatus !== fulfillment) return false;
+        // "pending" isn't a fulfillment status of its own — it's how the
+        // dashboard KPI counts orders still needing action, so the filter it
+        // deep-links to has to resolve to the same two statuses or the card
+        // would open an empty list.
+        if (fulfillment === "pending") {
+          if (!PENDING_FULFILLMENT.includes(o.fulfillmentStatus)) return false;
+        } else if (fulfillment !== "all" && o.fulfillmentStatus !== fulfillment) return false;
         if (payment !== "all" && o.paymentStatus !== payment) return false;
         return true;
       }),
@@ -143,6 +150,7 @@ export function OrdersTable({ initialOrders, initialStatusFilter, initialQuery }
               onChange={setFulfillment}
               allLabel="All fulfillment"
               options={[
+                { value: "pending", label: "Pending (needs action)" },
                 { value: "unfulfilled", label: "Unfulfilled" },
                 { value: "processing", label: "Processing" },
                 { value: "shipped", label: "Shipped" },

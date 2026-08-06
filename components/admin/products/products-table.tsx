@@ -51,9 +51,11 @@ const visibilityItems = { visible: "Visible", hidden: "Hidden" };
 interface ProductsTableProps {
   initialRows: AdminProductRow[];
   categoryOptions: { value: string; label: string }[];
+  /** Seeds the search box, so a ?q= deep link lands pre-filtered. */
+  initialQuery?: string;
 }
 
-export function ProductsTable({ initialRows, categoryOptions }: ProductsTableProps) {
+export function ProductsTable({ initialRows, categoryOptions, initialQuery }: ProductsTableProps) {
   const [rows, setRows] = useState(initialRows);
   const [status, setStatus] = useState("all");
   const [visibility, setVisibility] = useState("all");
@@ -209,6 +211,7 @@ export function ProductsTable({ initialRows, categoryOptions }: ProductsTablePro
         columns={columns}
         data={filteredRows}
         enableSelection
+        initialGlobalFilter={initialQuery}
         getRowId={(r) => r.product.id}
         onRowClick={(r) => {
           setDetailProductId(r.product.id);

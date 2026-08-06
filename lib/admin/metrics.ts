@@ -1,3 +1,4 @@
+import { PENDING_FULFILLMENT } from "@/lib/admin/status";
 import {
   getOrders,
   getPayments,
@@ -53,7 +54,7 @@ export async function getDashboardKpis(): Promise<DashboardKpis> {
     revenueYesterday: round2(yesterdayOrders.reduce((s, o) => s + o.total, 0)),
     ordersToday: todayOrders.length,
     ordersYesterday: yesterdayOrders.length,
-    pendingOrders: orders.filter((o) => ["unfulfilled", "processing"].includes(o.fulfillmentStatus)).length,
+    pendingOrders: orders.filter((o) => PENDING_FULFILLMENT.includes(o.fulfillmentStatus)).length,
     productsImportedToday: productMeta.filter((m) => isWithinDays(m.importedAt, 1)).length,
     lowInventoryCount: inventory.filter((r) => r.status === "low_stock" || r.status === "out_of_stock").length,
     failedPaymentsToday: payments.filter((p) => p.status === "failed" && isWithinDays(p.createdAt, 3)).length,

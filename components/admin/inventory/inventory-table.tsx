@@ -57,7 +57,7 @@ export function InventoryTable({
       emptyMessage="No inventory records match these filters."
       toolbar={(table) => (
         <>
-          <TableSearch table={table} placeholder="Search SKU or product..." />
+          <TableSearch table={table} placeholder="Search product name, SKU, or CJ number..." />
           <FilterSelect
             value={status}
             onChange={setStatus}
