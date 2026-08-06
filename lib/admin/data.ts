@@ -234,11 +234,42 @@ export const getAdminProductRows = cache(async (): Promise<AdminProductRow[]> =>
 });
 
 /** Lean variant for the client-side products table — see the original comment this preserves from before the DB migration. */
+/**
+ * Two dashboard KPIs that used to be derived by loading every product, every
+ * product_meta row, and every inventory row into memory and filtering in JS —
+ * ~23k rows (and 5MB of product descriptions) read from MySQL on every
+ * dashboard render, to produce two integers. Counted in the database instead.
+ */
+export async function getDashboardCounts(importedSince: Date): Promise<{
+  lowInventoryCount: number;
+  productsImportedToday: number;
+}> {
+  const [[low], [imported]] = await Promise.all([
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(inventoryTable)
+      .where(sql`${inventoryTable.status} in ('low_stock', 'out_of_stock')`),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(productMetaTable)
+      .where(sql`${productMetaTable.importedAt} >= ${importedSince}`),
+  ]);
+  return { lowInventoryCount: Number(low.count), productsImportedToday: Number(imported.count) };
+}
+
+/**
+ * Strips the fields the table never renders before the rows cross to the
+ * client. At ~11.7k products the descriptions alone are 5MB and the extra
+ * gallery images another 3MB — enough to stall the page for tens of seconds
+ * and lock the browser while React parses it. Only the detail panel needs
+ * them, and it opens one product at a time, so it refetches that product in
+ * full from /api/products instead (see ProductDetailPanel).
+ */
 export async function getAdminProductTableRows(): Promise<AdminProductRow[]> {
   const rows = await getAdminProductRows();
   return rows.map((row) => ({
     ...row,
-    product: { ...row.product, images: [row.product.images[0]], features: [] },
+    product: { ...row.product, images: [row.product.images[0]], features: [], description: "" },
   }));
 }
 

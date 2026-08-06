@@ -2,8 +2,7 @@ import { PENDING_FULFILLMENT } from "@/lib/admin/status";
 import {
   getOrders,
   getPayments,
-  getInventory,
-  getProductMetaList,
+  getDashboardCounts,
   getCustomers,
   getProduct,
   getProductMeta,
@@ -36,11 +35,13 @@ export interface DashboardKpis {
 }
 
 export async function getDashboardKpis(): Promise<DashboardKpis> {
-  const [orders, productMeta, inventory, payments] = await Promise.all([
+  // Counted in SQL rather than by loading the product, product_meta and
+  // inventory tables in full — see getDashboardCounts.
+  const importedSince = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const [orders, payments, counts] = await Promise.all([
     getOrders(),
-    getProductMetaList(),
-    getInventory(),
     getPayments(),
+    getDashboardCounts(importedSince),
   ]);
 
   const paidOrders = orders.filter((o) => o.paymentStatus !== "failed");
@@ -55,8 +56,8 @@ export async function getDashboardKpis(): Promise<DashboardKpis> {
     ordersToday: todayOrders.length,
     ordersYesterday: yesterdayOrders.length,
     pendingOrders: orders.filter((o) => PENDING_FULFILLMENT.includes(o.fulfillmentStatus)).length,
-    productsImportedToday: productMeta.filter((m) => isWithinDays(m.importedAt, 1)).length,
-    lowInventoryCount: inventory.filter((r) => r.status === "low_stock" || r.status === "out_of_stock").length,
+    productsImportedToday: counts.productsImportedToday,
+    lowInventoryCount: counts.lowInventoryCount,
     failedPaymentsToday: payments.filter((p) => p.status === "failed" && isWithinDays(p.createdAt, 3)).length,
   };
 }

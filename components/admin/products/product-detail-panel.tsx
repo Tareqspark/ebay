@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
@@ -20,6 +21,7 @@ import {
 import { formatDateTime, formatMoney } from "@/lib/admin/format";
 import { statusConfig } from "@/lib/admin/status";
 import type { AdminProductRow } from "@/lib/admin/data";
+import type { Product } from "@/lib/types";
 import type { ProductStatus, ProductVisibility } from "@/lib/admin/types";
 
 const statusItems = { active: "Active", draft: "Draft", archived: "Archived" };
@@ -33,6 +35,30 @@ interface ProductDetailPanelProps {
 }
 
 export function ProductDetailPanel({ open, row, onOpenChange, onUpdate }: ProductDetailPanelProps) {
+  // The table rows arrive without descriptions or full galleries — those are
+  // stripped server-side because shipping them for all ~11.7k products froze
+  // the page (see getAdminProductTableRows). Fetch them for just the product
+  // being opened. Declared above the early return so the hooks always run.
+  const productId = row?.product.id;
+  const [full, setFull] = useState<Product | null>(null);
+
+  useEffect(() => {
+    if (!open || !productId) return;
+    let cancelled = false;
+    setFull(null);
+    fetch(`/api/products?ids=${encodeURIComponent(productId)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setFull(data.products?.[0] ?? null);
+      })
+      .catch(() => {
+        // Non-fatal: the panel still renders everything the table already knows.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, productId]);
+
   if (!row) {
     return (
       <SlideOver open={open} onOpenChange={onOpenChange} title="Product details">
@@ -41,7 +67,10 @@ export function ProductDetailPanel({ open, row, onOpenChange, onUpdate }: Produc
     );
   }
 
-  const { product, meta, brandName, supplierName, categoryName, margin, marginPercent } = row;
+  const { meta, brandName, supplierName, categoryName, margin, marginPercent } = row;
+  // Prefer the fully-loaded copy once it lands; until then the trimmed row
+  // still renders title, price, and stock so the panel is never blank.
+  const product = full ?? row.product;
 
   return (
     <SlideOver
@@ -129,7 +158,7 @@ export function ProductDetailPanel({ open, row, onOpenChange, onUpdate }: Produc
             <div className="flex flex-col gap-1.5">
               <Label>Description</Label>
               <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-                {product.description}
+                {full ? product.description : "Loading description…"}
               </p>
             </div>
           </TabsContent>
