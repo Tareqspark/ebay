@@ -5,6 +5,7 @@ import { eq, inArray, desc, gt, gte, lte, and, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { products as productsTable, orderItems as orderItemsTable, orders as ordersTable } from "@/db/schema";
 import { getAllBrands, getBrandById } from "@/lib/brands";
+import { getActiveBundleProductIds } from "@/lib/bundles";
 import { toDollars } from "@/lib/money";
 import type { Brand, Product } from "@/lib/types";
 import { sortProducts, filterProducts, getPriceBounds } from "@/lib/products-client";
@@ -195,10 +196,10 @@ export interface CollectionRule {
   minPriceCents?: number | null;
   maxPriceCents?: number | null;
   minRating?: string | null;
+  bundledOnly?: boolean | null;
 }
 
-/** Real-time membership for an "automated" collection (see lib/collections.ts) — every condition present is ANDed, so a product added to the catalog tomorrow that matches shows up here without anyone re-curating anything. */
-export async function getProductsMatchingRule(rule: CollectionRule, limit = 60): Promise<Product[]> {
+async function buildRuleConditions(rule: CollectionRule) {
   const conditions = [];
   if (rule.topCategorySlug) {
     conditions.push(sql`json_unquote(json_extract(${productsTable.categorySlugPath}, '$[0]')) = ${rule.topCategorySlug}`);
@@ -206,6 +207,16 @@ export async function getProductsMatchingRule(rule: CollectionRule, limit = 60):
   if (rule.minPriceCents != null) conditions.push(gte(productsTable.priceCents, rule.minPriceCents));
   if (rule.maxPriceCents != null) conditions.push(lte(productsTable.priceCents, rule.maxPriceCents));
   if (rule.minRating != null) conditions.push(gte(productsTable.ratingValue, rule.minRating));
+  if (rule.bundledOnly) {
+    const bundledIds = await getActiveBundleProductIds();
+    conditions.push(bundledIds.length > 0 ? inArray(productsTable.id, bundledIds) : sql`false`);
+  }
+  return conditions;
+}
+
+/** Real-time membership for an "automated" collection (see lib/collections.ts) — every condition present is ANDed, so a product added to the catalog tomorrow that matches shows up here without anyone re-curating anything. */
+export async function getProductsMatchingRule(rule: CollectionRule, limit = 60): Promise<Product[]> {
+  const conditions = await buildRuleConditions(rule);
   if (conditions.length === 0) return [];
 
   const [rows, brandNameById] = await Promise.all([
@@ -217,13 +228,7 @@ export async function getProductsMatchingRule(rule: CollectionRule, limit = 60):
 
 /** Same conditions as getProductsMatchingRule, but a plain count — powers the admin collections list's "Products" column without fetching/mapping full rows just to count them. */
 export async function countProductsMatchingRule(rule: CollectionRule): Promise<number> {
-  const conditions = [];
-  if (rule.topCategorySlug) {
-    conditions.push(sql`json_unquote(json_extract(${productsTable.categorySlugPath}, '$[0]')) = ${rule.topCategorySlug}`);
-  }
-  if (rule.minPriceCents != null) conditions.push(gte(productsTable.priceCents, rule.minPriceCents));
-  if (rule.maxPriceCents != null) conditions.push(lte(productsTable.priceCents, rule.maxPriceCents));
-  if (rule.minRating != null) conditions.push(gte(productsTable.ratingValue, rule.minRating));
+  const conditions = await buildRuleConditions(rule);
   if (conditions.length === 0) return 0;
 
   const [{ count }] = await db

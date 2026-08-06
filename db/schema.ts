@@ -616,6 +616,11 @@ export const collections = mysqlTable("collections", {
   ruleMinPriceCents: int("rule_min_price_cents"),
   ruleMaxPriceCents: int("rule_max_price_cents"),
   ruleMinRating: decimal("rule_min_rating", { precision: 2, scale: 1 }),
+  // Membership follows bundle_items live (see getActiveBundleProductIds in
+  // lib/bundles.ts) — a product joins or leaves this collection the moment
+  // its bundle is activated/deactivated or its membership changes, with
+  // nothing to re-curate here.
+  ruleBundledOnly: boolean("rule_bundled_only").notNull().default(false),
   status: mysqlEnum("status", collectionStatus).notNull().default("draft"),
   updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
   imageSeed: varchar("image_seed", { length: 191 }).notNull(),

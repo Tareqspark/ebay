@@ -54,6 +54,16 @@ export async function getActiveBundlesForProduct(productId: string): Promise<Bun
   return all.filter((b) => activeIds.includes(b.id));
 }
 
+/** Every product currently in at least one active bundle — powers the "bundled products" automated-collection rule in lib/products.ts. */
+export async function getActiveBundleProductIds(): Promise<string[]> {
+  const rows = await db
+    .select({ productId: bundleItemsTable.productId })
+    .from(bundleItemsTable)
+    .innerJoin(bundlesTable, eq(bundlesTable.id, bundleItemsTable.bundleId))
+    .where(eq(bundlesTable.status, "active"));
+  return [...new Set(rows.map((r) => r.productId))];
+}
+
 export interface BundleAdjustment {
   subtotal: number;
   bundleDiscount: number;

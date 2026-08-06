@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { FilterSelect } from "@/components/admin/table/filter-select";
 import { ProductPicker } from "@/components/admin/bundles/product-picker";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { Collection, CollectionType, CollectionStatus, CollectionPickerProduct } from "@/lib/admin/collections";
 import type { CollectionInput } from "@/lib/admin/collection-actions";
 
@@ -53,6 +54,7 @@ export function CollectionFormDialog({
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [minRating, setMinRating] = useState("");
+  const [bundledOnly, setBundledOnly] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -65,13 +67,14 @@ export function CollectionFormDialog({
     setMinPrice(collection?.rule.minPrice != null ? String(collection.rule.minPrice) : "");
     setMaxPrice(collection?.rule.maxPrice != null ? String(collection.rule.maxPrice) : "");
     setMinRating(collection?.rule.minRating != null ? String(collection.rule.minRating) : "");
+    setBundledOnly(collection?.rule.bundledOnly ?? false);
   }, [open, collection]);
 
   const canSubmit =
     name.trim().length > 0 &&
     (type === "manual"
       ? products.length > 0
-      : topCategorySlug !== "all" || minPrice.trim() || maxPrice.trim() || minRating.trim());
+      : topCategorySlug !== "all" || minPrice.trim() || maxPrice.trim() || minRating.trim() || bundledOnly);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -133,6 +136,10 @@ export function CollectionFormDialog({
                 <Label htmlFor="collection-min-rating">Minimum rating</Label>
                 <Input id="collection-min-rating" type="number" min={0} max={5} step={0.1} value={minRating} onChange={(e) => setMinRating(e.target.value)} placeholder="e.g. 4.0" />
               </div>
+              <label htmlFor="collection-bundled-only" className="flex items-center gap-2 text-sm text-foreground">
+                <Checkbox id="collection-bundled-only" checked={bundledOnly} onCheckedChange={(checked) => setBundledOnly(checked === true)} />
+                Only products currently in an active bundle
+              </label>
             </div>
           )}
 
@@ -165,6 +172,7 @@ export function CollectionFormDialog({
                   minPrice: minPrice.trim() ? Number(minPrice) : undefined,
                   maxPrice: maxPrice.trim() ? Number(maxPrice) : undefined,
                   minRating: minRating.trim() ? Number(minRating) : undefined,
+                  bundledOnly: bundledOnly || undefined,
                 },
               })
             }

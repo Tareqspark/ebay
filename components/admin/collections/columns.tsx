@@ -22,6 +22,7 @@ function summarizeRule(collection: Collection): string {
   else if (rule.minPrice != null) parts.push(`$${rule.minPrice}+`);
   else if (rule.maxPrice != null) parts.push(`under $${rule.maxPrice}`);
   if (rule.minRating != null) parts.push(`${rule.minRating}+ stars`);
+  if (rule.bundledOnly) parts.push("Bundle deals");
   return parts.length > 0 ? parts.join(" · ") : "No conditions set";
 }
 

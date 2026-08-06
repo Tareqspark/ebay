@@ -12,6 +12,7 @@ export interface CollectionRuleInput {
   minPrice?: number;
   maxPrice?: number;
   minRating?: number;
+  bundledOnly?: boolean;
 }
 
 export interface CollectionPickerProduct {
@@ -76,6 +77,7 @@ export const getCollections = cache(async (): Promise<Collection[]> => {
           minPrice: c.ruleMinPriceCents != null ? c.ruleMinPriceCents / 100 : undefined,
           maxPrice: c.ruleMaxPriceCents != null ? c.ruleMaxPriceCents / 100 : undefined,
           minRating: c.ruleMinRating != null ? Number(c.ruleMinRating) : undefined,
+          bundledOnly: c.ruleBundledOnly || undefined,
         },
         status: c.status,
         updatedAt: c.updatedAt.toISOString(),
@@ -88,6 +90,7 @@ export const getCollections = cache(async (): Promise<Collection[]> => {
                 minPriceCents: c.ruleMinPriceCents,
                 maxPriceCents: c.ruleMaxPriceCents,
                 minRating: c.ruleMinRating,
+                bundledOnly: c.ruleBundledOnly,
               }),
         products: memberProducts,
       };

@@ -59,7 +59,8 @@ function validate(input: CollectionInput): string | null {
     !input.rule.topCategorySlug &&
     input.rule.minPrice == null &&
     input.rule.maxPrice == null &&
-    input.rule.minRating == null
+    input.rule.minRating == null &&
+    !input.rule.bundledOnly
   ) {
     return "Set at least one rule condition, or switch to Manual";
   }
@@ -99,6 +100,7 @@ export async function createCollectionAction(input: CollectionInput): Promise<Co
     ruleMinPriceCents: input.type === "automated" && input.rule.minPrice != null ? toCents(input.rule.minPrice) : null,
     ruleMaxPriceCents: input.type === "automated" && input.rule.maxPrice != null ? toCents(input.rule.maxPrice) : null,
     ruleMinRating: input.type === "automated" && input.rule.minRating != null ? input.rule.minRating.toFixed(1) : null,
+    ruleBundledOnly: input.type === "automated" && !!input.rule.bundledOnly,
     status: input.status,
     imageSeed: slug,
   });
@@ -131,6 +133,7 @@ export async function updateCollectionAction(id: string, input: CollectionInput)
       ruleMinPriceCents: input.type === "automated" && input.rule.minPrice != null ? toCents(input.rule.minPrice) : null,
       ruleMaxPriceCents: input.type === "automated" && input.rule.maxPrice != null ? toCents(input.rule.maxPrice) : null,
       ruleMinRating: input.type === "automated" && input.rule.minRating != null ? input.rule.minRating.toFixed(1) : null,
+      ruleBundledOnly: input.type === "automated" && !!input.rule.bundledOnly,
       status: input.status,
     })
     .where(eq(collections.id, id));
