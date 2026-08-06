@@ -10,7 +10,7 @@ import { pushOrderToCj } from "@/lib/cj-provider";
 import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
 import { logError } from "@/lib/error-log";
-import { requirePermission } from "@/lib/admin/permissions";
+import { requirePermission, requireOwner } from "@/lib/admin/permissions";
 
 function revalidateOrderViews() {
   revalidatePath("/admin/orders");
@@ -63,7 +63,13 @@ export async function cancelOrderAction(orderId: string, orderNumber: string): P
  * paymentStatus needs to reflect the refund either way.
  */
 export async function refundOrderAction(orderId: string, orderNumber: string): Promise<OrderActionResult> {
-  const guard = await requirePermission("orders");
+  // Owner-only, not a governable permission: this moves real money out
+  // through Stripe for an arbitrary order and amount. It previously shared
+  // the "orders" permission with viewing and shipping, which meant anyone
+  // who could open an order could refund it. Approving a *return* still runs
+  // on the "returns" permission — that refund is bounded by an actual
+  // returned item, so it stays part of normal support work.
+  const guard = await requireOwner();
   if (guard) return guard;
 
   const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);

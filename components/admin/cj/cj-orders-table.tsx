@@ -19,9 +19,10 @@ import type { CjSyncStatus, FulfillmentStatus } from "@/lib/admin/types";
 
 interface CjOrdersTableProps {
   initialOrders: AdminOrderRow[];
+  isOwner: boolean;
 }
 
-export function CjOrdersTable({ initialOrders }: CjOrdersTableProps) {
+export function CjOrdersTable({ initialOrders, isOwner }: CjOrdersTableProps) {
   const [orders, setOrders] = useState(initialOrders);
   const [syncStatus, setSyncStatus] = useState("all");
   const [detailOpen, setDetailOpen] = useState(false);
@@ -170,6 +171,7 @@ export function CjOrdersTable({ initialOrders }: CjOrdersTableProps) {
         onOpenChange={setDetailOpen}
         onMarkShipped={markShipped}
         onRefund={refundOrder}
+        isOwner={isOwner}
         onCancel={cancelOrder}
         onPushToCj={pushToCj}
       />

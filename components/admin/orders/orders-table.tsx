@@ -22,9 +22,10 @@ interface OrdersTableProps {
   initialOrders: AdminOrderRow[];
   initialStatusFilter?: string;
   initialQuery?: string;
+  isOwner: boolean;
 }
 
-export function OrdersTable({ initialOrders, initialStatusFilter, initialQuery }: OrdersTableProps) {
+export function OrdersTable({ initialOrders, initialStatusFilter, initialQuery, isOwner }: OrdersTableProps) {
   const [orders, setOrders] = useState(initialOrders);
   const [fulfillment, setFulfillment] = useState(initialStatusFilter ?? "all");
   const [payment, setPayment] = useState("all");
@@ -197,6 +198,7 @@ export function OrdersTable({ initialOrders, initialStatusFilter, initialQuery }
         onRefund={refundOrder}
         onCancel={cancelOrder}
         onPushToCj={pushToCj}
+        isOwner={isOwner}
       />
     </>
   );

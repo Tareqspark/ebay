@@ -17,6 +17,8 @@ interface OrderDetailPanelProps {
   onRefund: (orderId: string) => void;
   onCancel: (orderId: string) => void;
   onPushToCj: (orderId: string) => void;
+  /** Refunds are Owner-only (see refundOrderAction) — hidden rather than shown-and-rejected for everyone else. */
+  isOwner: boolean;
 }
 
 export function OrderDetailPanel({
@@ -27,6 +29,7 @@ export function OrderDetailPanel({
   onRefund,
   onCancel,
   onPushToCj,
+  isOwner,
 }: OrderDetailPanelProps) {
   if (!order) {
     return (
@@ -40,7 +43,7 @@ export function OrderDetailPanel({
   const hasCjItems = order.items.some((item) => item.source === "cj");
   const canShip = hasSelfItems && (order.fulfillmentStatus === "unfulfilled" || order.fulfillmentStatus === "processing");
   const canPushToCj = hasCjItems && (order.cjSyncStatus ?? "not_sent") === "not_sent";
-  const canRefund = order.paymentStatus === "paid";
+  const canRefund = isOwner && order.paymentStatus === "paid";
   const canCancel = !["delivered", "cancelled"].includes(order.fulfillmentStatus);
 
   return (
