@@ -45,6 +45,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
       name: c.name,
       href: categoryHref(top.slug, c.slug),
       imageSeed: c.slug,
+      image: c.image,
     }));
   } else if (!grandchild) {
     subcategoryTitle = `Shop ${child.name} by Type`;
@@ -53,6 +54,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
       name: gc.name,
       href: categoryHref(top.slug, child.slug, gc.slug),
       imageSeed: gc.slug,
+      image: gc.image,
     }));
   } else {
     subcategoryTitle = `More in ${child.name}`;

@@ -6,6 +6,8 @@ export interface SubcategoryGridItem {
   name: string;
   href: string;
   imageSeed: string;
+  /** Real category photo; the picsum seed is only a fallback for categories that somehow have none. */
+  image?: string;
 }
 
 export function SubcategoryGrid({
@@ -29,7 +31,7 @@ export function SubcategoryGrid({
           >
             <div className="relative aspect-square overflow-hidden bg-muted">
               <Image
-                src={`https://picsum.photos/seed/${item.imageSeed}/400/400`}
+                src={item.image || `https://picsum.photos/seed/${item.imageSeed}/400/400`}
                 alt={item.name}
                 fill
                 sizes="(max-width: 640px) 50vw, 16vw"

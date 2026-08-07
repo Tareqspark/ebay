@@ -17,12 +17,15 @@ export interface GrandchildCategory {
   id: string;
   name: string;
   slug: string;
+  /** Real photo of a product in this category (see the category-imagery backfill); tiles fall back to a placeholder only if it's ever unset. */
+  image?: string;
 }
 
 export interface ChildCategory {
   id: string;
   name: string;
   slug: string;
+  image?: string;
   children: GrandchildCategory[];
 }
 
@@ -86,14 +89,14 @@ export const getCategoryTree = cache(async (): Promise<Category[]> => {
   for (const row of rows) {
     if (row.level === "grandchild") {
       const list = grandchildrenByParent.get(row.parentId!) ?? [];
-      list.push({ id: row.id, name: row.name, slug: row.slug });
+      list.push({ id: row.id, name: row.name, slug: row.slug, image: row.image ?? undefined });
       grandchildrenByParent.set(row.parentId!, list);
     }
   }
   for (const row of rows) {
     if (row.level === "child") {
       const list = childrenByParent.get(row.parentId!) ?? [];
-      list.push({ id: row.id, name: row.name, slug: row.slug, children: grandchildrenByParent.get(row.id) ?? [] });
+      list.push({ id: row.id, name: row.name, slug: row.slug, image: row.image ?? undefined, children: grandchildrenByParent.get(row.id) ?? [] });
       childrenByParent.set(row.parentId!, list);
     }
   }
