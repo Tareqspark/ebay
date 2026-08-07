@@ -5,7 +5,7 @@ import { orders, orderItems, cartItems, payments, promoCodes, promoRedemptions }
 import { newId } from "@/lib/id";
 import { toCents } from "@/lib/money";
 import { getStripe } from "@/lib/stripe";
-import { sendEmail } from "@/lib/sendgrid";
+import { sendEmail } from "@/lib/email";
 import { getProductsByIds } from "@/lib/products";
 import { getProductMeta } from "@/lib/admin/data";
 import { clearCartById } from "@/lib/cart";

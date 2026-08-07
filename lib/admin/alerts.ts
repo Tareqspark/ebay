@@ -2,7 +2,7 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { adminUsers } from "@/db/schema";
-import { sendEmail } from "@/lib/sendgrid";
+import { sendEmail } from "@/lib/email";
 import { isRateLimited, recordAttempt } from "@/lib/rate-limit";
 import type { ErrorLogSource } from "@/lib/error-log";
 

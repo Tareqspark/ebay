@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { z } from "zod";
-import { sendEmail } from "@/lib/sendgrid";
+import { sendEmail, mailFrom } from "@/lib/email";
 import { isRateLimited, recordAttempt, getClientIp } from "@/lib/rate-limit";
 
 const contactSchema = z.object({
@@ -17,7 +17,9 @@ export interface ContactFormState {
   success?: boolean;
 }
 
-const SUPPORT_INBOX = process.env.SENDGRID_FROM_EMAIL || "support@cartebay.com";
+// Follows whichever transport is configured, so support mail lands in the
+// same inbox the store sends from rather than a mailbox that may not exist.
+const supportInbox = () => mailFrom();
 
 // A given IP can submit at most 5 messages per 10 minutes — good enough to
 // blunt a scripted spam/flood burst against this unauthenticated form.
@@ -54,7 +56,7 @@ export async function sendContactMessageAction(_prev: ContactFormState, formData
   const { name, email, topic, message } = parsed.data;
 
   await sendEmail({
-    to: SUPPORT_INBOX,
+    to: supportInbox(),
     subject: `[Contact form] ${topic} — ${name}`,
     html: `
       <p><strong>From:</strong> ${escapeHtml(name)} (${escapeHtml(email)})</p>
