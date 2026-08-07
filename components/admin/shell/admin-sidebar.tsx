@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronRight, PanelLeftClose, PanelLeftOpen, ShoppingBag } from "lucide-react";
+import { ChevronRight, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { ADMIN_NAV, type AdminNavItem } from "@/lib/admin/nav";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -21,11 +22,9 @@ export function AdminSidebar() {
     >
       <div className={cn("flex h-14 items-center border-b border-border", collapsed ? "justify-center px-0" : "justify-between px-4")}>
         {!collapsed && (
-          <Link href="/admin" className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-foreground text-background">
-              <ShoppingBag className="h-4 w-4" />
-            </span>
-            <span className="text-sm font-semibold tracking-tight text-foreground">Cartebay</span>
+          <Link href="/admin" className="flex items-center gap-2" aria-label="Cartebay admin">
+            <Image src="/logo-cartebay.png" alt="Cartebay" width={445} height={147} className="h-6 w-auto" />
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Admin</span>
           </Link>
         )}
         <button

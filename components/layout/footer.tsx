@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Mail, MessageCircle, Rss, Share2, ShoppingBag } from "lucide-react";
+import Image from "next/image";
+import { Mail, MessageCircle, Rss, Share2 } from "lucide-react";
 import { categoryHref, getCategoryTree } from "@/lib/category-utils";
 
 const helpLinks = [
@@ -107,11 +108,16 @@ export async function Footer() {
         </div>
 
         <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-background/15 pt-6 sm:flex-row">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <ShoppingBag className="h-4 w-4" />
-            </span>
-            <span className="text-lg font-bold text-background">Cartebay</span>
+          <Link href="/" className="flex items-center" aria-label="Cartebay home">
+            {/* The wordmark's lettering is dark, so it needs a light plate to
+                stay legible against the footer's inverted background. */}
+            <Image
+              src="/logo-cartebay.png"
+              alt="Cartebay"
+              width={445}
+              height={147}
+              className="h-8 w-auto rounded-md bg-background px-2 py-1"
+            />
           </Link>
           <div className="text-center text-xs text-background/60 sm:text-right">
             <p>© {new Date().getFullYear()} Cartebay Commerce, Inc. All rights reserved.</p>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { Session } from "next-auth";
 import { Heart, ShoppingBag, User } from "lucide-react";
 import { SearchBar } from "@/components/search/search-bar";
@@ -37,13 +38,17 @@ export function MainHeader({
       <div className="mx-auto flex max-w-[1440px] items-center gap-4 px-4 py-3 sm:px-6">
         <MobileNav tree={mobileTree} />
 
-        <Link href="/" className="flex shrink-0 items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <ShoppingBag className="h-5 w-5" />
-          </span>
-          <span className="hidden text-xl font-bold tracking-tight text-foreground sm:inline">
-            Cartebay
-          </span>
+        <Link href="/" className="flex shrink-0 items-center" aria-label="Cartebay home">
+          {/* The wordmark already contains "Cartebay", so no text label beside
+              it. priority: it's above the fold on every page. */}
+          <Image
+            src="/logo-cartebay.png"
+            alt="Cartebay"
+            width={445}
+            height={147}
+            priority
+            className="h-8 w-auto sm:h-9"
+          />
         </Link>
 
         <SearchBar
