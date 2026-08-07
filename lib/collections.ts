@@ -11,6 +11,8 @@ export interface StorefrontCollection {
   slug: string;
   description?: string;
   imageSeed: string;
+  /** First photo from a product actually in the collection, so the tile shows real merchandise rather than a placeholder. */
+  image?: string;
 }
 
 type CollectionRow = typeof collectionsTable.$inferSelect;
@@ -25,7 +27,15 @@ function toStorefrontCollection(row: CollectionRow): StorefrontCollection | null
 /** Active collections for storefront discovery surfaces (e.g. the homepage's "Shop by Collection" rail). */
 export async function getActiveCollections(): Promise<StorefrontCollection[]> {
   const rows = await db.select().from(collectionsTable).where(eq(collectionsTable.status, "active"));
-  return rows.map(toStorefrontCollection).filter((c): c is StorefrontCollection => c !== null);
+  const collections = rows.map(toStorefrontCollection).filter((c): c is StorefrontCollection => c !== null);
+
+  // One representative photo per collection, taken from its own membership.
+  return Promise.all(
+    collections.map(async (c) => {
+      const products = await getCollectionProducts(c.id, 1);
+      return { ...c, image: products[0]?.images[0] };
+    })
+  );
 }
 
 export async function getCollectionBySlug(slug: string): Promise<StorefrontCollection | null> {

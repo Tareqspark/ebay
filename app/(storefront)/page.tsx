@@ -32,6 +32,7 @@ export default async function HomePage() {
     name: c.name,
     href: `/collection/${c.slug}`,
     imageSeed: c.imageSeed,
+    image: c.image,
     tagline: c.description ?? "Shop the collection",
   }));
   const heroSlides = featuredCategories.slice(0, 5).map((c) => ({

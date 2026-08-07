@@ -21,12 +21,15 @@ export default async function CollectionPage({ params }: CollectionPageProps) {
   if (!collection) notFound();
 
   const products = await getCollectionProducts(collection.id);
+  // Hero uses a real product from the collection; the seeded placeholder only
+  // applies to a collection whose rule currently matches nothing.
+  const heroImage = products[0]?.images[0];
 
   return (
     <div className="mx-auto flex max-w-[1440px] flex-col gap-8 px-4 py-6 sm:px-6 sm:py-8">
       <div className="relative flex h-48 flex-col justify-end overflow-hidden rounded-xl sm:h-64">
         <Image
-          src={`https://picsum.photos/seed/${collection.imageSeed}-collection/1400/500`}
+          src={heroImage || `https://picsum.photos/seed/${collection.imageSeed}-collection/1400/500`}
           alt={collection.name}
           fill
           sizes="100vw"

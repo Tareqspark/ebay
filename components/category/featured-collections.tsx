@@ -7,6 +7,8 @@ export interface FeaturedCollectionItem {
   name: string;
   href: string;
   imageSeed: string;
+  /** Real photo; the picsum seed is only a fallback when a collection has no products to draw one from. */
+  image?: string;
   tagline: string;
 }
 
@@ -24,7 +26,7 @@ export function FeaturedCollections({ items }: { items: FeaturedCollectionItem[]
             className="group relative flex h-48 flex-col justify-end overflow-hidden rounded-xl"
           >
             <Image
-              src={`https://picsum.photos/seed/${item.imageSeed}-collection/700/500`}
+              src={item.image || `https://picsum.photos/seed/${item.imageSeed}-collection/700/500`}
               alt={item.name}
               fill
               sizes="(max-width: 640px) 100vw, 33vw"

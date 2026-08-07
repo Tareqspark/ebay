@@ -73,6 +73,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     name: item.name,
     href: item.href,
     imageSeed: item.imageSeed,
+    image: item.image,
     tagline: `${top.name} Essentials`,
   }));
 
