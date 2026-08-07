@@ -139,32 +139,50 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
   const orderId = newId();
   const orderNumber = await generateOrderNumber();
 
-  await db.insert(orders).values({
-    id: orderId,
-    orderNumber,
-    userId,
-    paymentStatus: "paid",
-    fulfillmentStatus: "unfulfilled",
-    subtotalCents: toCents(subtotal),
-    shippingCents: toCents(shipping),
-    taxCents: toCents(tax),
-    totalCents: toCents(total),
-    promoCode: promoRow?.code ?? null,
-    loyaltyTier,
-    bundleDiscountCents: toCents(bundleDiscount),
-    shippingMethod,
-    discountCents: toCents(discount),
-    paymentMethod: "card",
-    stripePaymentIntentId: paymentIntentId,
-    shippingAddress,
-    // Without this, cj_sync_status stays NULL — the admin CJ Orders page's
-    // "Push to CJ" button (both per-row and bulk) checks
-    // `cjSyncStatus === "not_sent"` by strict equality, which NULL never
-    // satisfies, so the button silently does nothing for every order this
-    // creates (verified live: a real order's checkbox showed selected but
-    // the bulk push button had nothing to act on).
-    cjSyncStatus: lineItems.some((item) => item.source === "cj") ? "not_sent" : null,
-  });
+  // The pre-flight check above narrows the window but cannot close it: the
+  // Stripe webhook and the success page both call this for the same payment
+  // and can pass that check concurrently. The unique index on
+  // stripe_payment_intent_id is what actually decides, and whichever insert
+  // loses returns the winner's order — so exactly one order is created, one
+  // confirmation email sent, and inventory decremented once.
+  try {
+    await db.insert(orders).values({
+      id: orderId,
+      orderNumber,
+      userId,
+      paymentStatus: "paid",
+      fulfillmentStatus: "unfulfilled",
+      subtotalCents: toCents(subtotal),
+      shippingCents: toCents(shipping),
+      taxCents: toCents(tax),
+      totalCents: toCents(total),
+      promoCode: promoRow?.code ?? null,
+      loyaltyTier,
+      bundleDiscountCents: toCents(bundleDiscount),
+      shippingMethod,
+      discountCents: toCents(discount),
+      paymentMethod: "card",
+      stripePaymentIntentId: paymentIntentId,
+      shippingAddress,
+      // Without this, cj_sync_status stays NULL — the admin CJ Orders page's
+      // "Push to CJ" button (both per-row and bulk) checks
+      // `cjSyncStatus === "not_sent"` by strict equality, which NULL never
+      // satisfies, so the button silently does nothing for every order this
+      // creates (verified live: a real order's checkbox showed selected but
+      // the bulk push button had nothing to act on).
+      cjSyncStatus: lineItems.some((item) => item.source === "cj") ? "not_sent" : null,
+    });
+  } catch (err) {
+    // Duplicate key means the concurrent caller already created this order.
+    // Return theirs and stop here, so nothing downstream runs twice.
+    const [winner] = await db
+      .select({ id: orders.id })
+      .from(orders)
+      .where(eq(orders.stripePaymentIntentId, paymentIntentId))
+      .limit(1);
+    if (winner) return winner.id;
+    throw err;
+  }
 
   await db.insert(orderItems).values(
     lineItems.map((item) => ({

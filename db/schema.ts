@@ -148,7 +148,14 @@ export const orders = mysqlTable(
     placedAt: timestamp("placed_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
   },
-  (table) => [index("orders_user_id_idx").on(table.userId)]
+  (table) => [
+    index("orders_user_id_idx").on(table.userId),
+    // The webhook and the success page both call createOrderFromPaymentIntent
+    // for the same payment. Their check-then-insert raced, producing two
+    // orders and two confirmation emails per checkout, so uniqueness is
+    // enforced here where it can actually be atomic.
+    unique("orders_stripe_payment_intent_unique").on(table.stripePaymentIntentId),
+  ]
 );
 
 export const orderItems = mysqlTable(
