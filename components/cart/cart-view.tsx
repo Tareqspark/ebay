@@ -91,7 +91,17 @@ export function CartView() {
             <span>{cart.subtotal >= 50 ? "Free" : "Calculated at checkout"}</span>
           </div>
         </div>
-        <Button render={<Link href="/checkout" />} nativeButton={false} className="mt-4 w-full" size="lg" disabled={isPending}>
+        {/* aria-disabled rather than disabled: this renders as an <a>, where
+            `disabled` is not a valid attribute. It also can't strand the
+            button — if a cart update fails the link stays usable, and the
+            checkout page re-reads the cart from the server anyway. */}
+        <Button
+          render={<Link href="/checkout" />}
+          nativeButton={false}
+          className={`mt-4 w-full ${isPending ? "pointer-events-none opacity-60" : ""}`}
+          size="lg"
+          aria-disabled={isPending || undefined}
+        >
           Checkout
         </Button>
       </div>

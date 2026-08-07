@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { createContext, useContext, useEffect, useState, useTransition, type ReactNode } from "react";
 import { getCart, addToCart, updateCartItemQuantity, removeCartItem, type CartSummary } from "@/lib/cart";
 
@@ -21,33 +22,49 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    getCart().then(setCart);
+    getCart()
+      .then(setCart)
+      .catch(() => {
+        // Leave the cart empty rather than unhandled-rejecting; the next
+        // mutation refetches it.
+      });
   }, []);
 
-  function addItem(productId: string, quantity = 1) {
+  /**
+   * Every mutation runs through here so a failing server action can never
+   * strand the transition. useTransition only clears isPending when the
+   * async body settles, and an unguarded throw leaves it stuck true — which
+   * disabled the Checkout button permanently and looked like "the cart
+   * button stopped working".
+   */
+  function runCartAction(action: () => Promise<CartSummary>) {
     startTransition(async () => {
-      setCart(await addToCart(productId, quantity));
+      try {
+        setCart(await action());
+      } catch {
+        toast.error("Couldn't update your cart — please try again.");
+      }
     });
+  }
+
+  function addItem(productId: string, quantity = 1) {
+    runCartAction(() => addToCart(productId, quantity));
   }
   /** Adds every product in a bundle within one transition, so the cart only re-renders once with the final state instead of flickering through each intermediate add. */
   function addBundle(productIds: string[]) {
-    startTransition(async () => {
+    runCartAction(async () => {
       let latest = cart;
       for (const productId of productIds) {
         latest = await addToCart(productId, 1);
       }
-      setCart(latest);
+      return latest;
     });
   }
   function updateQuantity(itemId: string, quantity: number) {
-    startTransition(async () => {
-      setCart(await updateCartItemQuantity(itemId, quantity));
-    });
+    runCartAction(() => updateCartItemQuantity(itemId, quantity));
   }
   function removeItem(itemId: string) {
-    startTransition(async () => {
-      setCart(await removeCartItem(itemId));
-    });
+    runCartAction(() => removeCartItem(itemId));
   }
 
   return (
