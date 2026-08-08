@@ -11,6 +11,10 @@ import { getAdminActorName } from "@/lib/admin/auth";
 import { logActivity } from "@/lib/admin/activity";
 import { logError } from "@/lib/error-log";
 import { requirePermission, requireOwner } from "@/lib/admin/permissions";
+import { recordOrderEvent } from "@/lib/admin/order-events";
+import { checkPlainText } from "@/lib/sanitize";
+import { sendEmail } from "@/lib/email";
+import { getOrderCustomerEmail, buildOrderConfirmationHtml } from "@/lib/checkout";
 
 function revalidateOrderViews() {
   revalidatePath("/admin/orders");
@@ -38,6 +42,7 @@ export async function markOrderShippedAction(orderId: string, orderNumber: strin
     .where(eq(orders.id, orderId));
 
   const actor = await getAdminActorName();
+  await recordOrderEvent(orderId, "fulfillment", `Marked as shipped via ${carrier} — tracking ${trackingNumber}`, actor);
   await logActivity("order", `Order ${orderNumber} marked as shipped (${carrier} ${trackingNumber})`, actor);
   revalidateOrderViews();
   return {};
@@ -50,6 +55,7 @@ export async function cancelOrderAction(orderId: string, orderNumber: string): P
   await db.update(orders).set({ fulfillmentStatus: "cancelled" }).where(eq(orders.id, orderId));
 
   const actor = await getAdminActorName();
+  await recordOrderEvent(orderId, "status", "Order cancelled", actor);
   await logActivity("order", `Order ${orderNumber} cancelled`, actor);
   revalidateOrderViews();
   return {};
@@ -89,6 +95,7 @@ export async function refundOrderAction(orderId: string, orderNumber: string): P
   await db.update(payments).set({ status: "refunded" }).where(eq(payments.orderId, orderId));
 
   const actor = await getAdminActorName();
+  await recordOrderEvent(orderId, "payment", "Full refund issued to the original payment method", actor);
   await logActivity("payment", `Order ${orderNumber} refunded`, actor);
   revalidateOrderViews();
   revalidatePath("/admin/payments");
@@ -110,7 +117,93 @@ export async function pushOrderToCjAction(orderId: string, orderNumber: string):
   await db.update(orders).set({ cjSyncStatus: "queued", cjOrderId }).where(eq(orders.id, orderId));
 
   const actor = await getAdminActorName();
+  await recordOrderEvent(orderId, "fulfillment", `Pushed to CJdropshipping — supplier order ${cjOrderId}`, actor);
   await logActivity("order", `Order ${orderNumber} pushed to CJdropshipping (${cjOrderId})`, actor);
+  revalidateOrderViews();
+  return {};
+}
+
+export interface OrderAddress {
+  name: string;
+  line1: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+}
+
+/** Free-text note pinned to the order's timeline — "customer called, agreed to X". */
+export async function addOrderNoteAction(orderId: string, note: string): Promise<OrderActionResult> {
+  const guard = await requirePermission("orders");
+  if (guard) return guard;
+
+  const text = note.trim();
+  if (!text) return { error: "Note can't be empty" };
+  const textError = checkPlainText(text, "Note");
+  if (textError) return { error: textError };
+
+  const actor = await getAdminActorName();
+  await recordOrderEvent(orderId, "note", text, actor);
+  revalidateOrderViews();
+  return {};
+}
+
+/**
+ * Corrects the delivery address, which until now was fixed at checkout — a
+ * mistyped street or zip meant cancelling and re-placing the order. Blocked
+ * once the parcel is moving, since changing it then would misrepresent where
+ * the goods actually went; the old value is written into the timeline so the
+ * change is never silent.
+ */
+export async function updateOrderAddressAction(orderId: string, address: OrderAddress): Promise<OrderActionResult> {
+  const guard = await requirePermission("orders");
+  if (guard) return guard;
+
+  for (const [field, value] of Object.entries(address)) {
+    if (!value.trim()) return { error: `${field} is required` };
+    const textError = checkPlainText(value, field);
+    if (textError) return { error: textError };
+  }
+
+  const [order] = await db
+    .select({ fulfillmentStatus: orders.fulfillmentStatus, shippingAddress: orders.shippingAddress })
+    .from(orders)
+    .where(eq(orders.id, orderId))
+    .limit(1);
+  if (!order) return { error: "Order not found" };
+  if (["shipped", "delivered"].includes(order.fulfillmentStatus)) {
+    return { error: "This order has already shipped — the address can no longer be changed" };
+  }
+
+  await db.update(orders).set({ shippingAddress: address }).where(eq(orders.id, orderId));
+
+  const previous = order.shippingAddress;
+  const actor = await getAdminActorName();
+  await recordOrderEvent(
+    orderId,
+    "status",
+    `Shipping address changed from "${previous.line1}, ${previous.city} ${previous.zip}" to "${address.line1}, ${address.city} ${address.zip}"`,
+    actor
+  );
+  revalidateOrderViews();
+  return {};
+}
+
+/** Re-sends the original confirmation, for the common case of it being deleted or filtered as spam. */
+export async function resendOrderConfirmationAction(orderId: string, orderNumber: string): Promise<OrderActionResult> {
+  const guard = await requirePermission("orders");
+  if (guard) return guard;
+
+  const email = await getOrderCustomerEmail(orderId);
+  if (!email) return { error: "This order has no customer email on file" };
+
+  const html = await buildOrderConfirmationHtml(orderId);
+  if (!html) return { error: "Couldn't rebuild this order's confirmation" };
+
+  await sendEmail({ to: email, subject: `Your Cartebay order ${orderNumber} is confirmed`, html });
+
+  const actor = await getAdminActorName();
+  await recordOrderEvent(orderId, "email", `Order confirmation re-sent to ${email}`, actor);
   revalidateOrderViews();
   return {};
 }

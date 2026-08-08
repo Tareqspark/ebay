@@ -1,9 +1,9 @@
 import "server-only";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { orders, orderItems, cartItems, payments, promoCodes, promoRedemptions } from "@/db/schema";
+import { orders, orderItems, cartItems, payments, promoCodes, promoRedemptions, users } from "@/db/schema";
 import { newId } from "@/lib/id";
-import { toCents } from "@/lib/money";
+import { toCents, toDollars } from "@/lib/money";
 import { getStripe } from "@/lib/stripe";
 import { sendEmail } from "@/lib/email";
 import { getProductsByIds } from "@/lib/products";
@@ -242,4 +242,45 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
   await logActivity("order", `Order ${orderNumber} placed — $${total.toFixed(2)}`, "Storefront");
 
   return orderId;
+}
+
+/**
+ * The customer's email lives on their user row, not the order — checkout
+ * takes it from the Stripe metadata at the time and doesn't snapshot it.
+ */
+export async function getOrderCustomerEmail(orderId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ email: users.email })
+    .from(orders)
+    .innerJoin(users, eq(users.id, orders.userId))
+    .where(eq(orders.id, orderId))
+    .limit(1);
+  return row?.email ?? null;
+}
+
+/**
+ * Rebuilds the confirmation email from the stored order rather than the cart,
+ * so a resend reproduces what was actually bought at the price actually paid,
+ * even if the catalog has changed since. order_items already snapshots title
+ * and price for exactly this reason.
+ */
+export async function buildOrderConfirmationHtml(orderId: string): Promise<string | null> {
+  const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+  if (!order) return null;
+
+  const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+  return orderConfirmationEmail({
+    orderNumber: order.orderNumber,
+    items: items.map((i) => ({
+      title: i.title,
+      image: i.image,
+      quantity: i.quantity,
+      price: toDollars(i.priceCents),
+    })),
+    subtotal: toDollars(order.subtotalCents),
+    shipping: toDollars(order.shippingCents),
+    tax: toDollars(order.taxCents),
+    total: toDollars(order.totalCents),
+    shippingAddress: order.shippingAddress,
+  });
 }

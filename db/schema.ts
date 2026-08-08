@@ -173,6 +173,31 @@ export const orderItems = mysqlTable(
   (table) => [index("order_items_order_id_idx").on(table.orderId)]
 );
 
+export const orderEventType = ["status", "note", "email", "payment", "fulfillment"] as const;
+
+/**
+ * Per-order audit trail. Distinct from activity_events, which is a global
+ * console feed: this answers "what happened to *this* order, and who did
+ * it" — the question a refund dispute or an angry customer actually poses.
+ *
+ * Admin notes are stored here too rather than in their own table, because a
+ * note is just another thing that happened to the order and belongs in the
+ * same chronology as the status changes around it.
+ */
+export const orderEvents = mysqlTable(
+  "order_events",
+  {
+    id: varchar("id", { length: 26 }).primaryKey(),
+    orderId: varchar("order_id", { length: 26 }).notNull(),
+    type: mysqlEnum("type", orderEventType).notNull(),
+    message: text("message").notNull(),
+    /** Staff member's name, or "System" for anything not triggered by a person. */
+    actor: varchar("actor", { length: 191 }).notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [index("order_events_order_id_idx").on(table.orderId)]
+);
+
 /**
  * Browsing-behavior signal for personalization — an append-only view log,
  * signed-in users only (guests get the static fallback in

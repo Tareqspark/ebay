@@ -1,8 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
-import { Ban, PackageCheck, RotateCcw, Send } from "lucide-react";
+import { toast } from "sonner";
+import { Ban, Mail, PackageCheck, RotateCcw, Send } from "lucide-react";
 import { SlideOver } from "@/components/admin/shared/slide-over";
+import { resendOrderConfirmationAction } from "@/lib/admin/order-actions";
+import { OrderTimeline } from "@/components/admin/orders/order-timeline";
+import { OrderAddressEditor } from "@/components/admin/orders/order-address-editor";
 import { StatusBadge } from "@/components/admin/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -31,6 +36,8 @@ export function OrderDetailPanel({
   onPushToCj,
   isOwner,
 }: OrderDetailPanelProps) {
+  const [resending, setResending] = useState(false);
+
   if (!order) {
     return (
       <SlideOver open={open} onOpenChange={onOpenChange} title="Order details" wide>
@@ -53,13 +60,30 @@ export function OrderDetailPanel({
       wide
       title={
         <div className="flex items-center gap-2">
-          <span>{order.id}</span>
+          <span>{order.orderNumber ?? order.id}</span>
           <StatusBadge status={order.paymentStatus} />
           <StatusBadge status={order.fulfillmentStatus} />
         </div>
       }
       footer={
         <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="mr-auto gap-1.5"
+            disabled={resending}
+            onClick={() => {
+              setResending(true);
+              resendOrderConfirmationAction(order.id, order.orderNumber ?? order.id).then((r) => {
+                setResending(false);
+                if (r.error) toast.error(r.error);
+                else toast.success("Confirmation email re-sent");
+              });
+            }}
+          >
+            <Mail className="h-3.5 w-3.5" />
+            {resending ? "Sending..." : "Resend confirmation"}
+          </Button>
           {canCancel && (
             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => onCancel(order.id)}>
               <Ban className="h-3.5 w-3.5" />
@@ -143,11 +167,11 @@ export function OrderDetailPanel({
             <p className="text-muted-foreground">{formatDateTime(order.placedAt)}</p>
           </InfoCard>
           <InfoCard title="Shipping address">
-            <p className="text-foreground">{order.shippingAddress.name}</p>
-            <p className="text-muted-foreground">
-              {order.shippingAddress.line1}, {order.shippingAddress.city}, {order.shippingAddress.state}{" "}
-              {order.shippingAddress.zip}
-            </p>
+            <OrderAddressEditor
+              orderId={order.id}
+              address={order.shippingAddress}
+              locked={["shipped", "delivered"].includes(order.fulfillmentStatus)}
+            />
           </InfoCard>
           {hasSelfItems && (
             <InfoCard title="Fulfillment — self">
@@ -181,6 +205,11 @@ export function OrderDetailPanel({
               <span className="text-xs text-muted-foreground">{formatDateTime(order.updatedAt)}</span>
             </li>
           </ul>
+        </section>
+
+        <section>
+          <h3 className="mb-2 text-sm font-semibold text-foreground">History &amp; notes</h3>
+          <OrderTimeline orderId={order.id} />
         </section>
       </div>
     </SlideOver>

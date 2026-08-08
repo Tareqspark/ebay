@@ -106,6 +106,11 @@ export interface OrderAddress {
 
 export interface Order {
   id: string;
+  // Human-facing "BS-127992" — what the customer quotes, distinct from id,
+  // which is the ULID primary key. Optional for the same reason as
+  // OrderItem.id above: the generated app/data/admin/orders.ts literals feed
+  // scripts/seed-db.ts only and predate it. Every DB-backed order sets it.
+  orderNumber?: string;
   customerId: string;
   items: OrderItem[];
   subtotal: number;

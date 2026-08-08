@@ -59,7 +59,7 @@ export function OrdersTable({ initialOrders, initialStatusFilter, initialQuery, 
     async (id: string) => {
       const order = ordersById.get(id);
       if (!order) return;
-      const result = await markOrderShippedAction(id, order.id);
+      const result = await markOrderShippedAction(id, (order.orderNumber ?? order.id));
       if (result.error) {
         toast.error(result.error);
         return;
@@ -69,7 +69,7 @@ export function OrdersTable({ initialOrders, initialStatusFilter, initialQuery, 
         trackingNumber: `1Z${Math.floor(Math.random() * 900000000 + 100000000)}US`,
         carrier: "UPS",
       });
-      toast.success(`${order.id} marked as shipped`);
+      toast.success(`${order.orderNumber ?? order.id} marked as shipped`);
     },
     [patchOrder, ordersById]
   );
@@ -77,13 +77,13 @@ export function OrdersTable({ initialOrders, initialStatusFilter, initialQuery, 
     async (id: string) => {
       const order = ordersById.get(id);
       if (!order) return;
-      const result = await cancelOrderAction(id, order.id);
+      const result = await cancelOrderAction(id, (order.orderNumber ?? order.id));
       if (result.error) {
         toast.error(result.error);
         return;
       }
       patchOrder(id, { fulfillmentStatus: "cancelled" as FulfillmentStatus });
-      toast.success(`${order.id} cancelled`);
+      toast.success(`${order.orderNumber ?? order.id} cancelled`);
     },
     [patchOrder, ordersById]
   );
@@ -91,13 +91,13 @@ export function OrdersTable({ initialOrders, initialStatusFilter, initialQuery, 
     async (id: string) => {
       const order = ordersById.get(id);
       if (!order) return;
-      const result = await refundOrderAction(id, order.id);
+      const result = await refundOrderAction(id, (order.orderNumber ?? order.id));
       if (result.error) {
         toast.error(result.error);
         return;
       }
       patchOrder(id, { paymentStatus: "refunded" });
-      toast.success(`${order.id} refunded`);
+      toast.success(`${order.orderNumber ?? order.id} refunded`);
     },
     [patchOrder, ordersById]
   );
@@ -105,13 +105,13 @@ export function OrdersTable({ initialOrders, initialStatusFilter, initialQuery, 
     async (id: string) => {
       const order = ordersById.get(id);
       if (!order) return;
-      const result = await pushOrderToCjAction(id, order.id);
+      const result = await pushOrderToCjAction(id, (order.orderNumber ?? order.id));
       if (result.error) {
         toast.error(result.error);
         return;
       }
       patchOrder(id, { cjSyncStatus: "queued" as CjSyncStatus, cjOrderId: `CJO-${Math.floor(Math.random() * 9000000 + 1000000)}` });
-      toast.success(`${order.id} pushed to CJdropshipping`);
+      toast.success(`${order.orderNumber ?? order.id} pushed to CJdropshipping`);
     },
     [patchOrder, ordersById]
   );

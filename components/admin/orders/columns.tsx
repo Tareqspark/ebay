@@ -22,8 +22,10 @@ export function getOrderColumns(actions: OrderColumnActions): ColumnDef<AdminOrd
       id: "id",
       header: "Order",
       size: 110,
-      accessorFn: (row) => row.id,
-      cell: ({ row }) => <span className="font-medium text-foreground">{row.original.id}</span>,
+      // Both, so searching works whether staff paste the number a customer
+      // quoted or an internal id from a log.
+      accessorFn: (row) => `${row.orderNumber ?? ""} ${row.id}`,
+      cell: ({ row }) => <span className="font-medium text-foreground">{row.original.orderNumber ?? row.original.id}</span>,
     },
     {
       id: "customer",

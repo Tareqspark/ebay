@@ -372,6 +372,7 @@ export const getOrders = cache(async (): Promise<AdminOrderRow[]> => {
     const cjLine = row.cjShippingLineId ? lineById.get(row.cjShippingLineId) : undefined;
     return {
       id: row.id,
+      orderNumber: row.orderNumber,
       customerId: row.userId,
       customerName: customerById.get(row.userId)?.name ?? row.userId,
       customerEmail: customerById.get(row.userId)?.email ?? "",
