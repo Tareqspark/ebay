@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Download, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { DataTable } from "@/components/admin/table/data-table";
-import { TableSearch } from "@/components/admin/table/table-search";
+import { Input } from "@/components/ui/input";
+import { Search } from "lucide-react";
 import { FilterSelect } from "@/components/admin/table/filter-select";
 import { Button } from "@/components/ui/button";
 import {
@@ -82,6 +83,13 @@ export function ProductsTable({ initialRows, categoryOptions, categoryTree, bran
   }
 
   const [rows, setRows] = useState(initialRows);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState(25);
+  const [total, setTotal] = useState(0);
+  const [pageCount, setPageCount] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState(initialQuery ?? "");
+  const [debouncedSearch, setDebouncedSearch] = useState(initialQuery ?? "");
   const [status, setStatus] = useState("all");
   const [visibility, setVisibility] = useState("all");
   const [category, setCategory] = useState("all");
@@ -91,22 +99,52 @@ export function ProductsTable({ initialRows, categoryOptions, categoryTree, bran
   const [detailProductId, setDetailProductId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<string[] | null>(null);
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 250);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Filtering, sorting and paging all happen in SQL now — the browser holds
+  // one page instead of the whole catalog. Any change to the query resets to
+  // page one, since page 8 of the previous filter is meaningless.
+  const fetchPage = useCallback(
+    async (targetPage: number) => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({
+          page: String(targetPage + 1),
+          pageSize: String(pageSize),
+          q: debouncedSearch,
+          status,
+          visibility,
+          category,
+          source,
+          savedView,
+        });
+        const res = await fetch(`/api/admin/products/list?${params}`);
+        const data = await res.json();
+        setRows(data.rows ?? []);
+        setTotal(data.total ?? 0);
+        setPageCount(data.pageCount ?? 1);
+      } catch {
+        toast.error("Couldn't load products — please try again.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [pageSize, debouncedSearch, status, visibility, category, source, savedView]
+  );
+
+  useEffect(() => {
+    setPageIndex(0);
+    fetchPage(0);
+  }, [fetchPage]);
+
   const rowsById = useMemo(() => new Map(rows.map((r) => [r.product.id, r])), [rows]);
   const detailRow = detailProductId ? rowsById.get(detailProductId) ?? null : null;
 
-  const filteredRows = useMemo(() => {
-    return rows.filter((r) => {
-      if (status !== "all" && r.meta.status !== status) return false;
-      if (visibility !== "all" && r.meta.visibility !== visibility) return false;
-      if (category !== "all" && r.product.categorySlugPath[0] !== category) return false;
-      if (source !== "all" && r.meta.source !== source) return false;
-      if (savedView === "low-margin" && r.marginPercent >= 15) return false;
-      if (savedView === "out-of-stock" && r.product.stock !== 0) return false;
-      if (savedView === "needs-review" && !r.meta.needsReview) return false;
-      if (savedView === "active-visible" && !(r.meta.status === "active" && r.meta.visibility === "visible")) return false;
-      return true;
-    });
-  }, [rows, status, visibility, category, source, savedView]);
+  // `rows` is already the filtered page the server returned.
+  const filteredRows = rows;
 
   function updateProductLocal(productId: string, patch: Partial<AdminProductRow["product"]>) {
     setRows((prev) =>
@@ -181,6 +219,31 @@ export function ProductsTable({ initialRows, categoryOptions, categoryTree, bran
     toast.success(`Updated visibility for ${ids.length} product${ids.length === 1 ? "" : "s"}`);
   }
 
+  /**
+   * Exports everything matching the current filters, not just the page on
+   * screen. Paging made that distinction real: without this the button would
+   * quietly produce a 25-row file and look like it had worked.
+   */
+  async function exportAllMatching() {
+    const params = new URLSearchParams({
+      page: "1",
+      pageSize: "10000",
+      q: debouncedSearch,
+      status,
+      visibility,
+      category,
+      source,
+      savedView,
+    });
+    try {
+      const res = await fetch(`/api/admin/products/list?${params}`);
+      const data = await res.json();
+      exportCsv(data.rows ?? []);
+    } catch {
+      toast.error("Couldn't build the export — please try again.");
+    }
+  }
+
   function exportCsv(exportRows: AdminProductRow[]) {
     const header = ["Title", "Category", "Price", "Cost", "Margin %", "Inventory", "Supplier", "Status", "Visibility"];
     const lines = exportRows.map((r) =>
@@ -242,10 +305,29 @@ export function ProductsTable({ initialRows, categoryOptions, categoryTree, bran
           setDetailProductId(r.product.id);
           setDetailOpen(true);
         }}
-        emptyMessage="No products match these filters."
-        toolbar={(table) => (
+        emptyMessage={loading ? "Loading..." : "No products match these filters."}
+        serverPagination={{
+          pageIndex,
+          pageCount,
+          rowCount: total,
+          onPageChange: (i) => {
+            setPageIndex(i);
+            fetchPage(i);
+          },
+          onPageSizeChange: setPageSize,
+          loading,
+        }}
+        toolbar={() => (
           <>
-            <TableSearch table={table} placeholder="Search products..." />
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search products..."
+                className="h-8 w-[220px] pl-8"
+              />
+            </div>
             <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
               <Plus className="h-3.5 w-3.5" />
               New product
@@ -281,7 +363,7 @@ export function ProductsTable({ initialRows, categoryOptions, categoryTree, bran
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportCsv(filteredRows)}>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={exportAllMatching}>
               <Download className="h-3.5 w-3.5" />
               Export
             </Button>

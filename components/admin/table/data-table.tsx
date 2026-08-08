@@ -52,6 +52,22 @@ interface DataTableProps<TData> {
   maxHeight?: string;
   /** Seeds the built-in global filter, e.g. from a URL query param. */
   initialGlobalFilter?: string;
+  /**
+   * Opt-in server-side paging. Omitted, the table behaves exactly as before
+   * and filters/sorts/pages the rows it was handed — which is what the other
+   * tables here rely on. Supplied, `data` is one page and the server owns
+   * filtering, sorting and counting, so the client-side row models are
+   * bypassed rather than re-filtering a page that is already correct.
+   */
+  serverPagination?: {
+    pageIndex: number;
+    pageCount: number;
+    rowCount: number;
+    onPageChange: (pageIndex: number) => void;
+    onPageSizeChange?: (pageSize: number) => void;
+    onSortChange?: (sort: SortingState) => void;
+    loading?: boolean;
+  };
 }
 
 export function DataTable<TData>({
@@ -66,6 +82,7 @@ export function DataTable<TData>({
   emptyMessage = "No results found.",
   maxHeight = "calc(100vh - 320px)",
   initialGlobalFilter = "",
+  serverPagination,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -73,11 +90,29 @@ export function DataTable<TData>({
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [globalFilter, setGlobalFilter] = useState(initialGlobalFilter);
 
+  const server = serverPagination;
+
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, columnFilters, columnVisibility, rowSelection, globalFilter },
-    onSortingChange: setSorting,
+    state: {
+      sorting,
+      columnFilters,
+      columnVisibility,
+      rowSelection,
+      globalFilter,
+      ...(server ? { pagination: { pageIndex: server.pageIndex, pageSize } } : {}),
+    },
+    manualPagination: !!server,
+    manualSorting: !!server,
+    manualFiltering: !!server,
+    pageCount: server?.pageCount,
+    rowCount: server?.rowCount,
+    onSortingChange: (updater) => {
+      const next = typeof updater === "function" ? updater(sorting) : updater;
+      setSorting(next);
+      server?.onSortChange?.(next);
+    },
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
@@ -85,7 +120,7 @@ export function DataTable<TData>({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    ...(server ? {} : { getPaginationRowModel: getPaginationRowModel() }),
     getRowId,
     enableRowSelection: enableSelection,
     columnResizeMode: "onChange",
@@ -186,7 +221,7 @@ export function DataTable<TData>({
         </table>
       </div>
 
-      <DataTablePagination table={table} />
+      <DataTablePagination table={table} server={server} />
     </div>
   );
 }
@@ -254,9 +289,16 @@ function ColumnVisibilityMenu<TData>({ table }: { table: TableInstance<TData> })
   );
 }
 
-function DataTablePagination<TData>({ table }: { table: TableInstance<TData> }) {
+function DataTablePagination<TData>({
+  table,
+  server,
+}: {
+  table: TableInstance<TData>;
+  server?: { rowCount: number; onPageChange: (i: number) => void; onPageSizeChange?: (s: number) => void };
+}) {
   const { pageIndex, pageSize } = table.getState().pagination;
-  const totalRows = table.getFilteredRowModel().rows.length;
+  // Server mode knows the true total; client mode can only count what it holds.
+  const totalRows = server ? server.rowCount : table.getFilteredRowModel().rows.length;
   const from = totalRows === 0 ? 0 : pageIndex * pageSize + 1;
   const to = Math.min(totalRows, (pageIndex + 1) * pageSize);
 
@@ -271,7 +313,11 @@ function DataTablePagination<TData>({ table }: { table: TableInstance<TData> }) 
           <span className="text-sm text-muted-foreground">Rows</span>
           <Select
             value={String(pageSize)}
-            onValueChange={(v) => table.setPageSize(Number(v ?? 25))}
+            onValueChange={(v) => {
+              const next = Number(v ?? 25);
+              table.setPageSize(next);
+              server?.onPageSizeChange?.(next);
+            }}
             items={{ "10": "10", "25": "25", "50": "50", "100": "100" }}
           >
             <SelectTrigger size="sm" className="w-[70px]">
@@ -290,7 +336,7 @@ function DataTablePagination<TData>({ table }: { table: TableInstance<TData> }) 
           <Button
             variant="outline"
             size="icon-sm"
-            onClick={() => table.setPageIndex(0)}
+            onClick={() => { table.setPageIndex(0); server?.onPageChange(0); }}
             disabled={!table.getCanPreviousPage()}
             aria-label="First page"
           >
@@ -299,7 +345,7 @@ function DataTablePagination<TData>({ table }: { table: TableInstance<TData> }) 
           <Button
             variant="outline"
             size="icon-sm"
-            onClick={() => table.previousPage()}
+            onClick={() => { const i = Math.max(0, table.getState().pagination.pageIndex - 1); table.setPageIndex(i); server?.onPageChange(i); }}
             disabled={!table.getCanPreviousPage()}
             aria-label="Previous page"
           >
@@ -311,7 +357,7 @@ function DataTablePagination<TData>({ table }: { table: TableInstance<TData> }) 
           <Button
             variant="outline"
             size="icon-sm"
-            onClick={() => table.nextPage()}
+            onClick={() => { const i = table.getState().pagination.pageIndex + 1; table.setPageIndex(i); server?.onPageChange(i); }}
             disabled={!table.getCanNextPage()}
             aria-label="Next page"
           >
@@ -320,7 +366,7 @@ function DataTablePagination<TData>({ table }: { table: TableInstance<TData> }) 
           <Button
             variant="outline"
             size="icon-sm"
-            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+            onClick={() => { const i = table.getPageCount() - 1; table.setPageIndex(i); server?.onPageChange(i); }}
             disabled={!table.getCanNextPage()}
             aria-label="Last page"
           >

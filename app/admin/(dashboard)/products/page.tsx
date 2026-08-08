@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/admin/shared/page-header";
 import { ProductsTable } from "@/components/admin/products/products-table";
-import { getAdminProductTableRows, getAdminCategories } from "@/lib/admin/data";
+import { getAdminCategories, getProductCount } from "@/lib/admin/data";
 import { getAllBrands } from "@/lib/brands";
 
 export const metadata: Metadata = { title: "Products" };
@@ -12,12 +12,14 @@ interface AdminProductsPageProps {
 }
 
 export default async function AdminProductsPage({ searchParams }: AdminProductsPageProps) {
-  const [{ q, new: isNew }, rows, categories, brands] = await Promise.all([
+  // The table fetches its own page from /api/admin/products/list; this used
+  // to load the entire catalog here purely to hand it over.
+  const [{ q, new: isNew }, categories, brands] = await Promise.all([
     searchParams,
-    getAdminProductTableRows(),
     getAdminCategories(),
     getAllBrands(),
   ]);
+  const productCount = await getProductCount();
   const categoryOptions = categories.map((c) => ({ value: c.slug, label: c.name }));
   // Full three-level tree for the create form's cascading picker; a product's
   // categorySlugPath must name all three levels to match the storefront routes.
@@ -36,10 +38,10 @@ export default async function AdminProductsPage({ searchParams }: AdminProductsP
     <div className="flex flex-col gap-4">
       <PageHeader
         title="Products"
-        description={`${rows.length.toLocaleString()} products across ${categories.length} categories`}
+        description={`${productCount.toLocaleString()} products across ${categories.length} categories`}
       />
       <ProductsTable
-        initialRows={rows}
+        initialRows={[]}
         categoryOptions={categoryOptions}
         categoryTree={categoryTree}
         brandOptions={brandOptions}

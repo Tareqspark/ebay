@@ -245,6 +245,12 @@ export const getAdminProductRows = cache(async (): Promise<AdminProductRow[]> =>
  * ~23k rows (and 5MB of product descriptions) read from MySQL on every
  * dashboard render, to produce two integers. Counted in the database instead.
  */
+/** Header count only — loading every row just to call .length was the whole problem. */
+export async function getProductCount(): Promise<number> {
+  const [row] = await db.select({ count: sql<number>`count(*)` }).from(productsTable);
+  return Number(row?.count ?? 0);
+}
+
 export async function getDashboardCounts(importedSince: Date): Promise<{
   lowInventoryCount: number;
   productsImportedToday: number;
