@@ -74,7 +74,7 @@ export async function createPaymentIntentAction(
   let shippingOverride: number | undefined;
   let appliedShippingRateId: string | undefined;
   if (shippingRateId) {
-    const rate = await getShippingRateById(shippingRateId, address.state, cart.subtotal);
+    const rate = await getShippingRateById(shippingRateId, address.state, cart.subtotal, address.country);
     if (rate) {
       shippingOverride = rate.rate;
       appliedShippingRateId = rate.id;
@@ -106,7 +106,8 @@ export async function createPaymentIntentAction(
     total = computeTotalsWithDiscount(
       cart.subtotal,
       { discountType: outcome.promo.discountType, discountPercent: outcome.promo.discountPercent, discountAmountCents: outcome.promo.discountAmountCents },
-      shippingOverride
+      shippingOverride,
+      address.country
     ).total;
     appliedPromoCode = outcome.result.code;
   } else {
@@ -115,11 +116,12 @@ export async function createPaymentIntentAction(
       total = computeTotalsWithDiscount(
         cart.subtotal,
         { discountType: "percent", discountPercent: loyalty.tier.discountPercent, discountAmountCents: null },
-        shippingOverride
+        shippingOverride,
+        address.country
       ).total;
       appliedLoyaltyTier = loyalty.tier.name;
     } else {
-      total = computeTotals(cart.subtotal, shippingOverride).total;
+      total = computeTotals(cart.subtotal, shippingOverride, address.country).total;
     }
   }
 

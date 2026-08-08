@@ -44,6 +44,7 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals, loyaltyDiscou
   const [isApplying, startApplying] = useTransition();
 
   const [addressState, setAddressState] = useState(defaultAddress.state);
+  const [addressCountry, setAddressCountry] = useState(defaultAddress.country || "US");
   const [rates, setRates] = useState<AvailableShippingRate[]>([]);
   const [ratesLoading, setRatesLoading] = useState(false);
   const [selectedRateId, setSelectedRateId] = useState<string | null>(null);
@@ -54,13 +55,16 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals, loyaltyDiscou
   // (lib/shipping-rates.ts) and default to the cheapest — the customer can
   // still pick a faster one.
   useEffect(() => {
-    if (!addressState.trim()) {
+    // A state is only a prerequisite domestically — plenty of countries have
+    // no equivalent, and requiring one there would leave checkout with no
+    // shipping options at all.
+    if (addressCountry === "US" && !addressState.trim()) {
       setRates([]);
       return;
     }
     let cancelled = false;
     setRatesLoading(true);
-    getShippingRatesAction(addressState, cart.subtotal)
+    getShippingRatesAction(addressState, cart.subtotal, addressCountry)
       .then((result) => {
         if (cancelled) return;
         setRates(result);
@@ -73,7 +77,7 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals, loyaltyDiscou
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [addressState]);
+  }, [addressState, addressCountry]);
 
   useEffect(() => {
     if (!selectedRateId) {
@@ -81,14 +85,14 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals, loyaltyDiscou
       return;
     }
     let cancelled = false;
-    previewShippingTotalsAction(selectedRateId, addressState, applied?.code).then((result) => {
+    previewShippingTotalsAction(selectedRateId, addressState, applied?.code, addressCountry).then((result) => {
       if (cancelled || result.error) return;
       setShippingPreview({ shipping: result.shipping!, tax: result.tax!, total: result.total!, discount: result.discount! });
     });
     return () => {
       cancelled = true;
     };
-  }, [selectedRateId, addressState, applied?.code]);
+  }, [selectedRateId, addressState, addressCountry, applied?.code]);
 
   function handleApplyPromo() {
     if (!promoInput.trim()) return;
@@ -128,7 +132,10 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals, loyaltyDiscou
           promoCode={applied?.code ?? null}
           shippingRateId={selectedRateId}
           ratesAvailable={rates.length > 0}
-          onAddressChange={(address) => setAddressState(address.state)}
+          onAddressChange={(address) => {
+            setAddressState(address.state);
+            setAddressCountry(address.country || "US");
+          }}
         />
 
         {(ratesLoading || rates.length > 0) && (

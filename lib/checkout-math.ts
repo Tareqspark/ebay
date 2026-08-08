@@ -17,9 +17,19 @@ export const FLAT_SHIPPING = 6.99;
  * — omitted, this is unchanged flat-rate behavior for every pre-existing
  * call site (cart page's free-shipping banner, etc).
  */
-export function computeTotals(subtotal: number, shippingOverride?: number) {
+/**
+ * US sales tax does not apply to goods exported abroad, and charging it to
+ * an overseas customer would be billing them for a liability that does not
+ * exist. International buyers instead pay their own country's import duty
+ * and VAT on arrival, collected by the carrier — not by us at checkout.
+ */
+export function isTaxable(country = "US"): boolean {
+  return country.trim().toUpperCase() === "US";
+}
+
+export function computeTotals(subtotal: number, shippingOverride?: number, country = "US") {
   const shipping = shippingOverride ?? (subtotal >= FREE_SHIPPING_THRESHOLD || subtotal === 0 ? 0 : FLAT_SHIPPING);
-  const tax = Math.round((subtotal + shipping) * TAX_RATE * 100) / 100;
+  const tax = isTaxable(country) ? Math.round((subtotal + shipping) * TAX_RATE * 100) / 100 : 0;
   const total = Math.round((subtotal + shipping + tax) * 100) / 100;
   return { shipping, tax, total };
 }
@@ -39,7 +49,12 @@ export interface PromoForDiscount {
  * behaves the same as on computeTotals() — when a customer picked a real
  * carrier rate, a free_shipping promo waives *that* rate, not the flat one.
  */
-export function computeTotalsWithDiscount(subtotal: number, promo?: PromoForDiscount | null, shippingOverride?: number) {
+export function computeTotalsWithDiscount(
+  subtotal: number,
+  promo?: PromoForDiscount | null,
+  shippingOverride?: number,
+  country = "US"
+) {
   const baseShipping = shippingOverride ?? (subtotal >= FREE_SHIPPING_THRESHOLD || subtotal === 0 ? 0 : FLAT_SHIPPING);
 
   let discount = 0;
@@ -58,7 +73,7 @@ export function computeTotalsWithDiscount(subtotal: number, promo?: PromoForDisc
     shipping = 0;
   }
 
-  const tax = Math.round((discountedSubtotal + shipping) * TAX_RATE * 100) / 100;
+  const tax = isTaxable(country) ? Math.round((discountedSubtotal + shipping) * TAX_RATE * 100) / 100 : 0;
   const total = Math.round((discountedSubtotal + shipping + tax) * 100) / 100;
   return { discount, shipping, tax, total };
 }

@@ -21,7 +21,17 @@ const STATE_ZONES: Record<string, string> = {
   AP: "APO/FPO Military",
 };
 
-export function resolveShippingZone(state: string): string {
+export const INTERNATIONAL_ZONE = "International";
+
+/**
+ * Country decides first: the STATE_ZONES table below is a US state → carrier
+ * zone mapping, and a foreign province code could collide with it (Canada's
+ * "AB", for instance, is not Alberta to a US carrier). Anything outside the
+ * US resolves to a single International zone rather than being silently
+ * priced as a domestic order.
+ */
+export function resolveShippingZone(state: string, country = "US"): string {
+  if (country.trim().toUpperCase() !== "US") return INTERNATIONAL_ZONE;
   return STATE_ZONES[state.trim().toUpperCase()] ?? "Continental US";
 }
 
@@ -41,8 +51,8 @@ export interface AvailableShippingRate {
  * is out of reach without real credentials — the rate table, matching
  * logic, and selection are all real.
  */
-export async function getAvailableShippingRates(state: string, subtotal: number): Promise<AvailableShippingRate[]> {
-  const zone = resolveShippingZone(state);
+export async function getAvailableShippingRates(state: string, subtotal: number, country = "US"): Promise<AvailableShippingRate[]> {
+  const zone = resolveShippingZone(state, country);
   const subtotalCents = toCents(subtotal);
 
   const [rateRows, carrierRows] = await Promise.all([
@@ -83,10 +93,10 @@ export interface ResolvedShippingRate {
  * match this specific destination/subtotal is treated as not found, same
  * as one that's disabled or deleted.
  */
-export async function getShippingRateById(id: string, state: string, subtotal: number): Promise<ResolvedShippingRate | null> {
+export async function getShippingRateById(id: string, state: string, subtotal: number, country = "US"): Promise<ResolvedShippingRate | null> {
   const [row] = await db.select().from(shippingRates).where(eq(shippingRates.id, id)).limit(1);
   if (!row || row.status !== "active") return null;
-  if (row.zone !== resolveShippingZone(state)) return null;
+  if (row.zone !== resolveShippingZone(state, country)) return null;
 
   const subtotalCents = toCents(subtotal);
   if (row.minSubtotalCents != null && subtotalCents < row.minSubtotalCents) return null;

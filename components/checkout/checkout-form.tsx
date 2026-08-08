@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { COUNTRIES, getCountry } from "@/lib/countries";
 import { loadStripe, type Stripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
 import { Input } from "@/components/ui/input";
@@ -35,10 +36,14 @@ export function CheckoutForm({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  // Country matters as much as state: it decides the shipping zone, so a
+  // change to either has to re-quote rates.
   useEffect(() => {
     onAddressChange(address);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address.state]);
+  }, [address.state, address.country]);
+
+  const country = getCountry(address.country);
 
   function field(key: keyof ShippingAddressInput) {
     return {
@@ -88,14 +93,43 @@ export function CheckoutForm({
           <Input id="co-city" required {...field("city")} />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="co-state">State</Label>
+          <Label htmlFor="co-state">{country.stateLabel}</Label>
           <Input id="co-state" required {...field("state")} />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="co-zip">ZIP</Label>
-          <Input id="co-zip" required {...field("zip")} />
+        {country.hasPostalCode && (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="co-zip">{country.postalLabel}</Label>
+            <Input id="co-zip" required {...field("zip")} />
+          </div>
+        )}
+        <div className="col-span-2 flex flex-col gap-1.5">
+          <Label htmlFor="co-country">Country</Label>
+          <select
+            id="co-country"
+            value={address.country}
+            onChange={(e) => {
+              // Clear region and postcode: values entered under the previous
+              // country's format are meaningless under the new one, and a
+              // stale ZIP would quote the wrong zone.
+              const next = e.target.value;
+              setAddress((prev) => ({ ...prev, country: next, state: "", zip: "" }));
+            }}
+            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            {COUNTRIES.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
+      {address.country !== "US" && (
+        <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          Shipping to {country.name}. US sales tax isn&apos;t charged on international orders, but your country may
+          apply import duty or VAT on delivery — those are collected by the carrier, not by Cartebay.
+        </p>
+      )}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <Button
         size="lg"
@@ -105,7 +139,7 @@ export function CheckoutForm({
           !address.line1 ||
           !address.city ||
           !address.state ||
-          !address.zip ||
+          (country.hasPostalCode && !address.zip) ||
           (ratesAvailable && !shippingRateId)
         }
         onClick={handleContinue}

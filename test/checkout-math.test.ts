@@ -92,3 +92,39 @@ describe("computeTotalsWithDiscount", () => {
     expect(result.discount).toBe(24.99);
   });
 });
+
+describe("international orders", () => {
+  it("charges US sales tax on a domestic order", () => {
+    const { tax } = computeTotals(100, 10, "US");
+    expect(tax).toBeCloseTo(9.08, 2);
+  });
+
+  it("charges no US sales tax on an export", () => {
+    // The overseas buyer pays their own country's import duty and VAT on
+    // arrival; billing them US state tax would be charging for a liability
+    // that doesn't exist.
+    const { tax, total } = computeTotals(100, 10, "DE");
+    expect(tax).toBe(0);
+    expect(total).toBe(110);
+  });
+
+  it("defaults to taxable when no country is given, so existing callers are unchanged", () => {
+    expect(computeTotals(100, 10).tax).toBeCloseTo(computeTotals(100, 10, "US").tax, 2);
+  });
+
+  it("drops tax on a discounted international order too", () => {
+    const { tax, discount } = computeTotalsWithDiscount(
+      200,
+      { discountType: "percent", discountPercent: 10, discountAmountCents: null },
+      0,
+      "GB"
+    );
+    expect(discount).toBe(20);
+    expect(tax).toBe(0);
+  });
+
+  it("is case- and whitespace-insensitive about the country code", () => {
+    expect(computeTotals(100, 0, " us ").tax).toBeGreaterThan(0);
+    expect(computeTotals(100, 0, "gb").tax).toBe(0);
+  });
+});

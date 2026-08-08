@@ -104,7 +104,7 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
   let shippingMethod: string | null = null;
   let shippingOverride: number | undefined;
   if (shippingRateIdFromMetadata) {
-    const rate = await getShippingRateById(shippingRateIdFromMetadata, address.state ?? "", subtotal);
+    const rate = await getShippingRateById(shippingRateIdFromMetadata, address.state ?? "", subtotal, address.country ?? "US");
     if (rate) {
       shippingOverride = rate.rate;
       shippingMethod = rate.carrierName ? `${rate.carrierName} — ${rate.method}` : rate.method;
@@ -125,7 +125,12 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
       discountSource = { discountType: "percent", discountPercent: tier.discountPercent, discountAmountCents: null };
     }
   }
-  const { discount, shipping, tax, total } = computeTotalsWithDiscount(subtotal, discountSource, shippingOverride);
+  const { discount, shipping, tax, total } = computeTotalsWithDiscount(
+    subtotal,
+    discountSource,
+    shippingOverride,
+    address.country ?? "US"
+  );
 
   const shippingAddress: ShippingAddressInput = {
     name: address.name ?? "",

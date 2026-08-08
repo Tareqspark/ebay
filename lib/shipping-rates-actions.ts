@@ -8,9 +8,16 @@ import { getLoyaltyStatus } from "@/lib/loyalty";
 import { getAvailableShippingRates, getShippingRateById } from "@/lib/shipping-rates";
 import type { AvailableShippingRate } from "@/lib/shipping-rates";
 
-export async function getShippingRatesAction(state: string, subtotal: number): Promise<AvailableShippingRate[]> {
-  if (!state.trim()) return [];
-  return getAvailableShippingRates(state, subtotal);
+export async function getShippingRatesAction(
+  state: string,
+  subtotal: number,
+  country = "US"
+): Promise<AvailableShippingRate[]> {
+  // Outside the US a state/province is optional — many countries have no
+  // equivalent — so only the domestic path requires one before quoting.
+  const isDomestic = country.trim().toUpperCase() === "US";
+  if (isDomestic && !state.trim()) return [];
+  return getAvailableShippingRates(state, subtotal, country);
 }
 
 export interface ShippingTotalsPreview {
@@ -31,7 +38,8 @@ export interface ShippingTotalsPreview {
 export async function previewShippingTotalsAction(
   shippingRateId: string,
   state: string,
-  promoCode?: string
+  promoCode?: string,
+  country = "US"
 ): Promise<ShippingTotalsPreview> {
   const session = await auth();
   if (!session?.user?.id) return { error: "Sign in to check out." };
@@ -39,7 +47,7 @@ export async function previewShippingTotalsAction(
   const cart = await getCart();
   if (cart.items.length === 0) return { error: "Your cart is empty." };
 
-  const rate = await getShippingRateById(shippingRateId, state, cart.subtotal);
+  const rate = await getShippingRateById(shippingRateId, state, cart.subtotal, country);
   const shippingOverride = rate?.rate;
 
   if (promoCode?.trim()) {
@@ -48,7 +56,8 @@ export async function previewShippingTotalsAction(
     const { shipping, tax, total, discount } = computeTotalsWithDiscount(
       cart.subtotal,
       { discountType: outcome.promo.discountType, discountPercent: outcome.promo.discountPercent, discountAmountCents: outcome.promo.discountAmountCents },
-      shippingOverride
+      shippingOverride,
+      country
     );
     return { shipping, tax, total, discount };
   }
@@ -58,11 +67,12 @@ export async function previewShippingTotalsAction(
     const { shipping, tax, total, discount } = computeTotalsWithDiscount(
       cart.subtotal,
       { discountType: "percent", discountPercent: loyalty.tier.discountPercent, discountAmountCents: null },
-      shippingOverride
+      shippingOverride,
+      country
     );
     return { shipping, tax, total, discount };
   }
 
-  const { shipping, tax, total } = computeTotals(cart.subtotal, shippingOverride);
+  const { shipping, tax, total } = computeTotals(cart.subtotal, shippingOverride, country);
   return { shipping, tax, total, discount: 0 };
 }
