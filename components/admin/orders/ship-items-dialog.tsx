@@ -57,21 +57,25 @@ export function ShipItemsDialog({
 
   function submit() {
     startTransition(async () => {
-      const result = await shipOrderItemsAction({
-        orderId,
-        orderNumber,
-        source,
-        carrier: carrier || undefined,
-        trackingNumber: tracking || undefined,
-        quantities,
-      });
-      if (result.error) {
-        toast.error(result.error);
-        return;
+      try {
+        const result = await shipOrderItemsAction({
+          orderId,
+          orderNumber,
+          source,
+          carrier: carrier || undefined,
+          trackingNumber: tracking || undefined,
+          quantities,
+        });
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success(`Shipment recorded for ${orderNumber}`);
+        onOpenChange(false);
+        router.refresh();
+      } catch {
+        toast.error("Couldn't record the shipment — please try again.");
       }
-      toast.success(`Shipment recorded for ${orderNumber}`);
-      onOpenChange(false);
-      router.refresh();
     });
   }
 

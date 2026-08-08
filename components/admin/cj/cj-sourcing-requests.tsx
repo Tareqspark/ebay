@@ -30,6 +30,7 @@ export function CjSourcingRequests({ initialRequests }: { initialRequests: CjSou
       return;
     }
     startTransition(async () => {
+      try {
       const result = await submitSourcingRequestAction(productName, productImage, referenceUrl, notes);
       if (result.error) {
         toast.error(result.error);
@@ -50,6 +51,9 @@ export function CjSourcingRequests({ initialRequests }: { initialRequests: CjSou
       setReferenceUrl("");
       setNotes("");
       toast.success("Sourcing request submitted to CJdropshipping");
+      } catch {
+        toast.error("Couldn't submit the sourcing request — please try again.");
+      }
     });
   }
 

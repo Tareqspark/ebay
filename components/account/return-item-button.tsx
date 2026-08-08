@@ -42,14 +42,18 @@ export function ReturnItemButton({ orderItemId, productTitle }: { orderItemId: s
   function handleSubmit() {
     setError(null);
     startTransition(async () => {
-      const result = await requestReturnAction(orderItemId, reason, note);
-      if (result.error) {
-        setError(result.error);
-        return;
+      try {
+        const result = await requestReturnAction(orderItemId, reason, note);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        toast.success("Return requested");
+        setOpen(false);
+        setNote("");
+      } catch {
+        setError("Couldn't request the return — please try again.");
       }
-      toast.success("Return requested");
-      setOpen(false);
-      setNote("");
     });
   }
 

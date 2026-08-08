@@ -42,12 +42,16 @@ export function CjFulfillmentSettingsForm({
 
   function handleSave() {
     startTransition(async () => {
-      const result = await updateCjFulfillmentSettingsAction({ autoPushOrders, defaultShippingLineId, syncFrequency });
-      if (result.error) {
-        toast.error(result.error);
-        return;
+      try {
+        const result = await updateCjFulfillmentSettingsAction({ autoPushOrders, defaultShippingLineId, syncFrequency });
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success("Fulfillment defaults saved");
+      } catch {
+        toast.error("Couldn't save — please try again.");
       }
-      toast.success("Fulfillment defaults saved");
     });
   }
 

@@ -55,10 +55,13 @@ export const COUNTRIES: Country[] = [
 const BY_CODE = new Map(COUNTRIES.map((c) => [c.code, c]));
 
 /** Falls back to US conventions for an unknown code so the form still renders sensible labels. */
-export function getCountry(code: string): Country {
-  return BY_CODE.get(code.trim().toUpperCase()) ?? COUNTRIES[0];
+export function getCountry(code: string | null | undefined): Country {
+  // Tolerates null/undefined: a saved address predating the country field, or
+  // a legacy row storing a full name rather than a code, would otherwise throw
+  // during render and take the whole checkout form down.
+  return BY_CODE.get((code ?? "").trim().toUpperCase()) ?? COUNTRIES[0];
 }
 
-export function isSupportedCountry(code: string): boolean {
-  return BY_CODE.has(code.trim().toUpperCase());
+export function isSupportedCountry(code: string | null | undefined): boolean {
+  return BY_CODE.has((code ?? "").trim().toUpperCase());
 }

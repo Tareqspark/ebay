@@ -55,12 +55,21 @@ export function CheckoutForm({
   function handleContinue() {
     setError(null);
     startTransition(async () => {
-      const result = await createPaymentIntentAction(address, promoCode ?? undefined, shippingRateId ?? undefined);
-      if (result.error) {
-        setError(result.error);
-        return;
+      // Guarded because useTransition only clears isPending once the async
+      // body settles: an unhandled throw here left the button stuck on
+      // "Preparing payment..." and permanently disabled, with nothing shown
+      // to explain why. Same failure the cart mutations had.
+      try {
+        const result = await createPaymentIntentAction(address, promoCode ?? undefined, shippingRateId ?? undefined);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        if (result.clientSecret) setClientSecret(result.clientSecret);
+        else setError("Couldn't start payment — please try again.");
+      } catch {
+        setError("Couldn't start payment — please try again.");
       }
-      if (result.clientSecret) setClientSecret(result.clientSecret);
     });
   }
 

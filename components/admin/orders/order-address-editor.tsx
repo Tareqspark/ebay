@@ -30,14 +30,18 @@ export function OrderAddressEditor({
 
   function save() {
     startTransition(async () => {
-      const result = await updateOrderAddressAction(orderId, draft);
-      if (result.error) {
-        toast.error(result.error);
-        return;
+      try {
+        const result = await updateOrderAddressAction(orderId, draft);
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success("Shipping address updated");
+        setEditing(false);
+        router.refresh();
+      } catch {
+        toast.error("Couldn't update the address — please try again.");
       }
-      toast.success("Shipping address updated");
-      setEditing(false);
-      router.refresh();
     });
   }
 
