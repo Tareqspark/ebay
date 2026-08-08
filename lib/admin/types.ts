@@ -89,6 +89,8 @@ export interface OrderItem {
   title: string;
   image: string;
   quantity: number;
+  /** Units already shipped. Optional for the same reason as id above; DB-backed orders always set it. */
+  fulfilledQuantity?: number;
   price: number;
   source: ProductSource;
 }

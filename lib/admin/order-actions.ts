@@ -12,6 +12,7 @@ import { logActivity } from "@/lib/admin/activity";
 import { logError } from "@/lib/error-log";
 import { requirePermission, requireOwner } from "@/lib/admin/permissions";
 import { recordOrderEvent } from "@/lib/admin/order-events";
+import { createShipment } from "@/lib/admin/shipments";
 import { checkPlainText } from "@/lib/sanitize";
 import { sendEmail } from "@/lib/email";
 import { getOrderCustomerEmail, buildOrderConfirmationHtml } from "@/lib/checkout";
@@ -204,6 +205,56 @@ export async function resendOrderConfirmationAction(orderId: string, orderNumber
 
   const actor = await getAdminActorName();
   await recordOrderEvent(orderId, "email", `Order confirmation re-sent to ${email}`, actor);
+  revalidateOrderViews();
+  return {};
+}
+
+export interface ShipItemsInput {
+  orderId: string;
+  orderNumber: string;
+  source: "self" | "cj";
+  carrier?: string;
+  trackingNumber?: string;
+  quantities: Record<string, number>;
+}
+
+/**
+ * Ships part of an order. Replaces the all-or-nothing markOrderShippedAction
+ * for hybrid orders, where the self-stocked line and the CJ line genuinely
+ * leave at different times from different places. The order's own status is
+ * recomputed from the line items rather than set here, so it can't claim to
+ * be fully shipped while items are outstanding.
+ */
+export async function shipOrderItemsAction(input: ShipItemsInput): Promise<OrderActionResult> {
+  const guard = await requirePermission("orders");
+  if (guard) return guard;
+
+  if (input.trackingNumber) {
+    const textError = checkPlainText(input.trackingNumber, "Tracking number");
+    if (textError) return { error: textError };
+  }
+
+  const result = await createShipment({
+    orderId: input.orderId,
+    source: input.source,
+    carrier: input.carrier,
+    trackingNumber: input.trackingNumber,
+    quantities: input.quantities,
+  });
+  if (result.error) return { error: result.error };
+
+  const units = Object.values(input.quantities).reduce((sum, q) => sum + (Number(q) || 0), 0);
+  const detail = input.trackingNumber
+    ? `${input.carrier ?? "Carrier"} — tracking ${input.trackingNumber}`
+    : "no tracking recorded";
+  const actor = await getAdminActorName();
+  await recordOrderEvent(
+    input.orderId,
+    "fulfillment",
+    `Shipped ${units} item${units === 1 ? "" : "s"} (${input.source === "cj" ? "CJdropshipping" : "own stock"}) — ${detail}`,
+    actor
+  );
+  await logActivity("order", `Order ${input.orderNumber} — partial shipment created`, actor);
   revalidateOrderViews();
   return {};
 }

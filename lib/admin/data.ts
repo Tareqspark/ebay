@@ -382,6 +382,7 @@ export const getOrders = cache(async (): Promise<AdminOrderRow[]> => {
         title: i.title,
         image: i.image,
         quantity: i.quantity,
+        fulfilledQuantity: i.fulfilledQuantity,
         price: toDollars(i.priceCents),
         source: i.source,
       })),

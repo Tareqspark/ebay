@@ -169,8 +169,48 @@ export const orderItems = mysqlTable(
     quantity: int("quantity").notNull(),
     priceCents: int("price_cents").notNull(),
     source: mysqlEnum("source", ["self", "cj"]).notNull().default("self"),
+    /**
+     * How many of `quantity` have actually gone out. A hybrid order routinely
+     * splits — the self-stocked item ships from here today, the CJ item ships
+     * from China next week — so fulfilment is per line, not per order. The
+     * order's own status is derived from these (see lib/admin/shipments.ts)
+     * rather than set independently, so the two can never contradict.
+     */
+    fulfilledQuantity: int("fulfilled_quantity").notNull().default(0),
   },
   (table) => [index("order_items_order_id_idx").on(table.orderId)]
+);
+
+/**
+ * One physical parcel. An order has as many as it needs, each with its own
+ * carrier and tracking — the single trackingNumber column on `orders` can
+ * only ever describe one, which is why a split order previously had to
+ * pretend it was one shipment.
+ */
+export const shipments = mysqlTable(
+  "shipments",
+  {
+    id: varchar("id", { length: 26 }).primaryKey(),
+    orderId: varchar("order_id", { length: 26 }).notNull(),
+    /** "self" for stock we hold, "cj" for a CJ-dispatched parcel. */
+    source: mysqlEnum("source", ["self", "cj"]).notNull().default("self"),
+    carrier: varchar("carrier", { length: 191 }),
+    trackingNumber: varchar("tracking_number", { length: 191 }),
+    shippedAt: timestamp("shipped_at").notNull().defaultNow(),
+  },
+  (table) => [index("shipments_order_id_idx").on(table.orderId)]
+);
+
+/** Which line items, and how many of each, went into a given parcel. */
+export const shipmentItems = mysqlTable(
+  "shipment_items",
+  {
+    id: varchar("id", { length: 26 }).primaryKey(),
+    shipmentId: varchar("shipment_id", { length: 26 }).notNull(),
+    orderItemId: varchar("order_item_id", { length: 26 }).notNull(),
+    quantity: int("quantity").notNull(),
+  },
+  (table) => [index("shipment_items_shipment_id_idx").on(table.shipmentId)]
 );
 
 export const orderEventType = ["status", "note", "email", "payment", "fulfillment"] as const;

@@ -7,6 +7,7 @@ import { Ban, Mail, PackageCheck, RotateCcw, Send } from "lucide-react";
 import { SlideOver } from "@/components/admin/shared/slide-over";
 import { resendOrderConfirmationAction } from "@/lib/admin/order-actions";
 import { OrderTimeline } from "@/components/admin/orders/order-timeline";
+import { ShipItemsDialog } from "@/components/admin/orders/ship-items-dialog";
 import { OrderAddressEditor } from "@/components/admin/orders/order-address-editor";
 import { StatusBadge } from "@/components/admin/shared/status-badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,6 @@ interface OrderDetailPanelProps {
   open: boolean;
   order: AdminOrderRow | null;
   onOpenChange: (open: boolean) => void;
-  onMarkShipped: (orderId: string) => void;
   onRefund: (orderId: string) => void;
   onCancel: (orderId: string) => void;
   onPushToCj: (orderId: string) => void;
@@ -30,13 +30,13 @@ export function OrderDetailPanel({
   open,
   order,
   onOpenChange,
-  onMarkShipped,
   onRefund,
   onCancel,
   onPushToCj,
   isOwner,
 }: OrderDetailPanelProps) {
   const [resending, setResending] = useState(false);
+  const [shipOpen, setShipOpen] = useState(false);
 
   if (!order) {
     return (
@@ -103,7 +103,7 @@ export function OrderDetailPanel({
             </Button>
           )}
           {canShip && (
-            <Button size="sm" className="gap-1.5" onClick={() => onMarkShipped(order.id)}>
+            <Button size="sm" className="gap-1.5" onClick={() => setShipOpen(true)}>
               <PackageCheck className="h-3.5 w-3.5" />
               Mark as shipped
             </Button>
@@ -212,6 +212,14 @@ export function OrderDetailPanel({
           <OrderTimeline orderId={order.id} />
         </section>
       </div>
+
+      <ShipItemsDialog
+        open={shipOpen}
+        onOpenChange={setShipOpen}
+        orderId={order.id}
+        orderNumber={order.orderNumber ?? order.id}
+        items={order.items}
+      />
     </SlideOver>
   );
 }

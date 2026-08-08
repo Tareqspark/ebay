@@ -169,7 +169,6 @@ export function CjOrdersTable({ initialOrders, isOwner }: CjOrdersTableProps) {
         open={detailOpen}
         order={detailOrder}
         onOpenChange={setDetailOpen}
-        onMarkShipped={markShipped}
         onRefund={refundOrder}
         isOwner={isOwner}
         onCancel={cancelOrder}

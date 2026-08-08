@@ -194,7 +194,6 @@ export function OrdersTable({ initialOrders, initialStatusFilter, initialQuery, 
         open={detailOpen}
         order={detailOrder}
         onOpenChange={setDetailOpen}
-        onMarkShipped={markShipped}
         onRefund={refundOrder}
         onCancel={cancelOrder}
         onPushToCj={pushToCj}
