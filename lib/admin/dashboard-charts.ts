@@ -135,3 +135,163 @@ export async function getDashboardCharts(): Promise<DashboardCharts> {
     emptyCategories: n(emptyCatRow?.count),
   };
 }
+
+export interface MatrixCell {
+  row: string;
+  col: string;
+  count: number;
+  href?: string;
+}
+
+export interface Matrix {
+  rows: string[];
+  cols: string[];
+  cells: MatrixCell[];
+  max: number;
+}
+
+export interface RankedBar {
+  label: string;
+  value: number;
+  href?: string;
+}
+
+const PRICE_BANDS = ["Under $10", "$10–25", "$25–50", "$50–100", "$100+"] as const;
+const MARGIN_BANDS = ["Loss", "0–15%", "15–30%", "30–50%", "50%+"] as const;
+
+const priceBandCase = sql`case
+  when ${products.priceCents} < 1000 then 'Under $10'
+  when ${products.priceCents} < 2500 then '$10–25'
+  when ${products.priceCents} < 5000 then '$25–50'
+  when ${products.priceCents} < 10000 then '$50–100'
+  else '$100+' end`;
+
+const marginBandCase = sql`case
+  when ${marginFraction} < 0 then 'Loss'
+  when ${marginFraction} < 0.15 then '0–15%'
+  when ${marginFraction} < 0.30 then '15–30%'
+  when ${marginFraction} < 0.50 then '30–50%'
+  else '50%+' end`;
+
+/**
+ * Price band against margin band, counted per cell.
+ *
+ * A single margin bar says how much of the catalog is thin; this says *where*
+ * — whether the weak margins sit on cheap impulse items, where it may be
+ * acceptable, or on the expensive lines that are supposed to be carrying the
+ * business. That is a different decision, and one no single-axis chart can
+ * pose.
+ */
+export async function getPriceMarginMatrix(): Promise<Matrix> {
+  const rows = await db
+    .select({ price: priceBandCase, margin: marginBandCase, count: sql<number>`count(*)` })
+    .from(products)
+    .innerJoin(productMeta, sql`${productMeta.productId} = ${products.id}`)
+    .groupBy(priceBandCase, marginBandCase);
+
+  const cells: MatrixCell[] = [];
+  let max = 0;
+  for (const r of rows) {
+    const count = Number(r.count ?? 0);
+    max = Math.max(max, count);
+    cells.push({ row: String(r.price), col: String(r.margin), count });
+  }
+  return { rows: [...PRICE_BANDS], cols: [...MARGIN_BANDS], cells, max };
+}
+
+/**
+ * Stock state per department. An overall stock bar hides the case that
+ * actually matters — a shortage concentrated in one department rather than
+ * spread thinly across all of them.
+ */
+export async function getDepartmentStockMatrix(limit = 8): Promise<Matrix> {
+  const rows = await db
+    .select({
+      dept: sql<string>`json_unquote(json_extract(${products.categorySlugPath}, '$[0]'))`,
+      status: inventory.status,
+      count: sql<number>`count(*)`,
+    })
+    .from(inventory)
+    .innerJoin(products, sql`${products.id} = ${inventory.productId}`)
+    .groupBy(sql`json_unquote(json_extract(${products.categorySlugPath}, '$[0]'))`, inventory.status);
+
+  const totals = new Map<string, number>();
+  for (const r of rows) totals.set(r.dept, (totals.get(r.dept) ?? 0) + Number(r.count ?? 0));
+  // Largest departments only: a 31-row grid is a wall, not a signal.
+  const top = [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([d]) => d);
+  const keep = new Set(top);
+
+  const cols = ["in_stock", "low_stock", "out_of_stock", "backorder"];
+  const cells: MatrixCell[] = [];
+  let max = 0;
+  for (const r of rows) {
+    if (!keep.has(r.dept)) continue;
+    const count = Number(r.count ?? 0);
+    max = Math.max(max, count);
+    cells.push({
+      row: r.dept,
+      col: r.status,
+      count,
+      href: `/admin/inventory?status=${r.status}`,
+    });
+  }
+  return { rows: top, cols, cells, max };
+}
+
+/** Departments by product count, largest first — the catalog's concentration. */
+export async function getDepartmentRanking(limit = 10): Promise<RankedBar[]> {
+  const rows = await db
+    .select({
+      dept: sql<string>`json_unquote(json_extract(${products.categorySlugPath}, '$[0]'))`,
+      count: sql<number>`count(*)`,
+    })
+    .from(products)
+    .groupBy(sql`json_unquote(json_extract(${products.categorySlugPath}, '$[0]'))`)
+    .orderBy(sql`count(*) desc`)
+    .limit(limit);
+
+  return rows.map((r) => ({
+    label: r.dept,
+    value: Number(r.count ?? 0),
+    href: `/admin/products?category=${encodeURIComponent(r.dept)}`,
+  }));
+}
+
+/** Where the catalog sits on price, and on customer rating. */
+export async function getCatalogHistograms(): Promise<{ price: RankedBar[]; rating: RankedBar[] }> {
+  const [priceRow] = await db
+    .select({
+      a: sql<number>`sum(${products.priceCents} < 1000)`,
+      b: sql<number>`sum(${products.priceCents} >= 1000 and ${products.priceCents} < 2500)`,
+      c: sql<number>`sum(${products.priceCents} >= 2500 and ${products.priceCents} < 5000)`,
+      d: sql<number>`sum(${products.priceCents} >= 5000 and ${products.priceCents} < 10000)`,
+      e: sql<number>`sum(${products.priceCents} >= 10000)`,
+    })
+    .from(products);
+
+  const [ratingRow] = await db
+    .select({
+      a: sql<number>`sum(${products.ratingValue} < 3)`,
+      b: sql<number>`sum(${products.ratingValue} >= 3 and ${products.ratingValue} < 4)`,
+      c: sql<number>`sum(${products.ratingValue} >= 4 and ${products.ratingValue} < 4.5)`,
+      d: sql<number>`sum(${products.ratingValue} >= 4.5)`,
+    })
+    .from(products);
+
+  const n = (v: unknown) => Number(v ?? 0);
+  return {
+    price: [
+      { label: "Under $10", value: n(priceRow?.a) },
+      { label: "$10–25", value: n(priceRow?.b) },
+      { label: "$25–50", value: n(priceRow?.c) },
+      { label: "$50–100", value: n(priceRow?.d) },
+      { label: "$100+", value: n(priceRow?.e) },
+    ],
+    rating: [
+      { label: "Under 3★", value: n(ratingRow?.a) },
+      { label: "3–4★", value: n(ratingRow?.b) },
+      { label: "4–4.5★", value: n(ratingRow?.c) },
+      { label: "4.5★+", value: n(ratingRow?.d) },
+    ],
+  };
+}

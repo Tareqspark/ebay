@@ -10,12 +10,38 @@ import { ActivityFeedPanel } from "@/components/admin/dashboard/activity-feed-pa
 import { AnnouncementsPanel } from "@/components/admin/dashboard/announcements-panel";
 import { DistributionBar } from "@/components/admin/dashboard/distribution-bar";
 import { ReadinessPanel } from "@/components/admin/dashboard/readiness-panel";
-import { getDashboardCharts } from "@/lib/admin/dashboard-charts";
+import { HeatmapMatrix } from "@/components/admin/dashboard/heatmap-matrix";
+import { RankedBars } from "@/components/admin/dashboard/ranked-bars";
+import {
+  getDashboardCharts,
+  getPriceMarginMatrix,
+  getDepartmentStockMatrix,
+  getDepartmentRanking,
+  getCatalogHistograms,
+} from "@/lib/admin/dashboard-charts";
+
+/** Slugs are what the database groups by; the dashboard shouldn't show them raw. */
+function titleise(slug: string): string {
+  return slug.replace(/-and-/g, " & ").replace(/-/g, " ");
+}
+
+const STOCK_LABELS: Record<string, string> = {
+  in_stock: "In stock",
+  low_stock: "Low",
+  out_of_stock: "Out",
+  backorder: "Backorder",
+};
 
 export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function AdminDashboardPage() {
-  const charts = await getDashboardCharts();
+  const [charts, priceMargin, deptStock, deptRanking, histograms] = await Promise.all([
+    getDashboardCharts(),
+    getPriceMarginMatrix(),
+    getDepartmentStockMatrix(),
+    getDepartmentRanking(),
+    getCatalogHistograms(),
+  ]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -48,6 +74,51 @@ export default async function AdminDashboardPage() {
           unit="orders total"
         />
         <ReadinessPanel items={charts.readiness} emptyCategories={charts.emptyCategories} />
+      </div>
+
+      {/* Densest first: a matrix answers "where" where a single bar only
+          answers "how much". */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <HeatmapMatrix
+          title="Price against margin"
+          subtitle="Whether the thin margins sit on cheap impulse items or on the lines meant to carry the business."
+          matrix={priceMargin}
+          rowLabel="Price"
+          colLabel="Margin"
+        />
+        <HeatmapMatrix
+          title="Stock by department"
+          subtitle="A shortage concentrated in one department is invisible in an overall stock figure."
+          matrix={deptStock}
+          rowLabel="Dept"
+          colLabel="Stock state"
+          formatRow={titleise}
+          formatCol={(c) => STOCK_LABELS[c] ?? c}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <RankedBars
+          title="Largest departments"
+          subtitle="Where the catalog is concentrated."
+          bars={deptRanking}
+          unit="products in the top 10"
+          formatLabel={titleise}
+        />
+        <RankedBars
+          title="Price ladder"
+          subtitle="Where the catalog sits on price."
+          bars={histograms.price}
+          unit="products priced"
+          ordered
+        />
+        <RankedBars
+          title="Rating spread"
+          subtitle="Customer rating across the catalog."
+          bars={histograms.rating}
+          unit="products rated"
+          ordered
+        />
       </div>
 
       {/* Then the catalog, which is the dataset large enough to have a shape. */}
