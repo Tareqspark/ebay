@@ -53,6 +53,10 @@ export function ProductFormDialog({
   const [sku, setSku] = useState("");
   const [warehouse, setWarehouse] = useState("Main");
   const [freeShipping, setFreeShipping] = useState(false);
+  const [weightOz, setWeightOz] = useState("");
+  const [lengthIn, setLengthIn] = useState("");
+  const [widthIn, setWidthIn] = useState("");
+  const [heightIn, setHeightIn] = useState("");
   const [status, setStatus] = useState<ProductStatus>("draft");
   const [visibility, setVisibility] = useState<ProductVisibility>("visible");
 
@@ -72,6 +76,10 @@ export function ProductFormDialog({
     setSku("");
     setWarehouse("Main");
     setFreeShipping(false);
+    setWeightOz("");
+    setLengthIn("");
+    setWidthIn("");
+    setHeightIn("");
     setStatus("draft");
     setVisibility("visible");
   }, [open]);
@@ -85,6 +93,7 @@ export function ProductFormDialog({
     !!leafSlug &&
     !!brandId &&
     Number(price) > 0 &&
+    Number(weightOz) > 0 &&
     sku.trim().length > 0;
 
   return (
@@ -196,6 +205,33 @@ export function ProductFormDialog({
             </div>
           </div>
 
+          <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
+            <Label>Shipping size &amp; weight</Label>
+            <p className="text-xs text-muted-foreground">
+              Used to quote real USPS rates and buy labels. Weight is required; dimensions matter once a parcel is
+              large enough for USPS to price by size.
+            </p>
+            <div className="grid grid-cols-4 gap-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="product-weight" className="text-xs">Weight (oz)</Label>
+                <Input id="product-weight" type="number" min={0} step={0.1} value={weightOz} onChange={(e) => setWeightOz(e.target.value)} placeholder="16" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="product-length" className="text-xs">Length (in)</Label>
+                <Input id="product-length" type="number" min={0} step={0.25} value={lengthIn} onChange={(e) => setLengthIn(e.target.value)} placeholder="12" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="product-width" className="text-xs">Width (in)</Label>
+                <Input id="product-width" type="number" min={0} step={0.25} value={widthIn} onChange={(e) => setWidthIn(e.target.value)} placeholder="8" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="product-height" className="text-xs">Height (in)</Label>
+                <Input id="product-height" type="number" min={0} step={0.25} value={heightIn} onChange={(e) => setHeightIn(e.target.value)} placeholder="4" />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">1 lb = 16 oz. Measure the packed parcel, not the bare item.</p>
+          </div>
+
           <label htmlFor="product-free-shipping" className="flex items-center gap-2 text-sm text-foreground">
             <Checkbox id="product-free-shipping" checked={freeShipping} onCheckedChange={(c) => setFreeShipping(c === true)} />
             Offer free shipping on this product
@@ -246,6 +282,10 @@ export function ProductFormDialog({
                 sku,
                 warehouse,
                 freeShipping,
+                weightOz: Number(weightOz) || 0,
+                lengthIn: Number(lengthIn) || 0,
+                widthIn: Number(widthIn) || 0,
+                heightIn: Number(heightIn) || 0,
                 status,
                 visibility,
               })

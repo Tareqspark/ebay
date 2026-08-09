@@ -379,6 +379,23 @@ export const products = mysqlTable(
     flashSaleEndsAt: timestamp("flash_sale_ends_at"),
     freeShipping: boolean("free_shipping").notNull().default(false),
     stock: int("stock").notNull().default(0),
+    /**
+     * Shipping dimensions for parcels we send ourselves. USPS prices almost
+     * entirely by weight, and by size for anything bulky, so a rate quoted
+     * without these would be a guess presented as a price.
+     *
+     * Ounces and inches because those are the units USPS consumes and a US
+     * seller weighs in — no conversion at the API boundary, nothing to get
+     * backwards. Integers for weight (USPS rounds up to the ounce anyway);
+     * decimals for dimensions, where a half inch is real.
+     *
+     * Zero means "not measured". CJ-sourced products leave them unset —
+     * CJ ships those itself and never asks us for a parcel size.
+     */
+    weightOz: int("weight_oz").notNull().default(0),
+    lengthIn: decimal("length_in", { precision: 6, scale: 2 }).notNull().default("0"),
+    widthIn: decimal("width_in", { precision: 6, scale: 2 }).notNull().default("0"),
+    heightIn: decimal("height_in", { precision: 6, scale: 2 }).notNull().default("0"),
     description: text("description").notNull(),
     features: json("features").$type<string[]>().notNull().default([]),
   },

@@ -123,6 +123,11 @@ export interface CreateProductInput {
   sku: string;
   warehouse: string;
   freeShipping: boolean;
+  /** Shipping dimensions, in the units USPS consumes. Zero means not measured. */
+  weightOz: number;
+  lengthIn: number;
+  widthIn: number;
+  heightIn: number;
   status: ProductStatus;
   visibility: ProductVisibility;
 }
@@ -163,6 +168,17 @@ function validateCreate(input: CreateProductInput): string | null {
   }
   if (!Number.isInteger(input.stock) || input.stock < 0) return "Stock must be a whole number of units";
   if (!input.sku.trim()) return "SKU is required";
+
+  // Required because we ship these ourselves and USPS prices by weight — a
+  // rate quoted from a missing weight is a guess presented to the customer
+  // as a price. Dimensions are optional: USPS only needs them once a parcel
+  // is large enough to be priced by size.
+  if (!(input.weightOz > 0)) return "Shipping weight is required — USPS prices by weight";
+  if (input.weightOz > 1120) return "Weight over 70 lb (1,120 oz) exceeds the USPS parcel limit";
+  for (const [label, value] of [["Length", input.lengthIn], ["Width", input.widthIn], ["Height", input.heightIn]] as const) {
+    if (value < 0) return `${label} can't be negative`;
+    if (value > 108) return `${label} over 108 in exceeds the USPS size limit`;
+  }
   return null;
 }
 
@@ -205,6 +221,10 @@ export async function createProductAction(input: CreateProductInput): Promise<Pr
     categoryId: category.id,
     categorySlugPath: input.categorySlugPath,
     freeShipping: input.freeShipping,
+    weightOz: Math.round(input.weightOz),
+    lengthIn: input.lengthIn.toFixed(2),
+    widthIn: input.widthIn.toFixed(2),
+    heightIn: input.heightIn.toFixed(2),
     stock: input.stock,
     description: input.description.trim(),
     features: [],
