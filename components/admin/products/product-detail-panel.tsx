@@ -208,7 +208,7 @@ export function ProductDetailPanel({ open, row, onOpenChange, onUpdate }: Produc
               </div>
             )}
             {meta.needsReview && (
-              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-500/10 dark:text-amber-400">
+              <p className="rounded-md border border-warning bg-warning px-3 py-2 text-xs text-warning">
                 This product is flagged for review — margin or listing data may need attention.
               </p>
             )}

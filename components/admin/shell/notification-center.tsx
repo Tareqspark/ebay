@@ -14,9 +14,9 @@ const LEVEL_ICON = {
   warning: TriangleAlert,
 };
 const LEVEL_CLASS = {
-  info: "text-sky-600 dark:text-sky-400",
-  success: "text-emerald-600 dark:text-emerald-400",
-  warning: "text-amber-600 dark:text-amber-400",
+  info: "text-primary",
+  success: "text-success",
+  warning: "text-warning",
 };
 
 export function NotificationCenter({ announcements }: { announcements: Announcement[] }) {
@@ -37,7 +37,7 @@ export function NotificationCenter({ announcements }: { announcements: Announcem
           <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
             <Bell className="h-4.5 w-4.5" />
             {unreadCount > 0 && (
-              <span className="absolute right-1.5 top-1.5 flex h-2 w-2 rounded-full bg-red-500" />
+              <span className="absolute right-1.5 top-1.5 flex h-2 w-2 rounded-full bg-error" />
             )}
           </Button>
         }

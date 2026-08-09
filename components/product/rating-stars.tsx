@@ -22,7 +22,7 @@ export function RatingStars({ rating, count, size = "sm", className }: RatingSta
           ))}
         </div>
         <div
-          className="absolute inset-0 flex gap-0.5 overflow-hidden text-amber-500"
+          className="absolute inset-0 flex gap-0.5 overflow-hidden text-warning"
           style={{ width: `${pct}%` }}
         >
           {Array.from({ length: 5 }).map((_, i) => (

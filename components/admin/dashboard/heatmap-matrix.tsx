@@ -15,11 +15,11 @@ import type { Matrix } from "@/lib/admin/dashboard-charts";
 /** Fixed steps rather than a computed opacity: five distinguishable levels beat a smooth ramp nobody can tell apart. */
 const STEPS = [
   "bg-transparent text-muted-foreground",
-  "bg-orange-500/10 text-foreground",
-  "bg-orange-500/25 text-foreground",
-  "bg-orange-500/45 text-foreground",
-  "bg-orange-500/65 text-foreground",
-  "bg-orange-600/85 text-white",
+  "bg-primary/10 text-foreground",
+  "bg-primary/25 text-foreground",
+  "bg-primary/45 text-foreground",
+  "bg-primary/65 text-foreground",
+  "bg-primary/85 text-foreground",
 ];
 
 function step(count: number, max: number): string {

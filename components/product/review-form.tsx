@@ -30,7 +30,7 @@ export function ReviewForm({ productId, productSlug }: { productId: string; prod
         <div className="flex gap-1">
           {[1, 2, 3, 4, 5].map((value) => (
             <button key={value} type="button" onClick={() => setRating(value)} aria-label={`${value} stars`}>
-              <Star className={cn("h-5 w-5", value <= rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground")} />
+              <Star className={cn("h-5 w-5", value <= rating ? "fill-warning text-warning" : "text-muted-foreground")} />
             </button>
           ))}
         </div>

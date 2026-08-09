@@ -46,7 +46,7 @@ export default async function CheckoutSuccessPage({ searchParams }: CheckoutSucc
 
   return (
     <div className="mx-auto flex max-w-lg flex-col items-center gap-4 px-4 py-16 text-center">
-      <CheckCircle2 className="h-12 w-12 text-emerald-600" />
+      <CheckCircle2 className="h-12 w-12 text-success" />
       <h1 className="text-2xl font-bold text-foreground">Order confirmed</h1>
       <p className="text-sm text-muted-foreground">
         Order <strong className="text-foreground">{order.orderNumber}</strong> is confirmed. A receipt has been sent to your email.
@@ -61,7 +61,7 @@ export default async function CheckoutSuccessPage({ searchParams }: CheckoutSucc
           </div>
         ))}
         {order.discount > 0 && (
-          <div className="flex justify-between py-1 text-emerald-600 dark:text-emerald-400">
+          <div className="flex justify-between py-1 text-success">
             <span>Discount{order.promoCode ? ` (${order.promoCode})` : ""}</span>
             <span>-{formatPrice(order.discount)}</span>
           </div>

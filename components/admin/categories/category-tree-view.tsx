@@ -229,7 +229,7 @@ function CategoryRow({ node, depth, forceOpen, isFirst, isLast, onEdit, onAddChi
         <span className="text-right tabular-nums text-muted-foreground">{node.productCount.toLocaleString()}</span>
         <span>
           {node.featured && (
-            <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+            <span className="inline-flex items-center gap-1 text-xs text-warning">
               <Star className="h-3 w-3 fill-current" />
               Featured
             </span>

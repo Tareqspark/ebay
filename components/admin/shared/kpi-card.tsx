@@ -29,12 +29,12 @@ export function KpiCard({
     <div
       className={cn(
         "flex h-full flex-col gap-1.5 rounded-lg border bg-card p-4 transition-colors",
-        alert ? "border-red-200 dark:border-red-900/50" : "border-border",
+        alert ? "border-error" : "border-border",
         href && "hover:border-ring/40"
       )}
     >
       <p className="text-[13px] font-medium text-muted-foreground">{label}</p>
-      <p className={cn("text-2xl font-semibold tabular-nums tracking-tight", alert ? "text-red-600 dark:text-red-400" : "text-foreground")}>
+      <p className={cn("text-2xl font-semibold tabular-nums tracking-tight", alert ? "text-error" : "text-foreground")}>
         {value}
       </p>
       {change !== null && change !== undefined && (
@@ -42,7 +42,7 @@ export function KpiCard({
           <span
             className={cn(
               "flex items-center gap-0.5 font-medium",
-              good ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+              good ? "text-success" : "text-error"
             )}
           >
             {isPositive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}

@@ -8,11 +8,23 @@ export type StatusTone = "success" | "warning" | "danger" | "info" | "neutral";
  */
 export const PENDING_FULFILLMENT: string[] = ["unfulfilled", "processing"];
 
+/**
+ * Status colours come from the palette's semantic tokens rather than raw
+ * Tailwind hues, so success/warning/error mean one thing everywhere and can
+ * be restyled from globals.css alone.
+ *
+ * Each badge is a tinted background with full-strength text of the same hue:
+ * the tint alone would not carry enough contrast for a label, and the badge
+ * always shows its status in words, so colour is never the only signal.
+ */
 const TONE_CLASSES: Record<StatusTone, string> = {
-  success: "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20",
-  warning: "bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/20",
-  danger: "bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-500/10 dark:text-red-400 dark:ring-red-500/20",
-  info: "bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-500/10 dark:text-sky-400 dark:ring-sky-500/20",
+  success: "bg-success/10 text-success ring-success/25",
+  warning: "bg-warning/10 text-warning ring-warning/30",
+  danger: "bg-error/10 text-error ring-error/25",
+  // Informational states borrow the brand blue — this is the one place a
+  // brand colour doubles as a status, and only because "in progress" is
+  // genuinely a neutral-positive state rather than a warning.
+  info: "bg-primary/10 text-primary ring-primary/30",
   neutral: "bg-muted text-muted-foreground ring-border",
 };
 

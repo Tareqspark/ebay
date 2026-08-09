@@ -47,7 +47,7 @@ export function BundlePromo({ bundleName, products, bundlePrice, regularPrice }:
       <div className="flex items-center gap-2 text-sm">
         <span className="font-semibold text-foreground">{formatPrice(bundlePrice)}</span>
         <span className="text-muted-foreground line-through">{formatPrice(regularPrice)}</span>
-        <span className="font-medium text-emerald-600 dark:text-emerald-400">Save {formatPrice(savings)}</span>
+        <span className="font-medium text-success">Save {formatPrice(savings)}</span>
       </div>
       <Button
         size="sm"

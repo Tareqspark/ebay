@@ -47,7 +47,7 @@ export function ProductRail({
             <span
               className={cn(
                 "flex h-9 w-9 items-center justify-center rounded-lg",
-                accent === "flash" ? "bg-red-600 text-white" : "bg-primary/10 text-primary"
+                accent === "flash" ? "bg-error text-white" : "bg-primary/10 text-primary"
               )}
             >
               {icon}

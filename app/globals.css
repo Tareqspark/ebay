@@ -39,6 +39,13 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-error: var(--error);
+  --color-error-foreground: var(--error-foreground);
+  --color-brand-soft: var(--brand-soft);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -49,72 +56,118 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  /* Cartebay palette. Stated as hex rather than oklch so the brand values in
+     the brand guide and the values in the code are literally the same string
+     — a converted approximation would drift the moment either side changed.
+
+     Foregrounds are chosen for contrast, not for brand: white on #00BFFF is
+     about 2.1:1 and fails WCAG outright, while #333333 on the same blue is
+     roughly 6:1 and passes. Every bright surface below therefore carries dark
+     text, which is the palette's own accessibility rule rather than a
+     departure from it. */
+  --background: #ffffff;
+  --foreground: #333333;
+  --card: #ffffff;
+  --card-foreground: #333333;
+  --popover: #ffffff;
+  --popover-foreground: #333333;
+
+  --primary: #00bfff;
+  --primary-foreground: #333333;
+  --secondary: #00d4ff;
+  --secondary-foreground: #333333;
+  --accent: #ffd600;
+  --accent-foreground: #333333;
+
+  /* A very light wash of the brand, for hovers and inert surfaces that would
+     be shouting in full-strength cyan. */
+  --brand-soft: #e8f8ff;
+  --muted: #f4fafd;
+  --muted-foreground: #6b7280;
+
+  --success: #22c55e;
+  --success-foreground: #ffffff;
+  --warning: #ff9800;
+  --warning-foreground: #333333;
+  --error: #ff4d4d;
+  --error-foreground: #ffffff;
+  --destructive: #ff4d4d;
+
+  --border: #dcecf5;
+  --input: #cfe4ef;
+  --ring: #00bfff;
+
+  /* Sequential steps of the brand hue: these show magnitude, which has one
+     direction, so they must not become a categorical rainbow. */
+  --chart-1: #00bfff;
+  --chart-2: #33ccff;
+  --chart-3: #66d9ff;
+  --chart-4: #99e6ff;
+  --chart-5: #ccf2ff;
+
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: #ffffff;
+  --sidebar-foreground: #333333;
+  --sidebar-primary: #00bfff;
+  --sidebar-primary-foreground: #333333;
+  --sidebar-accent: #e8f8ff;
+  --sidebar-accent-foreground: #00799f;
+  --sidebar-border: #dcecf5;
+  --sidebar-ring: #00bfff;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* Kept working rather than removed — a theme toggle that silently stops
+     responding is worse than a dark mode nobody uses. Re-tinted to the same
+     brand hue so it reads as the same product, and deliberately a deep slate
+     rather than navy or black. The palette's direction is light-first; this
+     is the fallback, not the intent. */
+  --background: #16202a;
+  --foreground: #f2f7fa;
+  --card: #1d2935;
+  --card-foreground: #f2f7fa;
+  --popover: #1d2935;
+  --popover-foreground: #f2f7fa;
+
+  /* Brand colours hold their identity on a dark ground; only the text on top
+     of them flips, since these surfaces are now the lighter element. */
+  --primary: #00bfff;
+  --primary-foreground: #10212c;
+  --secondary: #00d4ff;
+  --secondary-foreground: #10212c;
+  --accent: #ffd600;
+  --accent-foreground: #10212c;
+
+  --brand-soft: #1e3442;
+  --muted: #253340;
+  --muted-foreground: #9fb3c1;
+
+  --success: #22c55e;
+  --success-foreground: #10212c;
+  --warning: #ff9800;
+  --warning-foreground: #10212c;
+  --error: #ff4d4d;
+  --error-foreground: #10212c;
+  --destructive: #ff4d4d;
+
+  --border: #ffffff1a;
+  --input: #ffffff26;
+  --ring: #00bfff;
+
+  --chart-1: #00bfff;
+  --chart-2: #33ccff;
+  --chart-3: #66d9ff;
+  --chart-4: #99e6ff;
+  --chart-5: #ccf2ff;
+
+  --sidebar: #1d2935;
+  --sidebar-foreground: #f2f7fa;
+  --sidebar-primary: #00bfff;
+  --sidebar-primary-foreground: #10212c;
+  --sidebar-accent: #253340;
+  --sidebar-accent-foreground: #f2f7fa;
+  --sidebar-border: #ffffff1a;
+  --sidebar-ring: #00bfff;
 }
 
 @layer base {

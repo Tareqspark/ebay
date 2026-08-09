@@ -38,7 +38,7 @@ export function ContactForm() {
   if (state.success) {
     return (
       <div className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card px-6 py-10 text-center">
-        <CheckCircle2 className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+        <CheckCircle2 className="h-8 w-8 text-success" />
         <p className="font-medium text-foreground">Message sent</p>
         <p className="text-sm text-muted-foreground">
           Thanks for reaching out — we typically reply within 1 business day.

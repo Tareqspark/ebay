@@ -3,9 +3,9 @@ import { getSystemComponents } from "@/lib/admin/data";
 import { cn } from "@/lib/utils";
 
 const DOT_CLASS: Record<string, string> = {
-  operational: "bg-emerald-500",
-  degraded: "bg-amber-500",
-  outage: "bg-red-500",
+  operational: "bg-success",
+  degraded: "bg-warning",
+  outage: "bg-error",
 };
 
 export async function SystemHealthPanel() {

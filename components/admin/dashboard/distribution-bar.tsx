@@ -13,17 +13,17 @@ import type { Band } from "@/lib/admin/dashboard-charts";
  */
 
 const FILL: Record<Band["tone"], string> = {
-  good: "bg-emerald-500",
-  warning: "bg-amber-500",
-  critical: "bg-red-500",
-  neutral: "bg-slate-400",
+  good: "bg-success",
+  warning: "bg-warning",
+  critical: "bg-error",
+  neutral: "bg-muted-foreground",
 };
 
 const DOT: Record<Band["tone"], string> = {
-  good: "bg-emerald-500",
-  warning: "bg-amber-500",
-  critical: "bg-red-500",
-  neutral: "bg-slate-400",
+  good: "bg-success",
+  warning: "bg-warning",
+  critical: "bg-error",
+  neutral: "bg-muted-foreground",
 };
 
 export function DistributionBar({

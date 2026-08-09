@@ -94,7 +94,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <span className="flex items-center gap-2 text-foreground">
               {product.stock > 0 ? (
                 <>
-                  <Check className="h-4 w-4 text-emerald-600" />
+                  <Check className="h-4 w-4 text-success" />
                   In stock — {product.stock} available
                 </>
               ) : (

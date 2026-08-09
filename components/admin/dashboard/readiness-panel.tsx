@@ -29,7 +29,7 @@ export function ReadinessPanel({ items, emptyCategories }: { items: DashboardCha
       <p className="mt-0.5 text-xs text-muted-foreground">Counts that should be zero.</p>
 
       {allClear ? (
-        <p className="mt-3 flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+        <p className="mt-3 flex items-center gap-1.5 text-xs text-success">
           <Check className="h-3.5 w-3.5" /> Nothing outstanding.
         </p>
       ) : (
@@ -45,11 +45,11 @@ export function ReadinessPanel({ items, emptyCategories }: { items: DashboardCha
                     <AlertTriangle
                       className={cn(
                         "h-3.5 w-3.5 shrink-0",
-                        r.tone === "critical" ? "text-red-500" : r.tone === "warning" ? "text-amber-500" : "text-muted-foreground"
+                        r.tone === "critical" ? "text-error" : r.tone === "warning" ? "text-warning" : "text-muted-foreground"
                       )}
                     />
                   ) : (
-                    <Check className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                    <Check className="h-3.5 w-3.5 shrink-0 text-success" />
                   )}
                   <span className="truncate text-foreground">{r.label}</span>
                 </span>
@@ -60,9 +60,9 @@ export function ReadinessPanel({ items, emptyCategories }: { items: DashboardCha
                       r.count === 0
                         ? "text-muted-foreground"
                         : r.tone === "critical"
-                          ? "text-red-600 dark:text-red-400"
+                          ? "text-error"
                           : r.tone === "warning"
-                            ? "text-amber-600 dark:text-amber-400"
+                            ? "text-warning"
                             : "text-foreground"
                     )}
                   >

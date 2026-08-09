@@ -193,7 +193,7 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals, loyaltyDiscou
           <div className="mt-1 border-t border-border pt-2" />
 
           {applied ? (
-            <div className="flex items-center justify-between rounded-md bg-emerald-50 px-2 py-1.5 text-xs text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
+            <div className="flex items-center justify-between rounded-md bg-success px-2 py-1.5 text-xs text-success">
               <span className="flex items-center gap-1.5 font-medium">
                 <Tag className="h-3 w-3" />
                 {applied.code} applied
@@ -202,7 +202,7 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals, loyaltyDiscou
                 type="button"
                 onClick={handleRemovePromo}
                 aria-label="Remove promo code"
-                className="text-emerald-700/70 hover:text-emerald-900 dark:text-emerald-400/70 dark:hover:text-emerald-300"
+                className="text-success/70 hover:text-success dark:hover:text-success"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -210,7 +210,7 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals, loyaltyDiscou
           ) : (
             <div className="flex flex-col gap-1.5 pb-1">
               {loyaltyDiscount && (
-                <div className="flex items-center gap-1.5 rounded-md bg-amber-50 px-2 py-1.5 text-xs font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+                <div className="flex items-center gap-1.5 rounded-md bg-warning px-2 py-1.5 text-xs font-medium text-warning">
                   <Award className="h-3 w-3" />
                   {loyaltyDiscount.tierName} member — {loyaltyDiscount.discountPercent}% off applied
                 </div>
@@ -241,13 +241,13 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals, loyaltyDiscou
             <span className="tabular-nums text-foreground">{formatPrice(cart.subtotal + cart.bundleDiscount)}</span>
           </div>
           {cart.bundleDiscount > 0 && (
-            <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
+            <div className="flex justify-between text-success">
               <span>Bundle savings</span>
               <span className="tabular-nums">-{formatPrice(cart.bundleDiscount)}</span>
             </div>
           )}
           {discount > 0 && (
-            <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
+            <div className="flex justify-between text-success">
               <span>Discount</span>
               <span className="tabular-nums">-{formatPrice(discount)}</span>
             </div>

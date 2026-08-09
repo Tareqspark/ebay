@@ -105,7 +105,7 @@ export const importHistoryColumns: ColumnDef<AdminImportJobRow, unknown>[] = [
       <span className="tabular-nums text-muted-foreground">
         {formatNumber(row.original.processedItems)} / {formatNumber(row.original.totalItems)}
         {row.original.failedItems > 0 && (
-          <span className="ml-1.5 text-red-600 dark:text-red-400">({row.original.failedItems} failed)</span>
+          <span className="ml-1.5 text-error">({row.original.failedItems} failed)</span>
         )}
       </span>
     ),

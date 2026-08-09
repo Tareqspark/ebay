@@ -39,7 +39,7 @@ export default function AdminSeoSettingsPage() {
             <div key={d.domain} className="flex items-center justify-between px-5 py-2.5 text-sm">
               <span className="font-mono text-foreground">{d.domain}</span>
               {d.primary ? (
-                <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                <span className="flex items-center gap-1 text-xs text-success">
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   Primary
                 </span>

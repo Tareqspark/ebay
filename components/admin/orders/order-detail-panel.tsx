@@ -136,7 +136,7 @@ export function OrderDetailPanel({
                 <span className="tabular-nums">{formatMoney(order.subtotal)}</span>
               </div>
               {!!order.discount && (
-                <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
+                <div className="flex justify-between text-success">
                   <span>Discount{order.promoCode ? ` (${order.promoCode})` : ""}</span>
                   <span className="tabular-nums">-{formatMoney(order.discount)}</span>
                 </div>

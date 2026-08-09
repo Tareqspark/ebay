@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { requireAdminSession } from "@/lib/admin/auth";
 import { getAnnouncements } from "@/lib/admin/data";
 import { hasAdminAccess } from "@/lib/admin/permissions";
+import { getAdminIdentity } from "@/lib/admin/auth";
 
 export default async function AdminDashboardLayout({ children }: { children: React.ReactNode }) {
   const [session, announcements, pathname] = await Promise.all([
@@ -15,11 +16,24 @@ export default async function AdminDashboardLayout({ children }: { children: Rea
   ]);
   const allowed = await hasAdminAccess(session.user, pathname);
 
+  // Name and email come from the database rather than the session, which
+  // carries whatever they were when the token was minted: renaming a staff
+  // member otherwise leaves the old name on screen until they happen to sign
+  // out. Same reasoning as permissions being read fresh per request.
+  const identity = await getAdminIdentity(session.user.id);
+
   return (
     <div className="flex min-h-screen bg-muted/20 text-foreground">
       <AdminSidebar />
       <div className="flex min-w-0 flex-1 flex-col">
-        <AdminTopbar admin={session.user} announcements={announcements} />
+        <AdminTopbar
+          admin={{
+            name: identity?.name ?? session.user.name,
+            email: identity?.email ?? session.user.email,
+            adminRole: session.user.adminRole,
+          }}
+          announcements={announcements}
+        />
         <main className="min-w-0 flex-1 p-5">{allowed ? children : <AdminAccessDenied />}</main>
       </div>
       <Toaster position="bottom-right" />

@@ -11,9 +11,9 @@ const ICON: Record<AnnouncementLevel, typeof Info> = {
   warning: TriangleAlert,
 };
 const ICON_CLASS: Record<AnnouncementLevel, string> = {
-  info: "text-sky-600 dark:text-sky-400",
-  success: "text-emerald-600 dark:text-emerald-400",
-  warning: "text-amber-600 dark:text-amber-400",
+  info: "text-primary",
+  success: "text-success",
+  warning: "text-warning",
 };
 
 export async function AnnouncementsPanel() {

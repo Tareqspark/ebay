@@ -114,7 +114,7 @@ export function ErrorLogsTable({ initialLogs }: { initialLogs: AdminErrorLogRow[
                         "shrink-0 rounded px-1.5 py-0.5 font-medium",
                         row.resolved
                           ? "bg-muted text-muted-foreground"
-                          : "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400"
+                          : "bg-error text-error"
                       )}
                     >
                       {row.resolved ? "resolved" : "open"}

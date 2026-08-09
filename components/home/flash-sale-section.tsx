@@ -48,19 +48,19 @@ export function FlashSaleSection({ products }: { products: Product[] }) {
   const pad = (n: number) => String(n).padStart(2, "0");
 
   return (
-    <section id="flash-sale" className="rounded-2xl border border-red-200 bg-gradient-to-br from-red-50 to-orange-50 p-5 dark:border-red-900/40 dark:from-red-950/20 dark:to-orange-950/10 sm:p-6">
+    <section id="flash-sale" className="rounded-2xl border border-error bg-gradient-to-br from-red-50 to-orange-50 p-5 dark:from-red-950/20 dark:to-orange-950/10 sm:p-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-600 text-white">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-error text-white">
             <Zap className="h-5 w-5" />
           </span>
           <h2 className="text-xl font-semibold tracking-tight text-foreground">Flash Sale</h2>
         </div>
         {target !== null && (
-          <div className="flex items-center gap-1.5 font-mono text-sm font-semibold text-red-700 dark:text-red-400">
+          <div className="flex items-center gap-1.5 font-mono text-sm font-semibold text-error">
             <span>Ends in</span>
             {[hours, minutes, seconds].map((v, i) => (
-              <span key={i} className="rounded-md bg-red-600 px-2 py-1 text-white">
+              <span key={i} className="rounded-md bg-error px-2 py-1 text-white">
                 {pad(v)}
               </span>
             ))}

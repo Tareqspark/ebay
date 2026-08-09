@@ -33,7 +33,7 @@ export async function ReviewsSection({ productId, productSlug }: { productId: st
                 {[1, 2, 3, 4, 5].map((value) => (
                   <Star
                     key={value}
-                    className={cn("h-3.5 w-3.5", value <= review.rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30")}
+                    className={cn("h-3.5 w-3.5", value <= review.rating ? "fill-warning text-warning" : "text-muted-foreground/30")}
                   />
                 ))}
               </div>

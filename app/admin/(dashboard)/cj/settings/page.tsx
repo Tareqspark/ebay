@@ -46,7 +46,7 @@ export default async function AdminCjSettingsPage() {
           </div>
           <p className="text-xs text-muted-foreground">Last synced {formatDateTime(settings.lastSyncAt)}</p>
           {!isCjConfigured() && (
-            <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+            <p className="rounded-md bg-warning px-3 py-2 text-xs text-warning">
               No live CJ API connection configured (CJ_API_KEY unset) — push-to-CJ and dispute submission still write
               real local records, but the actual CJ-side API call is simulated. Set CJ_API_KEY once a real
               CJdropshipping developer account exists.

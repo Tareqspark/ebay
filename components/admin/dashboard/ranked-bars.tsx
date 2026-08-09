@@ -55,7 +55,7 @@ export function RankedBars({
                   <span className="relative h-4 flex-1 overflow-hidden rounded-sm bg-muted">
                     {/* Rounded only on the data end, anchored flat to the baseline. */}
                     <span
-                      className="absolute inset-y-0 left-0 rounded-r-sm bg-orange-500/80"
+                      className="absolute inset-y-0 left-0 rounded-r-sm bg-primary/80"
                       style={{ width: `${Math.max(pct, b.value > 0 ? 1.5 : 0)}%` }}
                     />
                   </span>

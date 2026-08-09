@@ -26,7 +26,7 @@ export function PriceDisplay({ price, originalPrice, size = "md", className }: P
           <span className="text-sm text-muted-foreground line-through tabular-nums">
             {formatPrice(originalPrice)}
           </span>
-          <span className="text-sm font-medium text-emerald-600 dark:text-emerald-500">
+          <span className="text-sm font-medium text-success">
             -{pct}%
           </span>
         </>

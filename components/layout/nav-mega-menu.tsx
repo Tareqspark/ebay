@@ -49,7 +49,7 @@ export function NavMegaMenu({ categories, brandsBySlug }: NavMegaMenuProps) {
             <NavigationMenuItem>
               <Link
                 href="/#deals"
-                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-error hover:bg-error dark:hover:bg-error/30"
               >
                 <Percent className="h-4 w-4" />
                 Today&apos;s Deals

@@ -26,7 +26,7 @@ export function WishlistButton({ productId, className }: { productId: string; cl
       <Heart
         className={cn(
           "h-4 w-4 transition-colors",
-          saved ? "fill-rose-500 text-rose-500" : "text-muted-foreground"
+          saved ? "fill-error text-error" : "text-muted-foreground"
         )}
       />
     </button>

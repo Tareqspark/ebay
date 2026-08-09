@@ -11,16 +11,16 @@ export function ProductBadges({ product, className }: ProductBadgesProps) {
   const badges: { label: string; className: string }[] = [];
 
   if (product.isFlashSale) {
-    badges.push({ label: "Flash Sale", className: "bg-red-600 text-white" });
+    badges.push({ label: "Flash Sale", className: "bg-error text-white" });
   }
   if (product.isDeal && !product.isFlashSale) {
-    badges.push({ label: "Deal", className: "bg-orange-500 text-white" });
+    badges.push({ label: "Deal", className: "bg-primary text-white" });
   }
   if (product.isNewArrival) {
-    badges.push({ label: "New", className: "bg-sky-600 text-white" });
+    badges.push({ label: "New", className: "bg-primary text-white" });
   }
   if (product.isBestSeller) {
-    badges.push({ label: "Best Seller", className: "bg-amber-500 text-white" });
+    badges.push({ label: "Best Seller", className: "bg-warning text-white" });
   }
   if (product.stock === 0) {
     badges.push({ label: "Out of Stock", className: "bg-muted text-muted-foreground" });

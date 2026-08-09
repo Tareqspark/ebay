@@ -19,9 +19,9 @@ interface ColumnActions {
 }
 
 function marginClass(pct: number): string {
-  if (pct >= 30) return "text-emerald-600 dark:text-emerald-400";
-  if (pct >= 15) return "text-amber-600 dark:text-amber-400";
-  return "text-red-600 dark:text-red-400";
+  if (pct >= 30) return "text-success";
+  if (pct >= 15) return "text-warning";
+  return "text-error";
 }
 
 export function getProductColumns(actions: ColumnActions): ColumnDef<AdminProductRow, unknown>[] {
@@ -90,7 +90,7 @@ export function getProductColumns(actions: ColumnActions): ColumnDef<AdminProduc
       cell: ({ row }) => {
         const stock = row.original.product.stock;
         return (
-          <span className={cn("tabular-nums", stock === 0 && "font-medium text-red-600 dark:text-red-400")}>
+          <span className={cn("tabular-nums", stock === 0 && "font-medium text-error")}>
             {stock.toLocaleString()}
           </span>
         );

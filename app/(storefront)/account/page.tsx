@@ -34,7 +34,7 @@ export default async function AccountOverviewPage() {
           <div className="rounded-lg border border-border bg-card p-4">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Loyalty tier</p>
             <p className="mt-1 flex items-center gap-1.5 text-2xl font-bold text-foreground">
-              <Award className="h-5 w-5 text-amber-500" />
+              <Award className="h-5 w-5 text-warning" />
               {loyalty.tier.name}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">

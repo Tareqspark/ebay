@@ -8,8 +8,8 @@ import type { AdminSupplierLogRow } from "@/lib/admin/data";
 
 const LEVEL_CLASS: Record<string, string> = {
   info: "text-muted-foreground",
-  warn: "text-amber-600 dark:text-amber-400",
-  error: "text-red-600 dark:text-red-400",
+  warn: "text-warning",
+  error: "text-error",
 };
 
 export function LogViewer({ logs, supplierOptions }: { logs: AdminSupplierLogRow[]; supplierOptions: { value: string; label: string }[] }) {

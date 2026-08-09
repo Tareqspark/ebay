@@ -70,10 +70,10 @@ export function getInventoryColumns(actions: InventoryColumnActions): ColumnDef<
         <EditableNumberCell
           value={row.original.available}
           onCommit={(next) => actions.onAdjust(row.original.sku, next)}
-          className={cn(row.original.available === 0 && "font-medium text-red-600 dark:text-red-400")}
+          className={cn(row.original.available === 0 && "font-medium text-error")}
         />
       ) : (
-        <span className={cn("tabular-nums", row.original.available === 0 && "font-medium text-red-600 dark:text-red-400")}>
+        <span className={cn("tabular-nums", row.original.available === 0 && "font-medium text-error")}>
           {row.original.available.toLocaleString()}
         </span>
       ),
@@ -92,7 +92,7 @@ export function getInventoryColumns(actions: InventoryColumnActions): ColumnDef<
     accessorFn: (row) => row.incoming,
     cell: ({ row }) =>
       row.original.incoming > 0 ? (
-        <span className="tabular-nums text-emerald-600 dark:text-emerald-400">+{row.original.incoming.toLocaleString()}</span>
+        <span className="tabular-nums text-success">+{row.original.incoming.toLocaleString()}</span>
       ) : (
         <span className="text-muted-foreground">—</span>
       ),

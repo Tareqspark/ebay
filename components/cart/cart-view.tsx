@@ -81,7 +81,7 @@ export function CartView() {
             <span className="tabular-nums text-foreground">{formatPrice(cart.subtotal + cart.bundleDiscount)}</span>
           </div>
           {cart.bundleDiscount > 0 && (
-            <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
+            <div className="flex justify-between text-success">
               <span>Bundle savings{cart.appliedBundles.length === 1 ? ` (${cart.appliedBundles[0].name})` : ""}</span>
               <span className="tabular-nums">-{formatPrice(cart.bundleDiscount)}</span>
             </div>
