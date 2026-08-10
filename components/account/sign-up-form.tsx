@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { signUpAction, type AuthActionState } from "@/lib/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 
 const initialState: AuthActionState = {};
@@ -28,7 +29,7 @@ export function SignUpForm() {
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="password">Password</Label>
-        <Input id="password" name="password" type="password" required minLength={8} autoComplete="new-password" />
+        <PasswordInput id="password" name="password" required minLength={8} autoComplete="new-password" />
         <p className="text-xs text-muted-foreground">At least 8 characters</p>
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
