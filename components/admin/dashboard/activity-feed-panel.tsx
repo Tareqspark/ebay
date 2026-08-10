@@ -15,10 +15,10 @@ const ICON: Record<ActivityType, typeof ShoppingCart> = {
 
 export async function ActivityFeedPanel() {
   const activity = await getActivity();
-  const recent = activity.slice(0, 8);
+  const recent = activity.slice(0, 3);
 
   return (
-    <Panel title="Recent activity">
+    <Panel title="Recent activity" viewAllHref="/admin/settings/logs">
       <ul className="flex flex-col gap-0.5 px-2 py-2">
         {recent.map((event) => {
           const Icon = ICON[event.type];

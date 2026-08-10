@@ -6,7 +6,9 @@ import { formatMoney, formatRelative } from "@/lib/admin/format";
 
 export async function RecentOrdersPanel() {
   const orders = await getOrders();
-  const recent = orders.slice(0, 8);
+  // Three is enough to answer "anything new?" at a glance; the rest is one
+  // click away, and a long list here just pushes the panels below it off screen.
+  const recent = orders.slice(0, 3);
 
   return (
     <Panel title="Recent orders" viewAllHref="/admin/orders" bodyClassName="overflow-x-auto">
