@@ -11,8 +11,25 @@ interface MegaMenuPanelProps {
   onNavigate?: () => void;
 }
 
+/**
+ * Leaves shown under each subcategory before collapsing into a "+N more"
+ * link. A cap is needed — one subcategory has 13 leaves and 171 have more
+ * than five, so rendering every leaf would make the panel enormous — but it
+ * has to be visible, not silent.
+ */
+const LEAVES_SHOWN = 5;
+
 export function MegaMenuPanel({ category, brands, onNavigate }: MegaMenuPanelProps) {
-  const visibleChildren = category.children.slice(0, 6);
+  /**
+   * Every subcategory, not the first six.
+   *
+   * The old slice(0, 6) silently dropped the rest, and 14 of 31 departments
+   * have more than six — "Toys for Babies" was the 7th of Kids' & Baby's
+   * eight and so was unreachable from this menu entirely, despite having a
+   * live category page and a product in it. The widest department has nine,
+   * which is three rows of this grid, and the panel already scrolls.
+   */
+  const visibleChildren = category.children;
 
   return (
     <div className="grid grid-cols-[1fr_280px] gap-8 p-6">
@@ -45,7 +62,7 @@ export function MegaMenuPanel({ category, brands, onNavigate }: MegaMenuPanelPro
                 {child.name}
               </Link>
               <ul className="mt-2 flex flex-col gap-1.5">
-                {child.children.slice(0, 5).map((gc) => (
+                {child.children.slice(0, LEAVES_SHOWN).map((gc) => (
                   <li key={gc.id}>
                     <Link
                       href={categoryHref(category.slug, child.slug, gc.slug)}
@@ -56,6 +73,17 @@ export function MegaMenuPanel({ category, brands, onNavigate }: MegaMenuPanelPro
                     </Link>
                   </li>
                 ))}
+                {child.children.length > LEAVES_SHOWN && (
+                  <li>
+                    <Link
+                      href={categoryHref(category.slug, child.slug)}
+                      onClick={onNavigate}
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
+                      +{child.children.length - LEAVES_SHOWN} more
+                    </Link>
+                  </li>
+                )}
               </ul>
             </div>
           ))}
