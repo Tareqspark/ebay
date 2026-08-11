@@ -1,50 +1,56 @@
 import type { Metadata } from "next";
-import { SettingsSection } from "@/components/admin/settings/settings-section";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { CurrentBehaviour } from "@/components/admin/settings/current-behaviour";
 
 export const metadata: Metadata = { title: "Notification Settings" };
 
-const ADMIN_ALERTS = [
-  { id: "new-order", label: "New order placed", enabled: true },
-  { id: "low-stock", label: "Product low on inventory", enabled: true },
-  { id: "failed-payment", label: "Payment failed", enabled: true },
-  { id: "dispute", label: "New payment dispute", enabled: true },
-  { id: "import-failed", label: "Supplier import failed", enabled: true },
-  { id: "new-review", label: "New product review submitted", enabled: false },
-];
-
-const CUSTOMER_EMAILS = [
-  { id: "order-confirmation", label: "Order confirmation", enabled: true },
-  { id: "shipping-confirmation", label: "Shipping confirmation", enabled: true },
-  { id: "delivery-confirmation", label: "Delivery confirmation", enabled: true },
-  { id: "cart-reminder", label: "Abandoned cart reminder", enabled: true },
-];
-
+/**
+ * The switches here previously showed shipping confirmation, delivery
+ * confirmation and abandoned-cart reminders all enabled. None of those
+ * emails exist — lib/email-templates.ts has exactly one customer template,
+ * the order confirmation. Someone reading this page would have assumed
+ * customers were being kept informed after purchase when nothing was sent.
+ */
 export default function AdminNotificationsSettingsPage() {
   return (
     <div className="flex max-w-2xl flex-col gap-4">
-      <SettingsSection title="Admin alerts" description="What the team gets notified about in the notification center">
-        <div className="flex flex-col gap-3">
-          {ADMIN_ALERTS.map((a) => (
-            <div key={a.id} className="flex items-center gap-2.5">
-              <Switch id={a.id} defaultChecked={a.enabled} />
-              <Label htmlFor={a.id}>{a.label}</Label>
-            </div>
-          ))}
-        </div>
-      </SettingsSection>
+      <CurrentBehaviour
+        title="Emails customers receive"
+        description="Read-only — these aren't switchable yet."
+        rows={[
+          {
+            label: "Order confirmation",
+            value: "Sent",
+            state: "on",
+            detail: "Sent once payment succeeds, and re-sendable from the order's page.",
+          },
+          {
+            label: "Shipping confirmation",
+            value: "Not sent",
+            state: "attention",
+            detail:
+              "The template is written but held back until a real carrier is wired, so tracking numbers aren't invented.",
+          },
+          { label: "Delivery confirmation", value: "Not built", state: "off" },
+          { label: "Abandoned cart reminder", value: "Not built", state: "off" },
+        ]}
+        footnote="Until shipping confirmations are live, a customer only hears from the store at purchase — worth knowing when judging support volume."
+      />
 
-      <SettingsSection title="Customer emails" description="Automated transactional emails sent to customers">
-        <div className="flex flex-col gap-3">
-          {CUSTOMER_EMAILS.map((a) => (
-            <div key={a.id} className="flex items-center gap-2.5">
-              <Switch id={a.id} defaultChecked={a.enabled} />
-              <Label htmlFor={a.id}>{a.label}</Label>
-            </div>
-          ))}
-        </div>
-      </SettingsSection>
+      <CurrentBehaviour
+        title="Alerts the team receives"
+        description="Read-only — what actually reaches an Owner's inbox."
+        rows={[
+          {
+            label: "Server errors",
+            value: "Emailed to Owners",
+            state: "on",
+            detail: "Raised from the error log, rate-limited so one broken page can't flood the inbox.",
+          },
+          { label: "New order placed", value: "No email", state: "off", detail: "Visible in Orders." },
+          { label: "Low stock", value: "No email", state: "off", detail: "Visible in Inventory." },
+          { label: "Payment dispute", value: "No email", state: "off", detail: "Visible in Disputes." },
+        ]}
+      />
     </div>
   );
 }
