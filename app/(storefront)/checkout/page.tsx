@@ -6,6 +6,7 @@ import { getAddressesForCurrentUser } from "@/lib/address-actions";
 import { CheckoutClient } from "@/components/checkout/checkout-client";
 import { computeTotals, computeTotalsWithDiscount } from "@/lib/checkout";
 import { getLoyaltyStatus } from "@/lib/loyalty";
+import { getShipToCountry } from "@/lib/ship-to";
 
 export const metadata: Metadata = { title: "Checkout" };
 
@@ -22,7 +23,13 @@ export default async function CheckoutPage() {
 
   const addresses = await getAddressesForCurrentUser();
   const defaultAddress = addresses.find((a) => a.isDefault) ?? addresses[0] ?? null;
-  const baseTotals = computeTotals(cart.subtotal);
+  // Only seeds a first-time address — a saved one keeps its own country.
+  const shipToCountry = await getShipToCountry();
+  // The summary falls back to these figures whenever no carrier rate, promo
+  // or loyalty tier is active, so they have to know the destination: without
+  // it an overseas buyer was quoted 8.25% US sales tax they are never charged.
+  const destination = defaultAddress?.country || shipToCountry;
+  const baseTotals = computeTotals(cart.subtotal, undefined, destination);
 
   const loyalty = await getLoyaltyStatus(session.user.id);
   const loyaltyDiscount =
@@ -30,11 +37,16 @@ export default async function CheckoutPage() {
       ? {
           tierName: loyalty.tier.name,
           discountPercent: loyalty.tier.discountPercent,
-          ...computeTotalsWithDiscount(cart.subtotal, {
-            discountType: "percent" as const,
-            discountPercent: loyalty.tier.discountPercent,
-            discountAmountCents: null,
-          }),
+          ...computeTotalsWithDiscount(
+            cart.subtotal,
+            {
+              discountType: "percent" as const,
+              discountPercent: loyalty.tier.discountPercent,
+              discountAmountCents: null,
+            },
+            undefined,
+            destination
+          ),
         }
       : null;
 
@@ -55,7 +67,7 @@ export default async function CheckoutPage() {
                 zip: defaultAddress.zip,
                 country: defaultAddress.country,
               }
-            : { name: session.user.name ?? "", line1: "", city: "", state: "", zip: "", country: "US" }
+            : { name: session.user.name ?? "", line1: "", city: "", state: "", zip: "", country: shipToCountry }
         }
       />
     </div>
