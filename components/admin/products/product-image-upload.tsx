@@ -11,33 +11,59 @@ import { Button } from "@/components/ui/button";
  * the product row can then be saved without any file handling of its own.
  * First image is the one used on cards and in listings.
  */
+interface FailedUpload {
+  name: string;
+  reason: string;
+}
+
 export function ProductImageUpload({ value, onChange }: { value: string[]; onChange: (urls: string[]) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [failures, setFailures] = useState<FailedUpload[]>([]);
+  const [succeeded, setSucceeded] = useState(0);
 
+  const uploading = progress !== null;
+
+  /**
+   * Every file is attempted, and each one's outcome is reported.
+   *
+   * This used to `break` on the first failure, which meant one oversized or
+   * unreadable photo silently abandoned every file after it — select ten,
+   * have the third fail, and four through ten were never even tried while
+   * the UI showed a single error about the third. The photos that did upload
+   * still arrived, so it looked like the rest had too.
+   *
+   * Still sequential rather than parallel: a HEIC decode is CPU-heavy, and
+   * ten 12MB conversions at once would fight for the server's memory.
+   */
   async function handleFiles(files: FileList) {
-    setUploading(true);
-    setError(null);
+    const list = Array.from(files);
+    setFailures([]);
+    setSucceeded(0);
+    setProgress({ done: 0, total: list.length });
+
     const uploaded: string[] = [];
-    for (const file of Array.from(files)) {
+    const failed: FailedUpload[] = [];
+
+    for (const [index, file] of list.entries()) {
       try {
         const body = new FormData();
         body.append("file", file);
         const res = await fetch("/api/admin/products/upload", { method: "POST", body });
         const data = await res.json();
-        if (!res.ok) {
-          setError(data.error ?? "Upload failed");
-          break;
-        }
-        uploaded.push(data.url);
+        if (!res.ok) failed.push({ name: file.name, reason: data.error ?? "Upload failed" });
+        else uploaded.push(data.url);
       } catch {
-        setError("Upload failed — check your connection and try again");
-        break;
+        failed.push({ name: file.name, reason: "Couldn't reach the server" });
       }
+      setProgress({ done: index + 1, total: list.length });
     }
+
     if (uploaded.length > 0) onChange([...value, ...uploaded]);
-    setUploading(false);
+    setSucceeded(uploaded.length);
+    setFailures(failed);
+    setProgress(null);
+    // Cleared so re-picking the same file still fires onChange.
     if (inputRef.current) inputRef.current.value = "";
   }
 
@@ -74,9 +100,12 @@ export function ProductImageUpload({ value, onChange }: { value: string[]; onCha
         }}
       />
       <Button type="button" variant="outline" size="sm" disabled={uploading} onClick={() => inputRef.current?.click()}>
-        {uploading ? (
+        {progress ? (
           <>
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading...
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            {/* Named counts, because a large HEIC takes a second or two each
+                and a bare "Uploading..." looks stalled on a batch of ten. */}
+            Uploading {progress.done + 1} of {progress.total}...
           </>
         ) : (
           <>
@@ -85,7 +114,25 @@ export function ProductImageUpload({ value, onChange }: { value: string[]; onCha
         )}
       </Button>
       <p className="text-xs text-muted-foreground">Any image, up to 12MB each — iPhone HEIC and other camera formats are converted automatically. The first is the main photo.</p>
-      {error && <p className="text-xs text-destructive">{error}</p>}
+
+      {failures.length > 0 && (
+        <div className="flex flex-col gap-1 rounded-md border border-warning/40 bg-warning/10 p-2.5">
+          <p className="text-xs font-medium text-foreground">
+            {succeeded > 0
+              ? `${succeeded} of ${succeeded + failures.length} uploaded. These didn't:`
+              : `Couldn't upload ${failures.length === 1 ? "this photo" : "these photos"}:`}
+          </p>
+          <ul className="flex flex-col gap-0.5">
+            {failures.map((f, i) => (
+              // Filenames repeat across a selection, so index is part of the key.
+              <li key={`${f.name}-${i}`} className="flex gap-1.5 text-xs text-muted-foreground">
+                <span className="max-w-[45%] shrink-0 truncate font-medium text-foreground">{f.name}</span>
+                <span className="min-w-0">— {f.reason}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
