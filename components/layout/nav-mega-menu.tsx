@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/navigation-menu";
 import { AllCategoriesPanel } from "@/components/layout/all-categories-panel";
 import { MegaMenuPanel } from "@/components/layout/mega-menu-panel";
+import { NAV_QUICK_LINKS } from "@/lib/category-client";
 import type { ClientCategory } from "@/lib/category-utils";
 import type { Brand } from "@/lib/types";
 
@@ -20,7 +21,9 @@ interface NavMegaMenuProps {
 }
 
 export function NavMegaMenu({ categories, brandsBySlug }: NavMegaMenuProps) {
-  const quickCategories = categories.filter((c) => c.featured).slice(0, 10);
+  // Cap shared with the admin category tree, which shows an owner exactly
+  // which departments land here — see NAV_QUICK_LINKS.
+  const quickCategories = categories.filter((c) => c.featured).slice(0, NAV_QUICK_LINKS);
 
   return (
     <div className="hidden border-b border-border/70 bg-background lg:block">
