@@ -915,6 +915,33 @@ export const shippingRates = mysqlTable("shipping_rates", {
   carrierId: varchar("carrier_id", { length: 191 }),
 });
 
+/**
+ * Per-country free-shipping rules — one optional row per destination.
+ *
+ * A country with no row falls back to DEFAULT_SHIPPING_RULE in
+ * lib/checkout-math.ts, so adding this table changed nothing on its own:
+ * every destination kept the flat $50 / $6.99 behaviour until an admin
+ * overrides it. That matters because the fallback is also what a brand new
+ * country in lib/countries.ts inherits.
+ *
+ * Separate from shipping_rates on purpose. Rates price a *service* for a
+ * zone (Continental US, International) and win when one matches; this table
+ * decides the free-shipping waiver and the flat fallback for a single
+ * country, which zones are too coarse to express — "International" is one
+ * bucket for every non-US destination.
+ */
+export const freeShippingRules = mysqlTable("free_shipping_rules", {
+  // ISO 3166-1 alpha-2, matching lib/countries.ts. Stored uppercase.
+  country: varchar("country", { length: 2 }).primaryKey(),
+  // False means this country never gets free shipping, whatever the total.
+  freeShippingEnabled: boolean("free_shipping_enabled").notNull().default(true),
+  thresholdCents: int("threshold_cents").notNull().default(5000),
+  // Charged when the order is below the threshold, or whenever free
+  // shipping is off — still overridden by a matching shipping_rates row.
+  flatRateCents: int("flat_rate_cents").notNull().default(699),
+  updatedAt: timestamp("updated_at").notNull().defaultNow().onUpdateNow(),
+});
+
 export const carriers = mysqlTable("carriers", {
   id: varchar("id", { length: 191 }).primaryKey(),
   name: varchar("name", { length: 191 }).notNull(),

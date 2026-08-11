@@ -15,6 +15,7 @@ import { logActivity } from "@/lib/admin/activity";
 import { getTierByName } from "@/lib/loyalty";
 import { computeBundleAdjustedSubtotal } from "@/lib/bundles";
 import { getShippingRateById } from "@/lib/shipping-rates";
+import { getShippingRule } from "@/lib/shipping-thresholds";
 
 // The pure arithmetic (computeTotals, computeTotalsWithDiscount, the
 // TAX_RATE/FREE_SHIPPING_THRESHOLD/FLAT_SHIPPING constants) lives in
@@ -125,11 +126,15 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
       discountSource = { discountType: "percent", discountPercent: tier.discountPercent, discountAmountCents: null };
     }
   }
+  // Re-resolved here rather than carried in the intent metadata: the order
+  // row must record what this destination's rule says now, and metadata is
+  // client-visible.
   const { discount, shipping, tax, total } = computeTotalsWithDiscount(
     subtotal,
     discountSource,
     shippingOverride,
-    address.country ?? "US"
+    address.country ?? "US",
+    await getShippingRule(address.country ?? "US")
   );
 
   const shippingAddress: ShippingAddressInput = {

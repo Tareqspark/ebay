@@ -3,6 +3,7 @@ import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { promoCodes, promoRedemptions } from "@/db/schema";
 import { computeTotalsWithDiscount } from "@/lib/checkout";
+import { getShippingRule } from "@/lib/shipping-thresholds";
 import { toCents, toDollars } from "@/lib/money";
 import { formatPrice } from "@/lib/format";
 
@@ -26,7 +27,11 @@ export interface PromoValidationResult {
 export async function validatePromoForCheckout(
   rawCode: string,
   userId: string,
-  subtotal: number
+  subtotal: number,
+  // Destination decides both the sales tax and the free-shipping rule, so
+  // the preview shown when a code is applied has to know it — defaulted to
+  // US so pre-existing callers keep their previous behaviour.
+  country = "US"
 ): Promise<{ error: string } | { promo: typeof promoCodes.$inferSelect; result: PromoValidationResult }> {
   const code = rawCode.trim().toUpperCase();
   if (!code) return { error: "Enter a promo code" };
@@ -53,7 +58,13 @@ export async function validatePromoForCheckout(
     return { error: `This code requires a minimum order of ${formatPrice(toDollars(promo.minOrderAmountCents))}` };
   }
 
-  const { discount, shipping, tax, total } = computeTotalsWithDiscount(subtotal, promo);
+  const { discount, shipping, tax, total } = computeTotalsWithDiscount(
+    subtotal,
+    promo,
+    undefined,
+    country,
+    await getShippingRule(country)
+  );
   return { promo, result: { code: promo.code, discount, shipping, tax, total } };
 }
 

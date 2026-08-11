@@ -80,12 +80,12 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals, loyaltyDiscou
   }, [addressState, addressCountry]);
 
   useEffect(() => {
-    if (!selectedRateId) {
-      setShippingPreview(null);
-      return;
-    }
+    // Runs even with no rate selected. Every international destination has
+    // no configured rates, and this preview is the only figure that knows
+    // both the destination's tax treatment and its free-shipping rule —
+    // without it the summary fell back to totals computed as if US.
     let cancelled = false;
-    previewShippingTotalsAction(selectedRateId, addressState, applied?.code, addressCountry).then((result) => {
+    previewShippingTotalsAction(selectedRateId ?? "", addressState, applied?.code, addressCountry).then((result) => {
       if (cancelled || result.error) return;
       setShippingPreview({ shipping: result.shipping!, tax: result.tax!, total: result.total!, discount: result.discount! });
     });
@@ -98,7 +98,7 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals, loyaltyDiscou
     if (!promoInput.trim()) return;
     setPromoError(null);
     startApplying(async () => {
-      const result = await applyPromoCodeAction(promoInput);
+      const result = await applyPromoCodeAction(promoInput, addressCountry);
       if (result.error || !result.code) {
         setPromoError(result.error ?? "Couldn't apply this code");
         return;

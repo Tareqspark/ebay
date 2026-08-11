@@ -27,8 +27,58 @@ export function isTaxable(country = "US"): boolean {
   return country.trim().toUpperCase() === "US";
 }
 
-export function computeTotals(subtotal: number, shippingOverride?: number, country = "US") {
-  const shipping = shippingOverride ?? (subtotal >= FREE_SHIPPING_THRESHOLD || subtotal === 0 ? 0 : FLAT_SHIPPING);
+/**
+ * What one destination charges when no shipping_rates row matches.
+ *
+ * Passed in rather than read here so this module stays pure and directly
+ * unit-testable — resolving a country to its rule is a database read and
+ * lives in lib/shipping-thresholds.ts. Every parameter defaults to the
+ * historical flat behaviour, so a call site that doesn't pass a rule keeps
+ * charging exactly what it charged before.
+ */
+export interface ShippingRule {
+  /** False means this country never gets free shipping, at any order value. */
+  freeShippingEnabled: boolean;
+  /** Order subtotal at or above which shipping is waived, in dollars. */
+  threshold: number;
+  /** Charged below the threshold, in dollars. */
+  flatRate: number;
+}
+
+export const DEFAULT_SHIPPING_RULE: ShippingRule = {
+  freeShippingEnabled: true,
+  threshold: FREE_SHIPPING_THRESHOLD,
+  flatRate: FLAT_SHIPPING,
+};
+
+/**
+ * An empty cart is never charged shipping — that check comes first, so a
+ * country with free shipping switched off still shows $0 on an empty cart
+ * rather than a flat fee against nothing.
+ */
+export function baseShippingFor(subtotal: number, rule: ShippingRule = DEFAULT_SHIPPING_RULE): number {
+  if (subtotal <= 0) return 0;
+  if (rule.freeShippingEnabled && subtotal >= rule.threshold) return 0;
+  return rule.flatRate;
+}
+
+/** Amount still to spend to earn free shipping, or null if it isn't reachable. */
+export function amountToFreeShipping(
+  subtotal: number,
+  rule: ShippingRule = DEFAULT_SHIPPING_RULE
+): number | null {
+  if (!rule.freeShippingEnabled) return null;
+  if (subtotal >= rule.threshold) return 0;
+  return Math.round((rule.threshold - subtotal) * 100) / 100;
+}
+
+export function computeTotals(
+  subtotal: number,
+  shippingOverride?: number,
+  country = "US",
+  rule: ShippingRule = DEFAULT_SHIPPING_RULE
+) {
+  const shipping = shippingOverride ?? baseShippingFor(subtotal, rule);
   const tax = isTaxable(country) ? Math.round((subtotal + shipping) * TAX_RATE * 100) / 100 : 0;
   const total = Math.round((subtotal + shipping + tax) * 100) / 100;
   return { shipping, tax, total };
@@ -53,9 +103,10 @@ export function computeTotalsWithDiscount(
   subtotal: number,
   promo?: PromoForDiscount | null,
   shippingOverride?: number,
-  country = "US"
+  country = "US",
+  rule: ShippingRule = DEFAULT_SHIPPING_RULE
 ) {
-  const baseShipping = shippingOverride ?? (subtotal >= FREE_SHIPPING_THRESHOLD || subtotal === 0 ? 0 : FLAT_SHIPPING);
+  const baseShipping = shippingOverride ?? baseShippingFor(subtotal, rule);
 
   let discount = 0;
   let shipping = baseShipping;

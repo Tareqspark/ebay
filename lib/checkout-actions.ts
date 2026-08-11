@@ -3,6 +3,7 @@
 import { auth } from "@/auth";
 import { getCart } from "@/lib/cart";
 import { computeTotals, computeTotalsWithDiscount } from "@/lib/checkout";
+import { getShippingRule } from "@/lib/shipping-thresholds";
 import { validatePromoForCheckout, reservePromoUsage } from "@/lib/promo";
 import { getLoyaltyStatus } from "@/lib/loyalty";
 import { getShippingRateById } from "@/lib/shipping-rates";
@@ -87,8 +88,11 @@ export async function createPaymentIntentAction(
   let total: number;
   let appliedPromoCode: string | undefined;
   let appliedLoyaltyTier: string | undefined;
+  // The destination's own free-shipping rule, not a site-wide constant —
+  // this is the figure the customer is actually charged.
+  const shippingRule = await getShippingRule(address.country);
   if (promoCode?.trim()) {
-    const outcome = await validatePromoForCheckout(promoCode, session.user.id, cart.subtotal);
+    const outcome = await validatePromoForCheckout(promoCode, session.user.id, cart.subtotal, address.country);
     if ("error" in outcome) return { error: outcome.error };
     // Claims the usage slot atomically right here, at the point a charge is
     // actually about to be created — validatePromoForCheckout's check alone
@@ -107,7 +111,8 @@ export async function createPaymentIntentAction(
       cart.subtotal,
       { discountType: outcome.promo.discountType, discountPercent: outcome.promo.discountPercent, discountAmountCents: outcome.promo.discountAmountCents },
       shippingOverride,
-      address.country
+      address.country,
+      shippingRule
     ).total;
     appliedPromoCode = outcome.result.code;
   } else {
@@ -117,11 +122,12 @@ export async function createPaymentIntentAction(
         cart.subtotal,
         { discountType: "percent", discountPercent: loyalty.tier.discountPercent, discountAmountCents: null },
         shippingOverride,
-        address.country
+        address.country,
+        shippingRule
       ).total;
       appliedLoyaltyTier = loyalty.tier.name;
     } else {
-      total = computeTotals(cart.subtotal, shippingOverride, address.country).total;
+      total = computeTotals(cart.subtotal, shippingOverride, address.country, shippingRule).total;
     }
   }
 

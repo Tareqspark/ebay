@@ -7,6 +7,7 @@ import { CheckoutClient } from "@/components/checkout/checkout-client";
 import { computeTotals, computeTotalsWithDiscount } from "@/lib/checkout";
 import { getLoyaltyStatus } from "@/lib/loyalty";
 import { getShipToCountry } from "@/lib/ship-to";
+import { getShippingRule } from "@/lib/shipping-thresholds";
 
 export const metadata: Metadata = { title: "Checkout" };
 
@@ -29,7 +30,8 @@ export default async function CheckoutPage() {
   // or loyalty tier is active, so they have to know the destination: without
   // it an overseas buyer was quoted 8.25% US sales tax they are never charged.
   const destination = defaultAddress?.country || shipToCountry;
-  const baseTotals = computeTotals(cart.subtotal, undefined, destination);
+  const shippingRule = await getShippingRule(destination);
+  const baseTotals = computeTotals(cart.subtotal, undefined, destination, shippingRule);
 
   const loyalty = await getLoyaltyStatus(session.user.id);
   const loyaltyDiscount =
@@ -45,7 +47,8 @@ export default async function CheckoutPage() {
               discountAmountCents: null,
             },
             undefined,
-            destination
+            destination,
+            shippingRule
           ),
         }
       : null;

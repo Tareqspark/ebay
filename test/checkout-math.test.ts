@@ -1,5 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { computeTotals, computeTotalsWithDiscount, FREE_SHIPPING_THRESHOLD, FLAT_SHIPPING, TAX_RATE } from "@/lib/checkout-math";
+import {
+  computeTotals,
+  computeTotalsWithDiscount,
+  baseShippingFor,
+  amountToFreeShipping,
+  DEFAULT_SHIPPING_RULE,
+  FREE_SHIPPING_THRESHOLD,
+  FLAT_SHIPPING,
+  TAX_RATE,
+  type ShippingRule,
+} from "@/lib/checkout-math";
 
 describe("computeTotals", () => {
   it("charges flat shipping below the free-shipping threshold", () => {
@@ -126,5 +136,74 @@ describe("international orders", () => {
   it("is case- and whitespace-insensitive about the country code", () => {
     expect(computeTotals(100, 0, " us ").tax).toBeGreaterThan(0);
     expect(computeTotals(100, 0, "gb").tax).toBe(0);
+  });
+});
+
+/**
+ * Per-country shipping rules. The default is the historical flat behaviour,
+ * so every pre-existing caller that passes no rule must keep charging what
+ * it charged before — the tests above cover that; these cover overrides.
+ */
+describe("per-country shipping rules", () => {
+  const NO_FREE: ShippingRule = { freeShippingEnabled: false, threshold: 50, flatRate: 24.99 };
+  const HIGH_BAR: ShippingRule = { freeShippingEnabled: true, threshold: 150, flatRate: 19.99 };
+
+  it("uses the default rule when none is passed", () => {
+    expect(baseShippingFor(FREE_SHIPPING_THRESHOLD - 0.01)).toBe(FLAT_SHIPPING);
+    expect(baseShippingFor(FREE_SHIPPING_THRESHOLD)).toBe(0);
+    expect(DEFAULT_SHIPPING_RULE.threshold).toBe(FREE_SHIPPING_THRESHOLD);
+    expect(DEFAULT_SHIPPING_RULE.flatRate).toBe(FLAT_SHIPPING);
+  });
+
+  it("never waives shipping for a country with free shipping switched off", () => {
+    // The leak this feature exists to close: a $500 order to a destination
+    // that costs far more than $6.99 to reach must still be charged.
+    expect(baseShippingFor(500, NO_FREE)).toBe(24.99);
+    expect(amountToFreeShipping(500, NO_FREE)).toBeNull();
+  });
+
+  it("still charges nothing on an empty cart even with free shipping off", () => {
+    expect(baseShippingFor(0, NO_FREE)).toBe(0);
+  });
+
+  it("honours a raised threshold", () => {
+    expect(baseShippingFor(149.99, HIGH_BAR)).toBe(19.99);
+    expect(baseShippingFor(150, HIGH_BAR)).toBe(0);
+    expect(amountToFreeShipping(100, HIGH_BAR)).toBe(50);
+    expect(amountToFreeShipping(150, HIGH_BAR)).toBe(0);
+  });
+
+  it("reports the remaining amount without floating-point crumbs", () => {
+    // 50 - 31.99 in binary floating point is 18.009999999999998.
+    expect(amountToFreeShipping(31.99)).toBe(18.01);
+  });
+
+  it("carries the rule through computeTotals", () => {
+    expect(computeTotals(500, undefined, "BD", NO_FREE).shipping).toBe(24.99);
+    // A chosen carrier rate still wins over the country rule.
+    expect(computeTotals(500, 12.5, "BD", NO_FREE).shipping).toBe(12.5);
+  });
+
+  it("carries the rule through computeTotalsWithDiscount", () => {
+    const { shipping } = computeTotalsWithDiscount(500, null, undefined, "BD", NO_FREE);
+    expect(shipping).toBe(24.99);
+  });
+
+  it("lets a free_shipping promo waive a rule that never gives free shipping", () => {
+    // The promo waives whatever shipping was due, which is the point of it.
+    const { shipping, discount } = computeTotalsWithDiscount(
+      500,
+      { discountType: "free_shipping", discountPercent: null, discountAmountCents: null },
+      undefined,
+      "BD",
+      NO_FREE
+    );
+    expect(shipping).toBe(0);
+    expect(discount).toBe(24.99);
+  });
+
+  it("keeps international orders untaxed regardless of the rule", () => {
+    expect(computeTotals(500, undefined, "BD", NO_FREE).tax).toBe(0);
+    expect(computeTotals(500, undefined, "US", NO_FREE).tax).toBeGreaterThan(0);
   });
 });

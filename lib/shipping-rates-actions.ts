@@ -3,6 +3,7 @@
 import { auth } from "@/auth";
 import { getCart } from "@/lib/cart";
 import { computeTotals, computeTotalsWithDiscount } from "@/lib/checkout";
+import { getShippingRule } from "@/lib/shipping-thresholds";
 import { validatePromoForCheckout } from "@/lib/promo";
 import { getLoyaltyStatus } from "@/lib/loyalty";
 import { getAvailableShippingRates, getShippingRateById } from "@/lib/shipping-rates";
@@ -49,15 +50,19 @@ export async function previewShippingTotalsAction(
 
   const rate = await getShippingRateById(shippingRateId, state, cart.subtotal, country);
   const shippingOverride = rate?.rate;
+  // Must match what createPaymentIntentAction will charge for this
+  // destination, or the summary and the card charge disagree.
+  const shippingRule = await getShippingRule(country);
 
   if (promoCode?.trim()) {
-    const outcome = await validatePromoForCheckout(promoCode, session.user.id, cart.subtotal);
+    const outcome = await validatePromoForCheckout(promoCode, session.user.id, cart.subtotal, country);
     if ("error" in outcome) return { error: outcome.error };
     const { shipping, tax, total, discount } = computeTotalsWithDiscount(
       cart.subtotal,
       { discountType: outcome.promo.discountType, discountPercent: outcome.promo.discountPercent, discountAmountCents: outcome.promo.discountAmountCents },
       shippingOverride,
-      country
+      country,
+      shippingRule
     );
     return { shipping, tax, total, discount };
   }
@@ -68,11 +73,12 @@ export async function previewShippingTotalsAction(
       cart.subtotal,
       { discountType: "percent", discountPercent: loyalty.tier.discountPercent, discountAmountCents: null },
       shippingOverride,
-      country
+      country,
+      shippingRule
     );
     return { shipping, tax, total, discount };
   }
 
-  const { shipping, tax, total } = computeTotals(cart.subtotal, shippingOverride, country);
+  const { shipping, tax, total } = computeTotals(cart.subtotal, shippingOverride, country, shippingRule);
   return { shipping, tax, total, discount: 0 };
 }
