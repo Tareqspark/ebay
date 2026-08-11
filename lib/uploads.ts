@@ -58,7 +58,7 @@ export interface UploadError {
 }
 
 /** Subdirectories under UPLOAD_DIR that may be written to or served — an allowlist so a folder name can never widen into an arbitrary path. */
-export const UPLOAD_FOLDERS = ["banners", "products"] as const;
+export const UPLOAD_FOLDERS = ["banners", "products", "categories"] as const;
 export type UploadFolder = (typeof UPLOAD_FOLDERS)[number];
 
 /** Writes a validated image under UPLOAD_DIR/<folder> and returns the public path app/uploads/[folder]/[file] serves it from. */
@@ -85,6 +85,22 @@ export async function saveUploadedImage(file: File, folder: UploadFolder): Promi
 /** Banner-specific wrapper kept so existing call sites read clearly. */
 export function saveBannerImage(file: File): Promise<SavedUpload | UploadError> {
   return saveUploadedImage(file, "banners");
+}
+
+export function saveCategoryImage(file: File): Promise<SavedUpload | UploadError> {
+  return saveUploadedImage(file, "categories");
+}
+
+/**
+ * True only for paths this module produced. Callers use it before deleting a
+ * replaced image, so a category still pointing at picsum.photos or a CDN
+ * doesn't send a stray unlink at a path we never wrote.
+ */
+export function isManagedUpload(url: string | null | undefined): boolean {
+  if (!url) return false;
+  const [empty, prefix, folder, filename, ...rest] = url.split("/");
+  if (empty !== "" || prefix !== "uploads" || rest.length > 0) return false;
+  return (UPLOAD_FOLDERS as readonly string[]).includes(folder) && SAFE_FILENAME.test(filename ?? "");
 }
 
 /**

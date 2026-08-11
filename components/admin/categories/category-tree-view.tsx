@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronRight, ExternalLink, MoreHorizontal, Plus, Search, Star } from "lucide-react";
+import { ChevronRight, ExternalLink, ImageOff, MoreHorizontal, Plus, Search, Star } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +25,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CategoryFormDialog } from "@/components/admin/categories/category-form-dialog";
+import { CategoryImageCell } from "@/components/admin/categories/category-image-cell";
 import { CATEGORY_ICONS } from "@/lib/category-icons";
 import { cn } from "@/lib/utils";
 import { createCategoryAction, updateCategoryAction, deleteCategoryAction, moveCategoryAction } from "@/lib/admin/category-actions";
@@ -44,6 +45,7 @@ interface DialogState {
 export function CategoryTreeView({ tree }: { tree: CategoryTreeRow[] }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [missingOnly, setMissingOnly] = useState(false);
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [pendingDelete, setPendingDelete] = useState<CategoryTreeRow | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -51,15 +53,17 @@ export function CategoryTreeView({ tree }: { tree: CategoryTreeRow[] }) {
 
   const filteredTree = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return tree;
+    if (!q && !missingOnly) return tree;
     function filterNode(node: CategoryTreeRow): CategoryTreeRow | null {
-      const matches = node.name.toLowerCase().includes(q);
+      const matches = (!q || node.name.toLowerCase().includes(q)) && (!missingOnly || !node.image);
       const children = node.children.map(filterNode).filter((n): n is CategoryTreeRow => n !== null);
+      // A parent that already has an image is still kept when a descendant
+      // matches — losing it would detach the match from its branch.
       if (matches || children.length > 0) return { ...node, children };
       return null;
     }
     return tree.map(filterNode).filter((n): n is CategoryTreeRow => n !== null);
-  }, [tree, query]);
+  }, [tree, query, missingOnly]);
 
   async function handleSubmit(input: CategoryInput) {
     setSubmitting(true);
@@ -115,6 +119,16 @@ export function CategoryTreeView({ tree }: { tree: CategoryTreeRow[] }) {
         </div>
         <Button
           size="sm"
+          variant={missingOnly ? "default" : "outline"}
+          className="gap-1.5"
+          aria-pressed={missingOnly}
+          onClick={() => setMissingOnly((m) => !m)}
+        >
+          <ImageOff className="h-3.5 w-3.5" />
+          Missing images
+        </Button>
+        <Button
+          size="sm"
           className="ml-auto gap-1.5"
           onClick={() => setDialog({ mode: "create", level: "top", parentId: null, category: null })}
         >
@@ -131,14 +145,18 @@ export function CategoryTreeView({ tree }: { tree: CategoryTreeRow[] }) {
         </div>
         <div>
           {filteredTree.length === 0 && (
-            <p className="px-3 py-8 text-center text-sm text-muted-foreground">No categories match this search.</p>
+            <p className="px-3 py-8 text-center text-sm text-muted-foreground">
+              {missingOnly && !query.trim()
+                ? "Every category has an image."
+                : "No categories match this search."}
+            </p>
           )}
           {filteredTree.map((node, i) => (
             <CategoryRow
               key={node.id}
               node={node}
               depth={0}
-              forceOpen={query.trim().length > 0}
+              forceOpen={query.trim().length > 0 || missingOnly}
               isFirst={i === 0}
               isLast={i === filteredTree.length - 1}
               onEdit={(n) => setDialog({ mode: "edit", level: n.level, parentId: n.parentId, category: n })}
@@ -221,8 +239,9 @@ function CategoryRow({ node, depth, forceOpen, isFirst, isLast, onEdit, onAddChi
           ) : (
             <span className="w-5 shrink-0" />
           )}
-          {Icon && <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-          <span className={cn("truncate", depth === 0 ? "font-medium text-foreground" : "text-foreground")}>
+          <CategoryImageCell id={node.id} name={node.name} image={node.image} />
+          {Icon && <Icon className="ml-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+          <span className={cn("ml-1 truncate", depth === 0 ? "font-medium text-foreground" : "text-foreground")}>
             {node.name}
           </span>
         </div>

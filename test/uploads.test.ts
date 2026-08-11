@@ -108,6 +108,59 @@ describe("upload folders", () => {
     const filename = saved.url!.split("/").pop()!;
     expect(await uploads.readUploadedImage("products", filename)).toBeNull();
   });
+
+  it("stores and serves a category image under its own folder", async () => {
+    const saved = await uploads.saveUploadedImage(fileFrom([...PNG_HEADER], "image/png"), "categories");
+    expect(saved.url).toMatch(/^\/uploads\/categories\/[0-9A-HJKMNP-TV-Z]{26}\.png$/);
+    const filename = saved.url!.split("/").pop()!;
+    expect((await uploads.readUploadedImage("categories", filename))?.contentType).toBe("image/png");
+  });
+});
+
+/**
+ * isManagedUpload gates an `unlink` — it decides whether a stored image URL
+ * refers to a file this app wrote and may therefore delete when the image is
+ * replaced. A false positive deletes something we don't own, so anything that
+ * isn't exactly `/uploads/<known folder>/<ULID>.<ext>` has to be rejected.
+ */
+describe("isManagedUpload", () => {
+  const VALID = "01J8ZQ9F7K3M2N4P6R8T0V2W4X";
+
+  it("accepts a path this module produced, in every allowed folder", () => {
+    for (const folder of uploads.UPLOAD_FOLDERS) {
+      expect(uploads.isManagedUpload(`/uploads/${folder}/${VALID}.webp`)).toBe(true);
+    }
+  });
+
+  it.each(["jpg", "png", "webp", "gif", "avif"])("accepts the %s extension", (ext) => {
+    expect(uploads.isManagedUpload(`/uploads/categories/${VALID}.${ext}`)).toBe(true);
+  });
+
+  it.each([
+    // The common real case: a category still pointing at generated art.
+    "https://picsum.photos/seed/electronics/900/900",
+    "/category/electronics.webp",
+    "",
+    "/uploads/products/../../../etc/passwd",
+    "/uploads/../.env.local",
+    "/uploads/secrets/01J8ZQ9F7K3M2N4P6R8T0V2W4X.webp",
+    "/uploads/products/photo.webp",
+    "/uploads/products/shell.php",
+    // ULID alphabet excludes I, L, O and U.
+    "/uploads/products/01J8ZQ9F7K3M2N4P6R8T0V2W4I.webp",
+    // Right alphabet, wrong length.
+    "/uploads/products/01J8ZQ9F7K3M2N4P6R8T0V2W.webp",
+    "/uploads/products/nested/01J8ZQ9F7K3M2N4P6R8T0V2W4X.webp",
+    "uploads/products/01J8ZQ9F7K3M2N4P6R8T0V2W4X.webp",
+    "/files/products/01J8ZQ9F7K3M2N4P6R8T0V2W4X.webp",
+  ])("refuses to claim ownership of %s", (url) => {
+    expect(uploads.isManagedUpload(url)).toBe(false);
+  });
+
+  it("rejects missing values", () => {
+    expect(uploads.isManagedUpload(null)).toBe(false);
+    expect(uploads.isManagedUpload(undefined)).toBe(false);
+  });
 });
 
 describe("checkSafeUrl", () => {

@@ -12,7 +12,7 @@ export default async function AdminCategoriesPage() {
     <div className="flex flex-col gap-4">
       <PageHeader
         title="Categories"
-        description={`${totals.top} top-level, ${totals.child} child, ${totals.grandchild} grandchild — ${totals.total.toLocaleString()} total`}
+        description={`${totals.top} top-level, ${totals.child} child, ${totals.grandchild} grandchild — ${totals.total.toLocaleString()} total · ${totals.withImage.toLocaleString()} with an image`}
       />
       <CategoryTreeView tree={tree} />
     </div>

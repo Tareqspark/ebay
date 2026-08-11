@@ -93,9 +93,12 @@ export const getCategoryTree = cache(async (): Promise<CategoryTreeRow[]> => {
 });
 
 export async function getCategoryTotals() {
-  const rows = await db.select({ level: categoriesTable.level }).from(categoriesTable);
+  const rows = await db
+    .select({ level: categoriesTable.level, image: categoriesTable.image })
+    .from(categoriesTable);
   const top = rows.filter((r) => r.level === "top").length;
   const child = rows.filter((r) => r.level === "child").length;
   const grandchild = rows.filter((r) => r.level === "grandchild").length;
-  return { top, child, grandchild, total: rows.length };
+  const withImage = rows.filter((r) => (r.image ?? "").trim() !== "").length;
+  return { top, child, grandchild, total: rows.length, withImage };
 }

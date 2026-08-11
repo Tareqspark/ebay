@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CategoryImageUpload } from "@/components/admin/categories/category-image-upload";
 import { CATEGORY_ICONS } from "@/lib/category-icons";
 import { slugify } from "@/lib/slugify";
 import type { CategoryTreeRow, CategoryLevel } from "@/lib/admin/categories";
@@ -100,6 +101,19 @@ export function CategoryFormDialog({ open, onOpenChange, category, level, parent
               className="font-mono text-xs"
             />
           </div>
+          {/* Outside the top-level block on purpose: subcategory and leaf
+              tiles render an image too, so every level can carry one. */}
+          <div className="flex flex-col gap-1.5">
+            <Label>Image</Label>
+            <CategoryImageUpload value={image} onChange={setImage} disabled={submitting} />
+            <Input
+              id="cat-image"
+              value={image}
+              onChange={(e) => setImage(e.target.value)}
+              placeholder="…or paste an image URL"
+              className="font-mono text-xs"
+            />
+          </div>
           {isTop && (
             <>
               <div className="flex flex-col gap-1.5">
@@ -120,10 +134,6 @@ export function CategoryFormDialog({ open, onOpenChange, category, level, parent
                     })}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="cat-image">Banner image URL</Label>
-                <Input id="cat-image" value={image} onChange={(e) => setImage(e.target.value)} placeholder="https://picsum.photos/seed/.../900/900" />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="cat-description">Description</Label>
