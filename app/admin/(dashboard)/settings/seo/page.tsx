@@ -41,9 +41,15 @@ export default function AdminSeoSettingsPage() {
         description="Read-only — managed in DNS and the server's nginx config, not here."
         rows={[
           { label: "www.cartebay.com", value: "Serving", state: "on" },
-          { label: "cartebay.com", value: "Serving", state: "on" },
+          {
+            label: "cartebay.com",
+            value: "Not resolving",
+            state: "attention",
+            detail:
+              "The bare domain has no DNS record, so typing it fails. Browsers hide the www. prefix, which makes it look like it works.",
+          },
         ]}
-        footnote="Adding or moving a domain is a DNS and nginx change on the droplet, plus a certificate — it can't be done from the admin."
+        footnote="Pointing the bare domain here needs an A record and a certificate covering both names — a DNS and certbot change on the droplet, not something the admin can do. See google_index.md."
       />
     </div>
   );
