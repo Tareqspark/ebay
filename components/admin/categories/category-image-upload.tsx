@@ -59,7 +59,7 @@ export function CategoryImageUpload({
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+        accept="image/*"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
@@ -90,7 +90,7 @@ export function CategoryImageUpload({
           </Button>
         )}
       </div>
-      <p className="text-xs text-muted-foreground">JPG, PNG, WebP, GIF or AVIF — up to 3MB.</p>
+      <p className="text-xs text-muted-foreground">Any image, up to 12MB — iPhone HEIC and other camera formats are converted automatically.</p>
       {error && <p className="text-xs text-error">{error}</p>}
     </div>
   );

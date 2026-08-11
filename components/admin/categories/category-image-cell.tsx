@@ -54,7 +54,7 @@ export function CategoryImageCell({ id, name, image }: { id: string; name: strin
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+        accept="image/*"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];

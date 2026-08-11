@@ -67,7 +67,7 @@ export function ProductImageUpload({ value, onChange }: { value: string[]; onCha
         ref={inputRef}
         type="file"
         multiple
-        accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+        accept="image/*"
         className="hidden"
         onChange={(e) => {
           if (e.target.files?.length) handleFiles(e.target.files);
@@ -84,7 +84,7 @@ export function ProductImageUpload({ value, onChange }: { value: string[]; onCha
           </>
         )}
       </Button>
-      <p className="text-xs text-muted-foreground">JPG, PNG, WebP, GIF or AVIF — up to 3MB each. The first is the main photo.</p>
+      <p className="text-xs text-muted-foreground">Any image, up to 12MB each — iPhone HEIC and other camera formats are converted automatically. The first is the main photo.</p>
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );

@@ -2,6 +2,8 @@ import "server-only";
 import { mkdir, readFile, writeFile, unlink } from "node:fs/promises";
 import path from "node:path";
 import { ulid } from "ulid";
+import sharp from "sharp";
+import heicConvert from "heic-convert";
 
 /**
  * Admin-uploaded images live on disk, deliberately *outside* the deployed
@@ -13,39 +15,98 @@ import { ulid } from "ulid";
  */
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? path.join(process.cwd(), ".uploads");
 
-const MAX_BYTES = 3 * 1024 * 1024;
+const MAX_BYTES = 12 * 1024 * 1024;
 
 /**
- * The extension is taken from this table, never from the uploaded filename —
- * a filename is attacker-controlled and is the usual way a ".php"/".html"
- * ends up on disk. Keys are the only content types accepted.
+ * Formats a browser can display, stored byte-for-byte as uploaded.
+ *
+ * Keeping GIF here rather than converting preserves animation, and leaving
+ * already-web-ready files untouched avoids a pointless recompression pass
+ * that would only lose quality.
  */
-const ALLOWED: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-  "image/gif": "gif",
-  "image/avif": "avif",
+const WEB_READY: Record<string, string> = {
+  jpeg: "jpg",
+  png: "png",
+  gif: "gif",
+  webp: "webp",
 };
 
-/**
- * Content type as *claimed* by the browser is just a form field, so it's
- * checked against the file's actual leading bytes. Without this, an HTML
- * document sent as `image/png` would be stored and later served back from
- * our own origin — same-origin HTML is stored XSS.
- */
-function sniff(bytes: Uint8Array): string | null {
-  const startsWith = (...sig: number[]) => sig.every((b, i) => bytes[i] === b);
-  if (startsWith(0xff, 0xd8, 0xff)) return "image/jpeg";
-  if (startsWith(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return "image/png";
-  if (startsWith(0x47, 0x49, 0x46, 0x38)) return "image/gif";
+export interface DecodedImage {
+  bytes: Uint8Array;
+  ext: string;
+  /** Set when the upload was re-encoded, naming the format it arrived as. */
+  convertedFrom?: string;
+}
 
-  // RIFF....WEBP — the 4-byte length sits between the two markers.
-  const ascii = (offset: number, text: string) =>
-    [...text].every((ch, i) => bytes[offset + i] === ch.charCodeAt(0));
-  if (ascii(0, "RIFF") && ascii(8, "WEBP")) return "image/webp";
-  if (ascii(4, "ftyp") && (ascii(8, "avif") || ascii(8, "avis"))) return "image/avif";
-  return null;
+/**
+ * Decides whether an upload is an image, and hands back something a browser
+ * can actually render.
+ *
+ * The test is a real decode rather than a magic-byte table: "is this an
+ * image" is precisely the question sharp answers, and the old hand-written
+ * sniff rejected every HEIC — the iPhone camera default since iOS 11 — plus
+ * any AVIF whose major brand was `mif1` rather than `avif`.
+ *
+ * It is still a genuine security boundary. An HTML document renamed .png
+ * fails to decode and is rejected, so nothing but a real image is ever
+ * written where we later serve it from our own origin. Decompression bombs
+ * are covered by sharp's own pixel limit.
+ */
+async function decodeImage(bytes: Uint8Array): Promise<DecodedImage | null> {
+  let meta: sharp.Metadata;
+  try {
+    meta = await sharp(bytes).metadata();
+  } catch {
+    return null;
+  }
+  const format = meta.format;
+  if (!format) return null;
+
+  if (WEB_READY[format]) return { bytes, ext: WEB_READY[format] };
+
+  /**
+   * sharp reports both AVIF and HEIC as "heif"; only `compression` separates
+   * them. AVIF is av1-coded and every current browser renders it, so it is
+   * kept as-is — without this check a perfectly good AVIF would be recompressed
+   * to WebP for no reason.
+   */
+  if (format === "heif") {
+    if (meta.compression === "av1") return { bytes, ext: "avif" };
+
+    /**
+     * HEIC — the iPhone camera default since iOS 11, and the format most of
+     * these uploads actually are.
+     *
+     * sharp reads its metadata but cannot decode it: the bundled libheif has
+     * no HEVC decoder plugin, on this machine and on the server, and there
+     * are no system heif tools either. Verified against a real Apple HEIC,
+     * which failed with "Error while loading plugin: Support for this
+     * compression format". heic-convert carries its own decoder, so this
+     * doesn't depend on how sharp happens to be built.
+     *
+     * JPEG rather than WebP because it's one lossy step instead of two —
+     * next/image re-encodes to WebP on delivery anyway.
+     */
+    const jpeg = await heicConvert({ buffer: Buffer.from(bytes), format: "JPEG", quality: 0.92 });
+    return { bytes: new Uint8Array(jpeg), ext: "jpg", convertedFrom: "heic" };
+  }
+
+  /**
+   * SVG is rasterised rather than stored. It is markup, and serving an
+   * uploaded one back from our own origin would be stored XSS however
+   * carefully it was scanned — turning it into pixels removes the question
+   * entirely, and the caller still gets the image they picked.
+   */
+  if (format === "svg") {
+    const png = await sharp(bytes, { density: 192 }).png().toBuffer();
+    return { bytes: new Uint8Array(png), ext: "png", convertedFrom: "svg" };
+  }
+
+  // HEIC/HEIF, TIFF and anything else sharp can read: no browser renders
+  // them reliably, so they're converted on the way in instead of being
+  // stored as files that would show up broken on the storefront.
+  const webp = await sharp(bytes).webp({ quality: 82 }).toBuffer();
+  return { bytes: new Uint8Array(webp), ext: "webp", convertedFrom: format };
 }
 
 export interface SavedUpload {
@@ -68,16 +129,22 @@ export async function saveUploadedImage(file: File, folder: UploadFolder): Promi
     return { error: `Image must be under ${MAX_BYTES / 1024 / 1024}MB — that one is ${(file.size / 1024 / 1024).toFixed(1)}MB` };
   }
 
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const actualType = sniff(bytes);
-  if (!actualType || !ALLOWED[actualType]) {
-    return { error: "Unsupported image type — use JPG, PNG, WebP, GIF, or AVIF" };
-  }
+  const uploaded = new Uint8Array(await file.arrayBuffer());
 
-  const filename = `${ulid()}.${ALLOWED[actualType]}`;
+  let decoded: DecodedImage | null;
+  try {
+    decoded = await decodeImage(uploaded);
+  } catch {
+    // Decoding is the one step that touches the file's contents, so a
+    // corrupt or truncated image surfaces here rather than as a 500.
+    return { error: "That image couldn't be read — it may be corrupted" };
+  }
+  if (!decoded) return { error: "That file isn't an image" };
+
+  const filename = `${ulid()}.${decoded.ext}`;
   const dir = path.join(UPLOAD_DIR, folder);
   await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, filename), bytes);
+  await writeFile(path.join(dir, filename), decoded.bytes);
 
   return { url: `/uploads/${folder}/${filename}` };
 }
