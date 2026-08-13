@@ -45,3 +45,5 @@ next-env.d.ts
 
 # resumable-script run state, not source
 scripts/.cj-import-checkpoint.json
+scripts/.cj-source-checkpoint.json
+scripts/.cj-source-report.json
