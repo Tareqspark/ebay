@@ -20,6 +20,79 @@ function revalidateProductViews() {
   revalidatePath("/admin/products");
 }
 
+export interface ProductDetailsInput {
+  title: string;
+  description: string;
+  /** Leaf (grandchild) category id. */
+  categoryId: string;
+}
+
+/**
+ * Edits the fields an admin can change from the product panel.
+ *
+ * The panel previously showed Title as an input, Description as read-only
+ * text, and Category as a disabled box — then offered a "Save changes" button
+ * that fired a success toast and wrote nothing. So a recategorisation looked
+ * like it worked and didn't.
+ *
+ * categoryId and categorySlugPath are written together, from the same lookup.
+ * They must never disagree: the storefront resolves a product's category by
+ * walking categorySlugPath, while the admin reads categoryId, so setting one
+ * alone makes a product appear filed correctly in the admin and land nowhere
+ * (or somewhere wrong) on the site.
+ */
+export async function updateProductDetailsAction(
+  productId: string,
+  input: ProductDetailsInput
+): Promise<ProductActionResult> {
+  const guard = await requirePermission("products");
+  if (guard) return guard;
+
+  const title = input.title.trim();
+  if (!title) return { error: "Title is required" };
+  if (title.length > 255) return { error: "Title must be 255 characters or fewer" };
+  const description = input.description.trim();
+  if (description.length > 2000) return { error: "Description must be 2000 characters or fewer" };
+  const unsafe = checkPlainText(title, "Title") ?? checkPlainText(description, "Description");
+  if (unsafe) return { error: unsafe };
+
+  const [existing] = await db.select().from(products).where(eq(products.id, productId)).limit(1);
+  if (!existing) return { error: "Product not found" };
+
+  // Only a leaf is a valid destination — a product's categorySlugPath has
+  // three segments, so filing it under a top or child category yields a path
+  // no storefront route resolves.
+  const [leaf] = await db.select().from(categories).where(eq(categories.id, input.categoryId)).limit(1);
+  if (!leaf || leaf.level !== "grandchild") return { error: "Pick a specific bottom-level category" };
+  const child = leaf.parentId ? (await db.select().from(categories).where(eq(categories.id, leaf.parentId)).limit(1))[0] : undefined;
+  const top = child?.parentId ? (await db.select().from(categories).where(eq(categories.id, child.parentId)).limit(1))[0] : undefined;
+  if (!child || !top) return { error: "That category is missing a parent — fix it under Categories first" };
+
+  await db
+    .update(products)
+    .set({
+      title,
+      description,
+      categoryId: leaf.id,
+      categorySlugPath: [top.slug, child.slug, leaf.slug],
+    })
+    .where(eq(products.id, productId));
+
+  const moved = existing.categoryId !== leaf.id;
+  await logActivity(
+    "product",
+    moved ? `Product "${title}" moved to ${top.name} > ${child.name} > ${leaf.name}` : `Product "${title}" updated`,
+    await getAdminActorName()
+  );
+
+  revalidateProductViews();
+  // The storefront caches category and product pages at the layout level, so
+  // a move has to invalidate there too or the product lingers in its old
+  // category until the next deploy.
+  revalidatePath("/", "layout");
+  return {};
+}
+
 export async function updateProductPriceAction(productId: string, price: number): Promise<ProductActionResult> {
   const guard = await requirePermission("products");
   if (guard) return guard;

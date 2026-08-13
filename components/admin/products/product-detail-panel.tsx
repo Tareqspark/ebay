@@ -18,6 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { CategoryPicker, type LeafOption } from "@/components/admin/products/category-picker";
+import { updateProductDetailsAction } from "@/lib/admin/product-actions";
 import { formatDateTime, formatMoney } from "@/lib/admin/format";
 import { statusConfig } from "@/lib/admin/status";
 import type { AdminProductRow } from "@/lib/admin/data";
@@ -32,15 +35,25 @@ interface ProductDetailPanelProps {
   row: AdminProductRow | null;
   onOpenChange: (open: boolean) => void;
   onUpdate: (productId: string, patch: { status?: ProductStatus; visibility?: ProductVisibility }) => void;
+  /** Called after a successful save so the table can refresh its rows. */
+  onSaved?: () => void;
 }
 
-export function ProductDetailPanel({ open, row, onOpenChange, onUpdate }: ProductDetailPanelProps) {
+export function ProductDetailPanel({ open, row, onOpenChange, onUpdate, onSaved }: ProductDetailPanelProps) {
   // The table rows arrive without descriptions or full galleries — those are
   // stripped server-side because shipping them for all ~11.7k products froze
   // the page (see getAdminProductTableRows). Fetch them for just the product
   // being opened. Declared above the early return so the hooks always run.
   const productId = row?.product.id;
   const [full, setFull] = useState<Product | null>(null);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState<LeafOption | null>(null);
+  const [currentPath, setCurrentPath] = useState("");
+  // Resolved from the product's slug path — the row itself has no leaf id,
+  // and saving needs one even when the category isn't being changed.
+  const [currentCategoryId, setCurrentCategoryId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open || !productId) return;
@@ -59,6 +72,40 @@ export function ProductDetailPanel({ open, row, onOpenChange, onUpdate }: Produc
     };
   }, [open, productId]);
 
+  // Editable fields are seeded once the full product lands — the trimmed
+  // table row has no description at all.
+  useEffect(() => {
+    if (!full) return;
+    setTitle(full.title);
+    setDescription(full.description ?? "");
+    setCategory(null);
+  }, [full]);
+
+  // The product carries slugs; this turns them into "Top > Child > Leaf" for
+  // display. Falls back to the raw slugs if the lookup fails, which is still
+  // more informative than the top-level-only name the table has.
+  const slugPathKey = full?.categorySlugPath?.join("/") ?? "";
+  useEffect(() => {
+    if (!slugPathKey) return;
+    let cancelled = false;
+    setCurrentPath(slugPathKey.split("/").join(" > "));
+    setCurrentCategoryId(null);
+    fetch(`/api/admin/categories/leaf-search?slugPath=${encodeURIComponent(slugPathKey)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        const found = data.options?.[0];
+        if (cancelled || !found) return;
+        setCurrentPath(found.path);
+        setCurrentCategoryId(found.id);
+      })
+      .catch(() => {
+        // Keep the slug fallback already set above.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [slugPathKey]);
+
   if (!row) {
     return (
       <SlideOver open={open} onOpenChange={onOpenChange} title="Product details">
@@ -67,10 +114,48 @@ export function ProductDetailPanel({ open, row, onOpenChange, onUpdate }: Produc
     );
   }
 
-  const { meta, brandName, supplierName, categoryName, margin, marginPercent } = row;
+  // categoryName is dropped on purpose: it only ever held the top-level name,
+  // which is why the panel used to label a spotting scope
+  // "cameras-and-photography". The full leaf path is resolved below instead.
+  const { meta, brandName, supplierName, margin, marginPercent } = row;
   // Prefer the fully-loaded copy once it lands; until then the trimmed row
   // still renders title, price, and stock so the panel is never blank.
   const product = full ?? row.product;
+
+  const dirty =
+    Boolean(full) &&
+    (title !== product.title || description !== (product.description ?? "") || category !== null);
+
+  /**
+   * Writes the edits.
+   *
+   * This button used to fire toast.success("Product updated") and close,
+   * saving nothing — so a recategorisation looked like it worked and didn't.
+   */
+  async function save() {
+    if (!full) return;
+    setSaving(true);
+    try {
+      const result = await updateProductDetailsAction(product.id, {
+        title,
+        description,
+        // Unchanged category still has to be sent: the action writes
+        // categoryId and categorySlugPath together and needs the current one.
+        categoryId: category?.id ?? currentCategoryId ?? "",
+      });
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Product updated");
+      onOpenChange(false);
+      onSaved?.();
+    } catch {
+      toast.error("Couldn't save — please try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <SlideOver
@@ -96,7 +181,9 @@ export function ProductDetailPanel({ open, row, onOpenChange, onUpdate }: Produc
               </Link>
             }
           />
-          <Button onClick={() => { toast.success("Product updated"); onOpenChange(false); }}>Save changes</Button>
+          <Button disabled={!dirty || saving || !full} onClick={save}>
+            {saving ? "Saving..." : "Save changes"}
+          </Button>
         </div>
       }
     >
@@ -119,18 +206,23 @@ export function ProductDetailPanel({ open, row, onOpenChange, onUpdate }: Produc
 
           <TabsContent value="general" className="flex flex-col gap-4 pt-4">
             <div className="flex flex-col gap-1.5">
-              <Label>Title</Label>
-              <Input defaultValue={product.title} />
+              <Label htmlFor="pd-title">Title</Label>
+              <Input id="pd-title" value={title} onChange={(e) => setTitle(e.target.value)} disabled={!full} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label>Brand</Label>
                 <Input defaultValue={brandName} disabled />
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label>Category</Label>
-                <Input defaultValue={categoryName} disabled />
-              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Category</Label>
+              <CategoryPicker
+                value={currentCategoryId ?? ""}
+                currentPath={currentPath}
+                onChange={setCategory}
+                disabled={!full}
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
@@ -156,10 +248,15 @@ export function ProductDetailPanel({ open, row, onOpenChange, onUpdate }: Produc
               </div>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label>Description</Label>
-              <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-                {full ? product.description : "Loading description…"}
-              </p>
+              <Label htmlFor="pd-description">Description</Label>
+              <Textarea
+                id="pd-description"
+                rows={6}
+                value={full ? description : ""}
+                placeholder={full ? "" : "Loading description…"}
+                onChange={(e) => setDescription(e.target.value)}
+                disabled={!full}
+              />
             </div>
           </TabsContent>
 

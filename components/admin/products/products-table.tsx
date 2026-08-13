@@ -429,6 +429,11 @@ export function ProductsTable({ initialRows, categoryOptions, categoryTree, bran
         row={detailRow}
         onOpenChange={setDetailOpen}
         onUpdate={(id, patch) => updateMeta(id, patch)}
+        // Rows are held client-side from a paged query, so router.refresh()
+        // alone wouldn't show the edit — refetch the page being viewed. A
+        // recategorised product may also drop out of the current filter,
+        // which is correct and only visible after a refetch.
+        onSaved={() => fetchPage(pageIndex)}
       />
 
       <AlertDialog open={pendingDelete !== null} onOpenChange={(open) => !open && setPendingDelete(null)}>
