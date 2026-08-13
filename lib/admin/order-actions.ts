@@ -201,7 +201,17 @@ export async function resendOrderConfirmationAction(orderId: string, orderNumber
   const html = await buildOrderConfirmationHtml(orderId);
   if (!html) return { error: "Couldn't rebuild this order's confirmation" };
 
-  await sendEmail({ to: email, subject: `Your Cartebay order ${orderNumber} is confirmed`, html });
+  // Unlike the checkout path, a failure here must surface: the admin pressed
+  // the button and needs to know it didn't work, rather than seeing a success
+  // toast for an email that never left.
+  try {
+    await sendEmail({ to: email, subject: `Your Cartebay order ${orderNumber} is confirmed`, html });
+  } catch (err) {
+    const reason = err instanceof Error && /ETIMEDOUT|ECONN|timeout/i.test(err.message)
+      ? "the mail server couldn't be reached — check Settings → Email"
+      : "the mail server rejected it";
+    return { error: `Couldn't send to ${email}: ${reason}` };
+  }
 
   const actor = await getAdminActorName();
   await recordOrderEvent(orderId, "email", `Order confirmation re-sent to ${email}`, actor);

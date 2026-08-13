@@ -16,6 +16,7 @@ import { getTierByName } from "@/lib/loyalty";
 import { computeBundleAdjustedSubtotal } from "@/lib/bundles";
 import { getShippingRateById } from "@/lib/shipping-rates";
 import { getShippingRule } from "@/lib/shipping-thresholds";
+import { logError } from "@/lib/error-log";
 
 // The pure arithmetic (computeTotals, computeTotalsWithDiscount, the
 // TAX_RATE/FREE_SHIPPING_THRESHOLD/FLAT_SHIPPING constants) lives in
@@ -242,11 +243,33 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
   );
 
   if (email) {
-    await sendEmail({
-      to: email,
-      subject: `Your Cartebay order ${orderNumber} is confirmed`,
-      html: orderConfirmationEmail({ orderNumber, items: lineItems, subtotal, shipping, tax, total, shippingAddress }),
-    });
+    /**
+     * A failed confirmation email must never fail the order.
+     *
+     * This await was unguarded, and when the host began blocking outbound
+     * SMTP the throw took the rest of this function with it: the order rows
+     * were already written, but logActivity() below never ran and the
+     * function never returned an order id. Three live orders (BS-251435,
+     * BS-138548, BS-434640) exist with no entry in the activity feed as a
+     * result. The payment has already succeeded by this point — nothing
+     * after it should be able to unwind the sale.
+     *
+     * Logged through logError so it lands in Admin → Errors and alerts the
+     * Owner, rather than only appearing in the server journal, which is how
+     * this went unnoticed for five days.
+     */
+    try {
+      await sendEmail({
+        to: email,
+        subject: `Your Cartebay order ${orderNumber} is confirmed`,
+        html: orderConfirmationEmail({ orderNumber, items: lineItems, subtotal, shipping, tax, total, shippingAddress }),
+      });
+    } catch (err) {
+      await logError(err, {
+        source: "server-action",
+        label: `Order ${orderNumber} confirmation email failed`,
+      });
+    }
   }
 
   await logActivity("order", `Order ${orderNumber} placed — $${total.toFixed(2)}`, "Storefront");

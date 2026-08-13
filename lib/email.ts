@@ -36,6 +36,14 @@ function gmailTransport(): nodemailer.Transporter | null {
         // App Password, which Gmail accepts with the spaces stripped.
         pass: pass.replace(/\s+/g, ""),
       },
+      // Nodemailer's defaults wait around two minutes before giving up, and
+      // this runs while a customer is sitting on the checkout success page.
+      // When a host blocks outbound SMTP the connection doesn't fail — it
+      // hangs, so an explicit budget is the difference between a ten-second
+      // delay and an apparently frozen checkout.
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 20_000,
     });
   }
   return transporter;
