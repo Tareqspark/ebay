@@ -318,9 +318,20 @@ function priceForCost(costDollars: number): number {
   return Math.floor(costDollars * multiplier) + 0.99;
 }
 
+// products.slug is varchar(191) and products.title varchar(255). CJ titles
+// routinely exceed both — the first live run died on a 196-character slug
+// from "Multi-piece Party Value Packs, 7-Piece Stainless Steel Putty Knife
+// Set: Putty Knives, Plastering Knives, And Palette Knives...". Room is left
+// under the slug limit for the "-2" disambiguation suffix.
+const SLUG_MAX = 180;
+const TITLE_MAX = 255;
+
 const usedSlugs = new Set<string>();
 function uniqueSlug(title: string): string {
-  const base = slugify(title) || newId().toLowerCase();
+  const full = slugify(title) || newId().toLowerCase();
+  // Trimmed at a word boundary so the slug stays readable rather than
+  // ending mid-word.
+  const base = full.length <= SLUG_MAX ? full : full.slice(0, SLUG_MAX).replace(/-[^-]*$/, "");
   let slug = base;
   let n = 2;
   while (usedSlugs.has(slug)) {
@@ -329,6 +340,11 @@ function uniqueSlug(title: string): string {
   }
   usedSlugs.add(slug);
   return slug;
+}
+
+function fitTitle(title: string): string {
+  if (title.length <= TITLE_MAX) return title;
+  return title.slice(0, TITLE_MAX - 1).replace(/[\s,:-]+$/, "") + "…";
 }
 
 async function importVariant(
@@ -353,11 +369,14 @@ async function importVariant(
 
   const productId = newId();
   const sellPrice = priceForCost(costDollars);
+  // Slug derives from the full title before trimming, so two products whose
+  // titles only differ past the cut-off still get distinct slugs.
+  const slug = uniqueSlug(title);
 
   await db.insert(schema.products).values({
     id: productId,
-    slug: uniqueSlug(title),
-    title,
+    slug,
+    title: fitTitle(title),
     brandId: GENERIC_BRAND_ID,
     priceCents: toCents(sellPrice),
     originalPriceCents: null,
@@ -541,9 +560,16 @@ async function main() {
               listingsHere++;
               continue;
             }
-            if (await importVariant(detail, variant, stockByVid, leaf)) {
-              wroteAny = true;
-              listingsHere++;
+            try {
+              if (await importVariant(detail, variant, stockByVid, leaf)) {
+                wroteAny = true;
+                listingsHere++;
+              }
+            } catch (err) {
+              // One rejected row must not end an unattended multi-hour run —
+              // the first live attempt died entirely on a single over-length
+              // slug, 8 leaves in.
+              console.error(`  [skip] insert failed for ${detail.pid}: ${(err as Error).message.slice(0, 120)}`);
             }
           }
           if (wroteAny) importedHere++;
