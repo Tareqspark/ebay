@@ -115,18 +115,28 @@ payload and the link between here and the droplet dominate, not CPU.
 
 **Indexing all 11,708 dropship pages right now is more likely to hurt than help.**
 
-Every product currently carries a `picsum.photos` placeholder image and generated copy,
-and the catalogue is CJdropshipping's — the same supplier descriptions thousands of other
-stores publish. Google's helpful-content systems specifically target thin, syndicated,
-near-duplicate catalogue pages. Submitting all of it at once risks a site-wide quality
-assessment that is slow and painful to recover from.
+**Corrected 2026-08-13.** The original version of this section claimed every product
+carried a `picsum.photos` placeholder image. That was wrong — it came from CLAUDE.md's
+stale description of the catalogue rather than from the database. Checked directly:
+**11,707 of 11,709 products have real CJdropshipping photography**, not placeholders.
+
+The concern that remains is the text, not the pictures. Descriptions are CJ's own supplier
+copy ("Product information: The content of main fabric ingredients: 95% POLYESTER…") —
+the same wording thousands of other dropshipping stores publish. Google's helpful-content
+systems specifically target thin, syndicated, near-duplicate catalogue pages, and
+duplicated descriptions across a large index are exactly that pattern.
+
+A second, separate problem found on 2026-08-13: **741 of 1,416 leaf categories contain no
+products at all** (plus 13 subcategories and one top-level, "Barua insurance"). Those are
+empty pages, and submitting them would be submitting thin content by definition.
 
 The technical fixes in sections 1–4 are **necessary but not sufficient**. A small number of
 products with real photography and genuinely written descriptions will outrank a large
 index of supplier boilerplate, and will not put the domain at risk.
 
-Concretely: the first sitemap should contain the homepage, the 31 departments,
-collections, and **only products with real images** — not the whole catalogue.
+Concretely: the first sitemap should contain the homepage, the departments, collections,
+**category pages that actually have products in them**, and a product set whose
+descriptions have been rewritten — not the whole catalogue, and not the 741 empty leaves.
 
 ---
 
