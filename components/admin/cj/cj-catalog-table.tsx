@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Download, Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -201,15 +202,23 @@ export function CjCatalogTable({ categoryOptions, shippingLines }: CjCatalogTabl
                     <Checkbox checked={selected.has(item.id)} onCheckedChange={() => toggleSelect(item.id)} disabled={isImported} />
                   </td>
                   <td className="px-3 py-2.5">
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
+                    {/* The image and title are one link, not two — a 36px
+                        thumbnail is a poor click target on its own, and
+                        wrapping both gives the whole cell a usable one. */}
+                    <Link
+                      href={`/admin/cj/catalog/${item.id}`}
+                      className="group flex min-w-0 items-center gap-2.5 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-md border border-border bg-muted transition-colors group-hover:border-primary">
                         <Image src={item.image} alt="" fill sizes="36px" className="object-cover" />
                       </div>
                       <div className="min-w-0">
-                        <p className="max-w-[220px] truncate text-sm font-medium text-foreground">{item.title}</p>
+                        <p className="max-w-[220px] truncate text-sm font-medium text-foreground group-hover:text-primary group-hover:underline">
+                          {item.title}
+                        </p>
                         <p className="font-mono text-xs text-muted-foreground">{item.cjProductId}</p>
                       </div>
-                    </div>
+                    </Link>
                   </td>
                   <td className="px-3 py-2.5 text-muted-foreground">{item.categorySlug.replace(/-/g, " ")}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{formatMoney(item.cost)}</td>
