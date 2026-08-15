@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { uploadImageFile } from "@/lib/upload-client";
 
 /**
  * Multi-image picker for own-brand products. Uploads each file as it's chosen
@@ -46,16 +47,9 @@ export function ProductImageUpload({ value, onChange }: { value: string[]; onCha
     const failed: FailedUpload[] = [];
 
     for (const [index, file] of list.entries()) {
-      try {
-        const body = new FormData();
-        body.append("file", file);
-        const res = await fetch("/api/admin/products/upload", { method: "POST", body });
-        const data = await res.json();
-        if (!res.ok) failed.push({ name: file.name, reason: data.error ?? "Upload failed" });
-        else uploaded.push(data.url);
-      } catch {
-        failed.push({ name: file.name, reason: "Couldn't reach the server" });
-      }
+      const result = await uploadImageFile("/api/admin/products/upload", file);
+      if (result.error) failed.push({ name: file.name, reason: result.error });
+      else uploaded.push(result.url!);
       setProgress({ done: index + 1, total: list.length });
     }
 

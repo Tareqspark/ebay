@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { ImagePlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { uploadImageFile } from "@/lib/upload-client";
 
 /**
  * Uploads immediately on file pick and hands back the stored URL, rather
@@ -20,17 +21,12 @@ export function BannerImageUpload({ value, onChange }: { value: string; onChange
     setUploading(true);
     setError(null);
     try {
-      const body = new FormData();
-      body.append("file", file);
-      const res = await fetch("/api/admin/banners/upload", { method: "POST", body });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Upload failed");
+      const result = await uploadImageFile("/api/admin/banners/upload", file);
+      if (result.error) {
+        setError(result.error);
         return;
       }
-      onChange(data.url);
-    } catch {
-      setError("Upload failed — check your connection and try again");
+      onChange(result.url!);
     } finally {
       setUploading(false);
       // Clear the input so re-picking the same file still fires onChange.

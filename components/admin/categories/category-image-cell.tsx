@@ -6,6 +6,7 @@ import Image from "next/image";
 import { ImagePlus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { setCategoryImageAction } from "@/lib/admin/category-actions";
+import { uploadImageFile } from "@/lib/upload-client";
 
 /**
  * The thumbnail in each tree row, doubling as the upload button.
@@ -24,16 +25,13 @@ export function CategoryImageCell({ id, name, image }: { id: string; name: strin
   async function handleFile(file: File) {
     setBusy(true);
     try {
-      const body = new FormData();
-      body.append("file", file);
-      const res = await fetch("/api/admin/categories/upload", { method: "POST", body });
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error(data.error ?? "Upload failed");
+      const upload = await uploadImageFile("/api/admin/categories/upload", file);
+      if (upload.error) {
+        toast.error(upload.error);
         return;
       }
 
-      const result = await setCategoryImageAction(id, data.url);
+      const result = await setCategoryImageAction(id, upload.url!);
       if (result.error) {
         toast.error(result.error);
         return;
@@ -41,7 +39,7 @@ export function CategoryImageCell({ id, name, image }: { id: string; name: strin
       toast.success(`Image set for ${name}`);
       startTransition(() => router.refresh());
     } catch {
-      toast.error("Upload failed — check your connection and try again");
+      toast.error("Couldn't save the image — please try again");
     } finally {
       setBusy(false);
       // Reset so picking the same file again still fires onChange.

@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { uploadImageFile } from "@/lib/upload-client";
 
 /**
  * Uploads the picked file straight away and hands back the stored URL,
@@ -31,17 +32,12 @@ export function CategoryImageUpload({
     setUploading(true);
     setError(null);
     try {
-      const body = new FormData();
-      body.append("file", file);
-      const res = await fetch("/api/admin/categories/upload", { method: "POST", body });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Upload failed");
+      const result = await uploadImageFile("/api/admin/categories/upload", file);
+      if (result.error) {
+        setError(result.error);
         return;
       }
-      onChange(data.url);
-    } catch {
-      setError("Upload failed — check your connection and try again");
+      onChange(result.url!);
     } finally {
       setUploading(false);
       // Clear the input so re-picking the same file still fires onChange.
