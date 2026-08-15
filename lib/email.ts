@@ -1,16 +1,23 @@
 import "server-only";
 import nodemailer from "nodemailer";
 import { sendEmail as sendViaSendGrid } from "@/lib/sendgrid";
+import { isGmailApiConfigured, sendViaGmailApi } from "@/lib/gmail-api";
 
 /**
  * Single entry point for outbound mail, picking a transport at call time:
  *
- *   1. Gmail SMTP, when GMAIL_USER and GMAIL_APP_PASSWORD are set
- *   2. SendGrid, via lib/sendgrid.ts, when SENDGRID_API_KEY is set
- *   3. Console log, so checkout still completes in dev with neither
+ *   1. Gmail REST API over HTTPS, when the OAuth trio and GMAIL_USER are set
+ *   2. Gmail SMTP, when GMAIL_USER and GMAIL_APP_PASSWORD are set
+ *   3. SendGrid, via lib/sendgrid.ts, when SENDGRID_API_KEY is set
+ *   4. Console log, so checkout still completes in dev with none of them
  *
- * lib/sendgrid.ts is deliberately left untouched and still owns steps 2 and
- * 3 — clearing the two Gmail variables switches everything back to it with
+ * The API comes first because SMTP is unusable on hosts that block its
+ * ports — which is every DigitalOcean droplet by default, including this
+ * one. SMTP is kept below it because it is the simpler setup and works fine
+ * anywhere the ports are open, including local development.
+ *
+ * lib/sendgrid.ts is deliberately left untouched and still owns the last two
+ * steps — clearing the Gmail variables switches everything back to it with
  * no code change.
  */
 
@@ -49,9 +56,17 @@ function gmailTransport(): nodemailer.Transporter | null {
   return transporter;
 }
 
-/** True when Gmail SMTP is configured — lets callers report which transport is live without exposing credentials. */
+/** True when either Gmail transport is configured — lets callers report what's live without exposing credentials. */
 export function isGmailConfigured(): boolean {
-  return Boolean(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
+  return isGmailApiConfigured() || Boolean(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
+}
+
+/** Which transport a send would use right now, for the admin Email settings screen. */
+export function activeMailTransport(): "gmail-api" | "gmail-smtp" | "sendgrid" | "none" {
+  if (isGmailApiConfigured()) return "gmail-api";
+  if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) return "gmail-smtp";
+  if (process.env.SENDGRID_API_KEY) return "sendgrid";
+  return "none";
 }
 
 /** The address customer-facing mail is sent from and support mail is delivered to. */
@@ -60,6 +75,11 @@ export function mailFrom(): string {
 }
 
 export async function sendEmail({ to, subject, html }: SendEmailInput): Promise<void> {
+  if (isGmailApiConfigured()) {
+    await sendViaGmailApi({ to, subject, html });
+    return;
+  }
+
   const gmail = gmailTransport();
   if (!gmail) {
     await sendViaSendGrid({ to, subject, html });
