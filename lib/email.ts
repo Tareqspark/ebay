@@ -74,6 +74,21 @@ export function mailFrom(): string {
   return process.env.GMAIL_USER || process.env.SENDGRID_FROM_EMAIL || "orders@cartebay.com";
 }
 
+/**
+ * True for failures where the message provably never left this process — the
+ * socket never opened. Anything else (a rejection mid-conversation, an auth
+ * refusal after DATA) is ambiguous and must not be retried elsewhere, or a
+ * customer could receive two receipts.
+ */
+function isConnectionFailure(err: unknown): boolean {
+  const code = (err as { code?: string })?.code;
+  const command = (err as { command?: string })?.command;
+  return (
+    command === "CONN" ||
+    ["ETIMEDOUT", "ECONNREFUSED", "ECONNRESET", "EHOSTUNREACH", "ENOTFOUND", "EDNS"].includes(code ?? "")
+  );
+}
+
 export async function sendEmail({ to, subject, html }: SendEmailInput): Promise<void> {
   if (isGmailApiConfigured()) {
     await sendViaGmailApi({ to, subject, html });
@@ -86,13 +101,35 @@ export async function sendEmail({ to, subject, html }: SendEmailInput): Promise<
     return;
   }
 
-  await gmail.sendMail({
-    // Gmail rewrites From to the authenticated account unless the address is
-    // a verified "Send mail as" alias, so the display name is what actually
-    // differentiates this from a personal message in the inbox.
-    from: `"Cartebay" <${mailFrom()}>`,
-    to,
-    subject,
-    html,
-  });
+  try {
+    await gmail.sendMail({
+      // Gmail rewrites From to the authenticated account unless the address is
+      // a verified "Send mail as" alias, so the display name is what actually
+      // differentiates this from a personal message in the inbox.
+      from: `"Cartebay" <${mailFrom()}>`,
+      to,
+      subject,
+      html,
+    });
+  } catch (err) {
+    /**
+     * Gmail SMTP is configured but unreachable — hand off to SendGrid.
+     *
+     * Without this, adding SENDGRID_API_KEY to a server that still has the
+     * Gmail variables set changes nothing: Gmail wins the priority above,
+     * times out, and throws before SendGrid is ever consulted. Someone
+     * configuring a working transport would watch it make no difference and
+     * have no way to see why.
+     *
+     * Restricted to connection failures on purpose. Those mean the socket
+     * never opened, so re-sending cannot duplicate a message that already
+     * went out.
+     */
+    if (isConnectionFailure(err) && process.env.SENDGRID_API_KEY) {
+      console.warn(`[email] Gmail SMTP unreachable (${(err as Error).message}) — falling back to SendGrid`);
+      await sendViaSendGrid({ to, subject, html });
+      return;
+    }
+    throw err;
+  }
 }
