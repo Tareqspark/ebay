@@ -6,7 +6,7 @@ import { computeTotals, computeTotalsWithDiscount } from "@/lib/checkout";
 import { getShippingRule } from "@/lib/shipping-thresholds";
 import { validatePromoForCheckout, reservePromoUsage } from "@/lib/promo";
 import { getLoyaltyStatus } from "@/lib/loyalty";
-import { getShippingRateById } from "@/lib/shipping-rates";
+import { resolveShippingSelection } from "@/lib/shipping-quote";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
 import { toCents } from "@/lib/money";
 import { getAvailableStock } from "@/lib/inventory";
@@ -75,10 +75,19 @@ export async function createPaymentIntentAction(
   let shippingOverride: number | undefined;
   let appliedShippingRateId: string | undefined;
   if (shippingRateId) {
-    const rate = await getShippingRateById(shippingRateId, address.state, cart.subtotal, address.country);
+    const rate = await resolveShippingSelection({
+      id: shippingRateId,
+      state: address.state,
+      zip: address.zip,
+      country: address.country,
+      subtotal: cart.subtotal,
+      cart: cart.items.map((l) => ({ productId: l.product.id, quantity: l.quantity })),
+    });
     if (rate) {
       shippingOverride = rate.rate;
-      appliedShippingRateId = rate.id;
+      // The id the customer chose, kept for the intent metadata so order
+      // creation can re-resolve the same option.
+      appliedShippingRateId = shippingRateId;
     }
   }
 

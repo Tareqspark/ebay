@@ -14,7 +14,7 @@ import { decrementInventoryForProduct } from "@/lib/inventory";
 import { logActivity } from "@/lib/admin/activity";
 import { getTierByName } from "@/lib/loyalty";
 import { computeBundleAdjustedSubtotal } from "@/lib/bundles";
-import { getShippingRateById } from "@/lib/shipping-rates";
+import { resolveShippingSelection } from "@/lib/shipping-quote";
 import { getShippingRule } from "@/lib/shipping-thresholds";
 import { logError } from "@/lib/error-log";
 
@@ -106,7 +106,14 @@ export async function createOrderFromPaymentIntent(paymentIntentId: string): Pro
   let shippingMethod: string | null = null;
   let shippingOverride: number | undefined;
   if (shippingRateIdFromMetadata) {
-    const rate = await getShippingRateById(shippingRateIdFromMetadata, address.state ?? "", subtotal, address.country ?? "US");
+    const rate = await resolveShippingSelection({
+      id: shippingRateIdFromMetadata,
+      state: address.state ?? "",
+      zip: address.zip ?? "",
+      country: address.country ?? "US",
+      subtotal,
+      cart: lineItems.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+    });
     if (rate) {
       shippingOverride = rate.rate;
       shippingMethod = rate.carrierName ? `${rate.carrierName} — ${rate.method}` : rate.method;

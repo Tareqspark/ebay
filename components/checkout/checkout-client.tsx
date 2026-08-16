@@ -45,7 +45,29 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals, loyaltyDiscou
 
   const [addressState, setAddressState] = useState(defaultAddress.state);
   const [addressCountry, setAddressCountry] = useState(defaultAddress.country || "US");
+  const [addressZip, setAddressZip] = useState(defaultAddress.zip);
+  /**
+   * Debounced, and only once the postcode looks finished.
+   *
+   * A live USPS quote is a real API call against a 60-per-hour budget, and a
+   * ZIP is typed one character at a time — quoting on every keystroke would
+   * spend five calls to price one address, each on a different partial code
+   * that caches separately. Five digits domestically, anything non-empty
+   * abroad where formats vary.
+   */
+  const [quoteZip, setQuoteZip] = useState("");
+  useEffect(() => {
+    const trimmed = addressZip.trim();
+    const usable = addressCountry.trim().toUpperCase() === "US" ? /^\d{5}(-\d{4})?$/.test(trimmed) : trimmed.length > 0;
+    if (!usable) {
+      setQuoteZip("");
+      return;
+    }
+    const timer = setTimeout(() => setQuoteZip(trimmed), 500);
+    return () => clearTimeout(timer);
+  }, [addressZip, addressCountry]);
   const [rates, setRates] = useState<AvailableShippingRate[]>([]);
+  const [splitShipment, setSplitShipment] = useState(false);
   const [ratesLoading, setRatesLoading] = useState(false);
   const [selectedRateId, setSelectedRateId] = useState<string | null>(null);
   const [shippingPreview, setShippingPreview] = useState<{ shipping: number; tax: number; total: number; discount: number } | null>(null);
@@ -64,11 +86,12 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals, loyaltyDiscou
     }
     let cancelled = false;
     setRatesLoading(true);
-    getShippingRatesAction(addressState, cart.subtotal, addressCountry)
+    getShippingRatesAction(addressState, cart.subtotal, addressCountry, quoteZip)
       .then((result) => {
         if (cancelled) return;
-        setRates(result);
-        setSelectedRateId(result[0]?.id ?? null);
+        setRates(result.rates);
+        setSplitShipment(result.splitShipment);
+        setSelectedRateId(result.rates[0]?.id ?? null);
       })
       .finally(() => {
         if (!cancelled) setRatesLoading(false);
@@ -77,7 +100,7 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals, loyaltyDiscou
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [addressState, addressCountry]);
+  }, [addressState, addressCountry, quoteZip]);
 
   useEffect(() => {
     // Runs even with no rate selected. Every international destination has
@@ -85,14 +108,14 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals, loyaltyDiscou
     // both the destination's tax treatment and its free-shipping rule —
     // without it the summary fell back to totals computed as if US.
     let cancelled = false;
-    previewShippingTotalsAction(selectedRateId ?? "", addressState, applied?.code, addressCountry).then((result) => {
+    previewShippingTotalsAction(selectedRateId ?? "", addressState, applied?.code, addressCountry, quoteZip).then((result) => {
       if (cancelled || result.error) return;
       setShippingPreview({ shipping: result.shipping!, tax: result.tax!, total: result.total!, discount: result.discount! });
     });
     return () => {
       cancelled = true;
     };
-  }, [selectedRateId, addressState, addressCountry, applied?.code]);
+  }, [selectedRateId, addressState, addressCountry, applied?.code, quoteZip]);
 
   function handleApplyPromo() {
     if (!promoInput.trim()) return;
@@ -135,6 +158,7 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals, loyaltyDiscou
           onAddressChange={(address) => {
             setAddressState(address.state);
             setAddressCountry(address.country || "US");
+            setAddressZip(address.zip);
           }}
         />
 
@@ -144,6 +168,16 @@ export function CheckoutClient({ cart, defaultAddress, baseTotals, loyaltyDiscou
               <Truck className="h-4 w-4" />
               Shipping Method
             </h2>
+            {splitShipment && !ratesLoading && (
+              // Asked for explicitly: the customer pays one shipping price but
+              // receives two deliveries, because we dispatch our own stock and
+              // CJ dispatches theirs. Saying so at checkout prevents the "where
+              // is the rest of my order" message later.
+              <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                This order ships in two parts — some items come direct from our supplier and may arrive separately.
+                You&apos;ll get tracking for each as it leaves.
+              </p>
+            )}
             {ratesLoading ? (
               <p className="text-sm text-muted-foreground">Finding rates for your address...</p>
             ) : (
