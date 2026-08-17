@@ -336,6 +336,14 @@ export const categories = mysqlTable(
     // component, not data) — store the icon's export name and resolve it
     // back to the component via lib/category-icons.ts. See CLAUDE.md.
     iconName: varchar("icon_name", { length: 60 }),
+    /**
+     * The supplier category this node mirrors.
+     *
+     * Products carry CJ's own category id, so filing them is a lookup rather
+     * than a guess at their title. Holding the id here is what makes that
+     * join possible, and it lets our display names differ freely from CJ's.
+     */
+    cjCategoryId: varchar("cj_category_id", { length: 64 }),
     image: text("image"),
     description: text("description"),
     featured: boolean("featured"),
@@ -425,6 +433,16 @@ export const productMeta = mysqlTable("product_meta", {
   cjVariantId: varchar("cj_variant_id", { length: 191 }),
   cjShippingFeeCents: int("cj_shipping_fee_cents"),
   cjShippingLineId: varchar("cj_shipping_line_id", { length: 191 }),
+  /**
+   * CJ's own category for this product, captured at import.
+   *
+   * The importer never recorded it, which is why filing had to be inferred
+   * from product titles — and why 66% ended up wrong. Storing it means the
+   * supplier decides the category and nothing is guessed. The path is kept
+   * alongside the id purely so the data is readable without a join to CJ.
+   */
+  cjCategoryId: varchar("cj_category_id", { length: 64 }),
+  cjCategoryPath: varchar("cj_category_path", { length: 255 }),
   cjSourceWarehouse: mysqlEnum("cj_source_warehouse", cjWarehouse),
   cjStockStatus: mysqlEnum("cj_stock_status", cjStockStatus),
 });
