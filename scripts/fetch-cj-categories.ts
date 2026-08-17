@@ -110,7 +110,9 @@ async function main() {
         .update(schema.productMeta)
         .set({ cjCategoryId: detail.categoryId, cjCategoryPath: (detail.categoryName ?? "").slice(0, 255) })
         .where(eq(schema.productMeta.cjProductId, pid));
-      listings += (result as unknown as { affectedRows?: number }).affectedRows ?? 0;
+      // mysql2 hands back [ResultSetHeader, fields]; reading affectedRows off
+      // the tuple itself gives undefined and undercounts the log line.
+      listings += (result as unknown as [{ affectedRows?: number }])[0]?.affectedRows ?? 0;
       done++;
       if (done % 100 === 0) {
         console.log(`  ${done}/${todo.length} products · ${listings} listings · points ${points.used}/${points.total}`);
