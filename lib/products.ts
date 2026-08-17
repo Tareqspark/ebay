@@ -106,9 +106,31 @@ export async function searchProducts(query: string, limit = 24): Promise<Product
 }
 
 /** Products whose category path starts with the given slug segments. */
+/**
+ * Products in a category, narrowed by the database rather than in JavaScript.
+ *
+ * This previously called getAllProducts() and filtered the result, which meant
+ * every category page loaded all 11,807 products to display a handful — the
+ * main reason a category page transfers 1.5MB and the homepage 2.5MB. It also
+ * put a hard ceiling on catalogue growth: the same page at 50,000 products
+ * would not stand up.
+ *
+ * categorySlugPath is a JSON array, so each depth is matched by extracting its
+ * element — the same approach buildRuleConditions already uses for collection
+ * rules.
+ */
 export async function getProductsByCategoryPath(segments: string[]): Promise<Product[]> {
-  const all = await getAllProducts();
-  return all.filter((p) => segments.every((seg, i) => p.categorySlugPath[i] === seg));
+  if (segments.length === 0) return getAllProducts();
+
+  const conditions = segments
+    .slice(0, 3)
+    .map((seg, i) => sql`json_unquote(json_extract(${productsTable.categorySlugPath}, ${`$[${i}]`})) = ${seg}`);
+
+  const [rows, brandNameById] = await Promise.all([
+    db.select().from(productsTable).where(and(...conditions)),
+    getBrandNameById(),
+  ]);
+  return rows.map((r) => toProduct(r, brandNameById));
 }
 
 export async function getDealsProducts(limit = 12): Promise<Product[]> {
