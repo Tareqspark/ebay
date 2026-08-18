@@ -11,7 +11,7 @@ export function AddToCart({ productId, inStock }: { productId: string; inStock: 
   const { addItem, isPending } = useCart();
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-1">
       <div className="flex h-11 items-center rounded-lg border border-border">
         <button
           type="button"

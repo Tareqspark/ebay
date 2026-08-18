@@ -7,6 +7,7 @@ import { RatingStars } from "@/components/product/rating-stars";
 import { PriceDisplay } from "@/components/product/price-display";
 import { ProductBadges } from "@/components/product/product-badges";
 import { AddToCart } from "@/components/product/add-to-cart";
+import { WishlistButton } from "@/components/product/wishlist-button";
 import { RecordRecentlyViewed } from "@/components/product/record-recently-viewed";
 import { ProductRail } from "@/components/product/product-rail";
 import { ReviewsSection } from "@/components/product/reviews-section";
@@ -103,7 +104,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </span>
           </div>
 
-          <AddToCart productId={product.id} inStock={product.stock > 0} />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <AddToCart productId={product.id} inStock={product.stock > 0} />
+            <WishlistButton productId={product.id} className="h-11 w-11 sm:h-auto sm:w-auto sm:rounded-md sm:bg-muted sm:px-3 sm:py-2.5" />
+          </div>
 
           {bundle && bundleProducts.length >= 2 && (
             <BundlePromo
