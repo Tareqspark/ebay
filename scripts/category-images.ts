@@ -58,8 +58,6 @@ const PANEL = 360;
 const PANEL_GAP = 20;
 /** How many products to try before giving up on a category — CJ URLs do rot. */
 const MAX_ATTEMPTS = 8;
-/** Aspect tolerance for "this is a product shot, not a marketing graphic". */
-const NEAR_SQUARE = 0.08;
 const CONCURRENCY = 6;
 
 interface Candidate {
@@ -95,32 +93,28 @@ async function letterbox(photo: Buffer, w: number, h: number): Promise<Buffer> {
 }
 
 /**
- * Walks candidates until one yields a usable photo, preferring square ones.
+ * Walks candidates in order until one yields a usable photo.
  *
- * Roughly a third of first-pass picks turned out to be marketing graphics
- * rather than product shots — spec callouts, before-and-after panels, text in
- * Chinese. They share a tell: CJ's clean shots are square, and the graphics
- * are laid out landscape to fit their copy. Squareness is a proxy for "this is
- * a photo of the thing", not a quality judgement, so a non-square candidate is
- * still used when nothing better turns up.
+ * About a third of picks are CJ's marketing graphics rather than product
+ * shots — spec callouts, before-and-after panels, untranslated copy. There is
+ * no filter for them here, because the obvious one does not work: the graphics
+ * measure 800x800 exactly like the clean shots do, so aspect ratio separates
+ * nothing. Selecting on it only shuffled picks, once for the worse. Sorting
+ * photographs from sales collateral needs a human eye, and admin already has
+ * the category image uploader for that.
  */
 async function firstUsable(
   candidates: Candidate[],
   seen: Set<string>,
 ): Promise<{ id: string; photo: Buffer } | null> {
   let tried = 0;
-  let fallback: { id: string; photo: Buffer } | null = null;
   for (const c of candidates) {
     if (seen.has(c.id) || tried >= MAX_ATTEMPTS) continue;
     tried++;
     const photo = await loadPhoto(c.url);
-    if (!photo) continue;
-    const meta = await sharp(photo).metadata().catch(() => null);
-    if (!meta?.width || !meta.height) continue;
-    if (Math.abs(meta.width / meta.height - 1) <= NEAR_SQUARE) return { id: c.id, photo };
-    fallback ??= { id: c.id, photo };
+    if (photo) return { id: c.id, photo };
   }
-  return fallback;
+  return null;
 }
 
 async function buildTile(candidates: Candidate[]): Promise<Buffer | null> {
