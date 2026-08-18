@@ -21,7 +21,7 @@
  *
  * Dry run by default; --apply writes in a transaction.
  */
-import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 import * as schema from "../db/schema";
@@ -77,14 +77,6 @@ async function main() {
     }
   }
 
-  // A hidden product still needs a valid path, or it breaks admin listings
-  // that resolve a category name for every row.
-  const [fallback] = await db
-    .select({ id: schema.categories.id, slug: schema.categories.slug, parentId: schema.categories.parentId })
-    .from(schema.categories)
-    .where(and(eq(schema.categories.level, "grandchild"), sql`${schema.categories.cjCategoryId} IS NOT NULL`))
-    .limit(1);
-
   if (!APPLY) {
     console.log(`\nWould delete ${preserved.length} old nodes, hide ${delisted.length} products, place ${own.length} by hand.`);
     console.log("Re-run with --apply to write.");
@@ -107,14 +99,13 @@ async function main() {
 
     if (delisted.length) {
       const ids = delisted.map((p) => p.id);
-      // Parked in a real category so nothing resolves to a dead path, and
-      // hidden so no customer can reach it.
-      const [parentChain] = await tx
-        .select({ topSlug: schema.categories.slug })
-        .from(schema.categories)
-        .where(eq(schema.categories.id, fallback.parentId!))
-        .limit(1);
-      void parentChain;
+      /**
+       * Their categorySlugPath is deliberately left pointing at the removed
+       * nodes. Reassigning them would put a bird cage in Women's Crossbody
+       * Bags for the sake of tidiness; the stale path is inert, because
+       * getProductsByCategoryPath matches on live categories and these are
+       * archived and hidden besides. It also preserves where they used to sit.
+       */
       for (let i = 0; i < ids.length; i += 200) {
         const slice = ids.slice(i, i + 200);
         await tx.update(schema.productMeta).set({ visibility: "hidden", status: "archived" }).where(inArray(schema.productMeta.productId, slice));
