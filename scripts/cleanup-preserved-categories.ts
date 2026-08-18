@@ -32,7 +32,7 @@ const APPLY = process.argv.includes("--apply");
 
 /** Chosen by hand — these are the only two products that need a judgement call. */
 const OWN_BRAND_HOMES: Record<string, [string, string, string]> = {
-  "Police Car toy": ["toys-kids-and-babies", "toys-and-hobbies", "diecasts-and-toy-vehicles"],
+  "Police Car toy": ["toys-kids-and-babies", "toys-and-hobbies", "action-and-toy-figures"],
   "tareq bags": ["bags-and-shoes", "womens-luggage-and-bags", "womens-crossbody-bags"],
 };
 
