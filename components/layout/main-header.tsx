@@ -52,18 +52,23 @@ export function MainHeader({
         </Link>
 
         <SearchBar
-          className="mx-auto max-w-3xl flex-1"
+          className="mx-auto hidden flex-1 max-w-3xl sm:block"
           featuredCategories={featuredCategories}
           allCategories={allCategoriesForScope}
         />
 
-        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
-                <Button variant="ghost" className="hidden h-10 items-center gap-2 px-2 sm:flex">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="sm:h-10 sm:w-auto sm:items-center sm:gap-2 sm:px-2"
+                  nativeButton={false}
+                >
                   <User className="h-5 w-5" />
-                  <span className="flex flex-col items-start leading-tight">
+                  <span className="hidden flex-col items-start leading-tight sm:flex">
                     <span className="text-[11px] text-muted-foreground">
                       {session ? `Hello, ${firstName}` : "Hello, sign in"}
                     </span>
@@ -100,7 +105,6 @@ export function MainHeader({
           <Button
             variant="ghost"
             size="icon"
-            className="hidden sm:inline-flex"
             nativeButton={false}
             render={
               <Link href="/account/wishlist" aria-label="Wishlist">
