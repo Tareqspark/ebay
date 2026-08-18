@@ -57,7 +57,9 @@ const BANNER_H = 900;
 const PANEL = 360;
 const PANEL_GAP = 20;
 /** How many products to try before giving up on a category — CJ URLs do rot. */
-const MAX_ATTEMPTS = 6;
+const MAX_ATTEMPTS = 8;
+/** Aspect tolerance for "this is a product shot, not a marketing graphic". */
+const NEAR_SQUARE = 0.08;
 const CONCURRENCY = 6;
 
 interface Candidate {
@@ -92,19 +94,33 @@ async function letterbox(photo: Buffer, w: number, h: number): Promise<Buffer> {
     .toBuffer();
 }
 
-/** Walks candidates in order until one yields a usable photo. */
+/**
+ * Walks candidates until one yields a usable photo, preferring square ones.
+ *
+ * Roughly a third of first-pass picks turned out to be marketing graphics
+ * rather than product shots — spec callouts, before-and-after panels, text in
+ * Chinese. They share a tell: CJ's clean shots are square, and the graphics
+ * are laid out landscape to fit their copy. Squareness is a proxy for "this is
+ * a photo of the thing", not a quality judgement, so a non-square candidate is
+ * still used when nothing better turns up.
+ */
 async function firstUsable(
   candidates: Candidate[],
   seen: Set<string>,
 ): Promise<{ id: string; photo: Buffer } | null> {
   let tried = 0;
+  let fallback: { id: string; photo: Buffer } | null = null;
   for (const c of candidates) {
     if (seen.has(c.id) || tried >= MAX_ATTEMPTS) continue;
     tried++;
     const photo = await loadPhoto(c.url);
-    if (photo) return { id: c.id, photo };
+    if (!photo) continue;
+    const meta = await sharp(photo).metadata().catch(() => null);
+    if (!meta?.width || !meta.height) continue;
+    if (Math.abs(meta.width / meta.height - 1) <= NEAR_SQUARE) return { id: c.id, photo };
+    fallback ??= { id: c.id, photo };
   }
-  return null;
+  return fallback;
 }
 
 async function buildTile(candidates: Candidate[]): Promise<Buffer | null> {
