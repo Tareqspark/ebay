@@ -65,6 +65,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
         name: gc.name,
         href: categoryHref(top.slug, child.slug, gc.slug),
         imageSeed: gc.slug,
+        image: gc.image,
       }));
   }
 
