@@ -9,10 +9,11 @@ import { ProductExplorer } from "@/components/product/product-explorer";
 import { BannerSlot } from "@/components/storefront/banner-slot";
 import { categoryHref, resolveCategoryPath } from "@/lib/category-utils";
 import { getBrandsForCategory } from "@/lib/brands";
-import { getBrandsInProducts, getProductsByCategoryPath } from "@/lib/products";
+import { browseCategory, parseExplorerParams, toExplorerState } from "@/lib/products";
 
 interface CategoryPageProps {
   params: Promise<{ slug: string[] }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 export async function generateMetadata({ params }: CategoryPageProps): Promise<Metadata> {
@@ -27,14 +28,19 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
   };
 }
 
-export default async function CategoryPage({ params }: CategoryPageProps) {
-  const { slug } = await params;
+export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
+  const [{ slug }, sp] = await Promise.all([params, searchParams]);
   const resolved = await resolveCategoryPath(slug);
   if (!resolved) notFound();
 
   const { top, child, grandchild, breadcrumbs } = resolved;
   const current = grandchild ?? child ?? top;
-  const products = await getProductsByCategoryPath(slug);
+
+  // One page of products, filtered and counted in SQL. The page used to load
+  // the entire department — 3,629 products and 5.8MB on Pet Supplies — to show
+  // the 24 that fit on screen.
+  const explorerParams = parseExplorerParams(sp);
+  const result = await browseCategory(slug, explorerParams);
 
   let subcategoryTitle = "Shop by Subcategory";
   let subItems: SubcategoryGridItem[] = [];
@@ -78,8 +84,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     tagline: `${top.name} Essentials`,
   }));
 
-  const brands = await getBrandsInProducts(products);
-  const brandOptions = brands.length > 0 ? brands : await getBrandsForCategory(top.slug);
+  const brandOptions = result.brands.length > 0 ? result.brands : await getBrandsForCategory(top.slug);
 
   return (
     <div className="mx-auto flex max-w-[1440px] flex-col gap-10 px-4 py-6 sm:px-6 sm:py-8">
@@ -89,7 +94,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
         title={current.name}
         description={grandchild || child ? `Explore top-rated ${current.name.toLowerCase()} from trusted brands.` : top.description}
         image={top.image}
-        productCount={products.length}
+        productCount={result.totalInCategory}
       />
 
       <BannerSlot placement="category-top" />
@@ -102,9 +107,16 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 
       <section>
         <h2 className="mb-4 text-xl font-semibold tracking-tight text-foreground">
-          {products.length.toLocaleString()} Products in {current.name}
+          {result.totalInCategory.toLocaleString()} Products in {current.name}
         </h2>
-        <ProductExplorer products={products} brands={brandOptions} />
+        <ProductExplorer
+          products={result.products}
+          brands={brandOptions}
+          bounds={result.bounds}
+          total={result.total}
+          pageCount={result.pageCount}
+          state={toExplorerState(explorerParams, result)}
+        />
       </section>
     </div>
   );

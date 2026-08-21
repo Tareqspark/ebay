@@ -3,9 +3,11 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import { ProductExplorer } from "@/components/product/product-explorer";
 import { getCollectionBySlug, getCollectionProducts } from "@/lib/collections";
+import { paginateProducts, parseExplorerParams, toExplorerState } from "@/lib/products";
 
 interface CollectionPageProps {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 export async function generateMetadata({ params }: CollectionPageProps): Promise<Metadata> {
@@ -15,8 +17,8 @@ export async function generateMetadata({ params }: CollectionPageProps): Promise
   return { title: collection.name, description: collection.description ?? `Shop ${collection.name} at Cartebay.` };
 }
 
-export default async function CollectionPage({ params }: CollectionPageProps) {
-  const { slug } = await params;
+export default async function CollectionPage({ params, searchParams }: CollectionPageProps) {
+  const [{ slug }, sp] = await Promise.all([params, searchParams]);
   const collection = await getCollectionBySlug(slug);
   if (!collection) notFound();
 
@@ -24,6 +26,9 @@ export default async function CollectionPage({ params }: CollectionPageProps) {
   // Hero uses a real product from the collection; the seeded placeholder only
   // applies to a collection whose rule currently matches nothing.
   const heroImage = products[0]?.images[0];
+
+  const explorerParams = parseExplorerParams(sp);
+  const result = paginateProducts(products, explorerParams, []);
 
   return (
     <div className="mx-auto flex max-w-[1440px] flex-col gap-8 px-4 py-6 sm:px-6 sm:py-8">
@@ -47,7 +52,14 @@ export default async function CollectionPage({ params }: CollectionPageProps) {
         <h2 className="mb-4 text-xl font-semibold tracking-tight text-foreground">
           {products.length.toLocaleString()} {products.length === 1 ? "Product" : "Products"}
         </h2>
-        <ProductExplorer products={products} brands={[]} />
+        <ProductExplorer
+          products={result.products}
+          brands={[]}
+          bounds={result.bounds}
+          total={result.total}
+          pageCount={result.pageCount}
+          state={toExplorerState(explorerParams, result)}
+        />
       </section>
     </div>
   );

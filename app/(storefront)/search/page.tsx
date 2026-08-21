@@ -2,21 +2,26 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ProductExplorer } from "@/components/product/product-explorer";
 import { searchCategories } from "@/lib/category-utils";
-import { getBrandsInProducts, searchProducts } from "@/lib/products";
+import { getBrandsInProducts, paginateProducts, parseExplorerParams, searchProducts, toExplorerState } from "@/lib/products";
 
 interface SearchPageProps {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 export async function generateMetadata({ searchParams }: SearchPageProps): Promise<Metadata> {
   const { q } = await searchParams;
-  return { title: q ? `Search results for "${q}"` : "Search" };
+  const term = Array.isArray(q) ? q[0] : q;
+  return { title: term ? `Search results for "${term}"` : "Search" };
 }
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
-  const { q = "" } = await searchParams;
+  const sp = await searchParams;
+  const q = (Array.isArray(sp.q) ? sp.q[0] : sp.q) ?? "";
   const products = await searchProducts(q, 200);
   const [categoryMatches, brands] = await Promise.all([searchCategories(q, 6), getBrandsInProducts(products)]);
+
+  const explorerParams = parseExplorerParams(sp);
+  const result = paginateProducts(products, explorerParams, brands);
 
   return (
     <div className="mx-auto flex max-w-[1440px] flex-col gap-8 px-4 py-6 sm:px-6 sm:py-8">
@@ -57,7 +62,14 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           </p>
         </div>
       ) : (
-        <ProductExplorer products={products} brands={brands} />
+        <ProductExplorer
+          products={result.products}
+          brands={brands}
+          bounds={result.bounds}
+          total={result.total}
+          pageCount={result.pageCount}
+          state={toExplorerState(explorerParams, result)}
+        />
       )}
     </div>
   );

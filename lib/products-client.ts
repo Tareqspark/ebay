@@ -59,3 +59,49 @@ export function getPriceBounds(products: Product[]): { min: number; max: number 
   const ceiledMax = Math.ceil(max);
   return { min: flooredMin, max: ceiledMax > flooredMin ? ceiledMax : flooredMin + 1 };
 }
+
+/** Filter state as it travels in the URL. Shared by every page that renders ProductExplorer. */
+export interface ExplorerParams {
+  brandIds?: string[];
+  minPrice?: number;
+  maxPrice?: number;
+  minRating?: number;
+  sort?: SortKey;
+  page?: number;
+}
+
+const SORT_KEYS: SortKey[] = ["relevance", "price-asc", "price-desc", "rating", "newest"];
+
+function one(v: string | string[] | undefined): string | undefined {
+  return Array.isArray(v) ? v[0] : v;
+}
+
+function num(v: string | string[] | undefined): number | undefined {
+  const s = one(v);
+  if (s === undefined || s === "") return undefined;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+/**
+ * Reads filter state out of a URL query.
+ *
+ * Everything is validated rather than trusted: these values reach SQL as
+ * LIMIT/OFFSET and comparison operands, and an unbounded `page` is a cheap way
+ * to make the database scan a whole table.
+ */
+export function parseExplorerParams(sp: Record<string, string | string[] | undefined>): ExplorerParams {
+  const sortRaw = one(sp.sort) as SortKey | undefined;
+  const page = num(sp.page);
+  const rating = num(sp.rating);
+  const brands = one(sp.brands);
+
+  return {
+    brandIds: brands ? brands.split(",").filter(Boolean).slice(0, 50) : undefined,
+    minPrice: num(sp.min),
+    maxPrice: num(sp.max),
+    minRating: rating !== undefined && rating > 0 && rating <= 5 ? rating : undefined,
+    sort: sortRaw && SORT_KEYS.includes(sortRaw) ? sortRaw : undefined,
+    page: page !== undefined && page >= 1 ? Math.min(Math.floor(page), 10_000) : undefined,
+  };
+}

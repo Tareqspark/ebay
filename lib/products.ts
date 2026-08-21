@@ -8,10 +8,10 @@ import { getAllBrands, getBrandById } from "@/lib/brands";
 import { getActiveBundleProductIds } from "@/lib/bundles";
 import { toDollars } from "@/lib/money";
 import type { Brand, Product } from "@/lib/types";
-import { sortProducts, filterProducts, getPriceBounds } from "@/lib/products-client";
+import { sortProducts, filterProducts, getPriceBounds, parseExplorerParams } from "@/lib/products-client";
 import type { SortKey, ProductFilters } from "@/lib/products-client";
 
-export { sortProducts, filterProducts, getPriceBounds };
+export { sortProducts, filterProducts, getPriceBounds, parseExplorerParams };
 export type { SortKey, ProductFilters };
 
 type ProductRow = typeof productsTable.$inferSelect;
@@ -284,4 +284,200 @@ export async function getBrandsInProducts(products: Product[]): Promise<Brand[]>
     if (brand) brands.push(brand);
   }
   return brands.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/* ------------------------------------------------------------------ *
+ * Server-side category browsing
+ * ------------------------------------------------------------------ */
+
+export interface CategoryBrowseParams {
+  brandIds?: string[];
+  minPrice?: number;
+  maxPrice?: number;
+  minRating?: number;
+  sort?: SortKey;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface CategoryBrowseResult {
+  products: Product[];
+  /** Products matching the active filters — drives the result count and paging. */
+  total: number;
+  /** Products in the category regardless of filters — drives the page heading. */
+  totalInCategory: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+  /** Facets are computed over the whole category, never the filtered subset, so
+   *  the slider and brand list stay put instead of collapsing as you narrow. */
+  bounds: { min: number; max: number };
+  brands: Brand[];
+}
+
+export const CATEGORY_PAGE_SIZE = 24;
+
+function categoryPathConditions(segments: string[]) {
+  return segments
+    .slice(0, 3)
+    .map((seg, i) => sql`json_unquote(json_extract(${productsTable.categorySlugPath}, ${`$[${i}]`})) = ${seg}`);
+}
+
+/**
+ * One page of a category, filtered and sorted in SQL.
+ *
+ * The page previously loaded every product in the department and handed the
+ * lot to the browser, which then showed 24 of them. Pet Supplies alone was
+ * 5.8MB of payload to render one screen, growing linearly with the catalogue.
+ *
+ * Filtering and sorting had to move down here with the paging: applied in the
+ * client they would only ever see the current page, so "under $20" would
+ * quietly mean "under $20 among these 24".
+ */
+export async function browseCategory(
+  segments: string[],
+  params: CategoryBrowseParams = {}
+): Promise<CategoryBrowseResult> {
+  const pageSize = params.pageSize ?? CATEGORY_PAGE_SIZE;
+  const base = categoryPathConditions(segments);
+
+  const filters = [...base];
+  if (params.brandIds?.length) filters.push(inArray(productsTable.brandId, params.brandIds));
+  if (params.minPrice !== undefined) filters.push(gte(productsTable.priceCents, Math.round(params.minPrice * 100)));
+  if (params.maxPrice !== undefined) filters.push(lte(productsTable.priceCents, Math.round(params.maxPrice * 100)));
+  if (params.minRating !== undefined && params.minRating > 0) {
+    filters.push(gte(productsTable.ratingValue, String(params.minRating)));
+  }
+
+  // Every ordering ends in id so OFFSET paging is stable. Without a unique
+  // tiebreaker MySQL may return rows in a different order between pages,
+  // which silently duplicates some products and skips others.
+  const order = (() => {
+    switch (params.sort) {
+      case "price-asc": return [productsTable.priceCents, productsTable.id];
+      case "price-desc": return [desc(productsTable.priceCents), productsTable.id];
+      case "rating": return [desc(productsTable.ratingValue), productsTable.id];
+      case "newest": return [desc(productsTable.isNewArrival), productsTable.id];
+      default: return [productsTable.id];
+    }
+  })();
+
+  const [countRow] = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(productsTable)
+    .where(and(...filters));
+  const total = Number(countRow?.n ?? 0);
+
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(Math.max(1, params.page ?? 1), pageCount);
+
+  const [rows, brandNameById, facets] = await Promise.all([
+    db
+      .select()
+      .from(productsTable)
+      .where(and(...filters))
+      .orderBy(...order)
+      .limit(pageSize)
+      .offset((page - 1) * pageSize),
+    getBrandNameById(),
+    db
+      .select({
+        n: sql<number>`count(*)`,
+        min: sql<number>`min(${productsTable.priceCents})`,
+        max: sql<number>`max(${productsTable.priceCents})`,
+      })
+      .from(productsTable)
+      .where(and(...base)),
+  ]);
+
+  const facet = facets[0];
+  const totalInCategory = Number(facet?.n ?? 0);
+
+  // Mirrors getPriceBounds' contract: max is always strictly above min, or the
+  // price Slider throws.
+  const minDollars = Math.floor(Number(facet?.min ?? 0) / 100);
+  const maxDollars = Math.ceil(Number(facet?.max ?? 100) / 100);
+  const bounds = { min: minDollars, max: maxDollars > minDollars ? maxDollars : minDollars + 1 };
+
+  const brandIdRows = await db
+    .selectDistinct({ brandId: productsTable.brandId })
+    .from(productsTable)
+    .where(and(...base));
+  const ids = brandIdRows.map((r) => r.brandId).filter(Boolean);
+  const brands: Brand[] = ids.length
+    ? (await getAllBrands()).filter((b) => ids.includes(b.id)).sort((a, b) => a.name.localeCompare(b.name))
+    : [];
+
+  return {
+    products: rows.map((r) => toProduct(r, brandNameById)),
+    total,
+    totalInCategory,
+    page,
+    pageSize,
+    pageCount,
+    bounds,
+    brands,
+  };
+}
+
+/**
+ * Same shape as browseCategory, for pages whose result set is already in
+ * memory and bounded — search caps at 200 hits, a collection at 60. Paging
+ * those in SQL would buy nothing, but they render the same explorer, so they
+ * have to speak the same language.
+ */
+export function paginateProducts(
+  all: Product[],
+  params: CategoryBrowseParams,
+  brands: Brand[]
+): CategoryBrowseResult {
+  const pageSize = params.pageSize ?? CATEGORY_PAGE_SIZE;
+  const bounds = getPriceBounds(all);
+
+  const filtered = sortProducts(
+    filterProducts(all, {
+      brandIds: params.brandIds?.length ? params.brandIds : undefined,
+      minPrice: params.minPrice,
+      maxPrice: params.maxPrice,
+      minRating: params.minRating,
+    }),
+    params.sort ?? "relevance"
+  );
+
+  const total = filtered.length;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(Math.max(1, params.page ?? 1), pageCount);
+
+  return {
+    products: filtered.slice((page - 1) * pageSize, page * pageSize),
+    total,
+    totalInCategory: all.length,
+    page,
+    pageSize,
+    pageCount,
+    bounds,
+    brands,
+  };
+}
+
+/** Fills URL-absent filters with the category's own bounds, for the client's controls. */
+export function toExplorerState(
+  params: CategoryBrowseParams,
+  result: CategoryBrowseResult
+): {
+  brandIds: string[];
+  minPrice: number;
+  maxPrice: number;
+  minRating: number;
+  sort: SortKey;
+  page: number;
+} {
+  return {
+    brandIds: params.brandIds ?? [],
+    minPrice: params.minPrice ?? result.bounds.min,
+    maxPrice: params.maxPrice ?? result.bounds.max,
+    minRating: params.minRating ?? 0,
+    sort: params.sort ?? "relevance",
+    page: result.page,
+  };
 }
