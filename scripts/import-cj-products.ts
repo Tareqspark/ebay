@@ -224,6 +224,8 @@ interface LeafCategory {
   topName: string;
   childSlug: string;
   grandchildSlug: string;
+  /** The CJ category this node mirrors — how products get filed now. */
+  cjCategoryId: string | null;
 }
 
 async function loadLeafCategories(): Promise<LeafCategory[]> {
@@ -235,113 +237,10 @@ async function loadLeafCategories(): Promise<LeafCategory[]> {
     const child = row.parentId ? byId.get(row.parentId) : undefined;
     const top = child?.parentId ? byId.get(child.parentId) : undefined;
     if (!child || !top) continue;
-    leaves.push({ id: row.id, name: row.name, topSlug: top.slug, topName: top.name, childSlug: child.slug, grandchildSlug: row.slug });
+    leaves.push({ id: row.id, name: row.name, topSlug: top.slug, topName: top.name, childSlug: child.slug, grandchildSlug: row.slug, cjCategoryId: row.cjCategoryId });
   }
   console.log(`Loaded ${leaves.length} leaf categories from the existing tree`);
   return leaves;
-}
-
-function words(s: string): string[] {
-  // Length >= 3 filters out noise tokens from possessives/hyphenation
-  // ("Women's" -> "women" + a bare "s"; "E-Readers" -> a bare "e" +
-  // "readers") — a 1-2 character token matches almost any word under
-  // substring-containment scoring ("e" is a substring of nearly every
-  // English word), which was silently winning matches for completely
-  // unrelated categories (verified: "Face Masks" matched "E-Readers"
-  // solely because bare "e" is a substring of "face").
-  return s.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3);
-}
-
-// Suffixes that turn one word into an inflected form of the SAME word
-// (plural/gerund/past-tense) rather than a different, derived word.
-// Deliberately excludes "er"/"ers": agentive/instrumental nouns regularly
-// drift in meaning from their root — the equivalent fix in
-// scripts/fix-cj-categories.ts was written after verifying live that a
-// garment "Dress" title matched the furniture "Dressers" leaf purely
-// because "dress" is a literal prefix of "dressers" under naive
-// containment. Applying the same fix here preemptively, since this
-// function's job (matching CJ's own leaf/segment names, still real English
-// phrases) is exposed to the identical collision class.
-// "ing"/"ed" deliberately excluded — see the identical constant and its
-// fuller rationale in scripts/fix-cj-categories.ts ("car" + "ing" spells
-// the unrelated real word "caring", verified live to cause a false match).
-const INFLECTION_SUFFIXES = new Set(["", "s", "es"]);
-
-function wordsMatch(a: string, b: string): boolean {
-  if (a === b) return true;
-  const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
-  if (!longer.startsWith(shorter)) return false;
-  return INFLECTION_SUFFIXES.has(longer.slice(shorter.length));
-}
-
-/**
- * Fraction of `leafWords` that appear (exactly, or as a same-word
- * inflection — see wordsMatch) somewhere in `segmentWords`. Plain word
- * overlap, not Fuse: our leaf names are short controlled vocabulary
- * ("Hats", "Gloves", "Scarves") and CJ's segment names are longer
- * descriptive phrases ("Woman Hats & Caps") — Fuse's fuzzy edit-distance
- * search is built for a short query against long documents, the opposite
- * direction, and scored short-vs-long matches poorly even for obviously
- * related terms (verified: "Hats" vs "Woman Hats & Caps" scored as no
- * match at threshold 0.5, despite the exact word being present).
- */
-function overlapScore(leafWords: string[], segmentWords: string[]): number {
-  if (leafWords.length === 0) return 0;
-  let matched = 0;
-  for (const lw of leafWords) {
-    if (segmentWords.some((sw) => wordsMatch(sw, lw))) matched++;
-  }
-  return matched / leafWords.length;
-}
-
-/**
- * Matches a CJ leaf category (known reliably from the sweep loop itself,
- * unlike the per-product categoryName field, which is frequently empty) onto
- * our existing category tree.
- *
- * Top-level first, then narrow: matching CJ's most specific leaf/child name
- * against the ENTIRE ~1400-leaf universe directly was tried first and
- * rejected — a generic word shared across domains (e.g. "Accessories"
- * appears under both "Women's Clothing" and "Automotive & Powersports") let
- * an unrelated leaf from a totally different top category win.
- *
- * The top-level match is word-overlap (not Fuse) too, for the same reason
- * as the leaf level — and it's pooled, not winner-take-all: a compound CJ
- * top like "Home, Garden & Furniture" has no single 1:1 match in our tree
- * (which splits Home & Kitchen / Furniture / Garden & Outdoor Living into
- * three separate tops), so every one of our tops sharing ANY word with it
- * contributes its leaves to the candidate pool, rather than committing to
- * whichever single top scores best (verified: committing to one caused
- * everything under a compound CJ top to collapse onto one arbitrary leaf of
- * whichever unrelated top Fuse happened to prefer).
- */
-function matchCjLeafToOurTree(
-  cjLeaf: { name: string; path: string },
-  leavesByTopSlug: Map<string, LeafCategory[]>,
-  ultimateFallback: LeafCategory
-): LeafCategory {
-  const segments = cjLeaf.path.split(">").map((s) => s.trim()).filter(Boolean);
-  const cjTopWords = words(segments[0]);
-
-  const topScores = [...leavesByTopSlug.entries()]
-    .map(([topSlug, leaves]) => ({ topSlug, leaves, score: overlapScore(words(leaves[0].topName), cjTopWords) }))
-    .filter((t) => t.score > 0)
-    .sort((a, b) => b.score - a.score);
-  if (topScores.length === 0) return ultimateFallback;
-
-  const candidates = topScores.flatMap((t) => t.leaves);
-  const bestTopFallback = topScores[0].leaves[0];
-
-  for (const segment of segments.slice(1).reverse()) {
-    const segmentWords = words(segment);
-    let best: { leaf: LeafCategory; score: number } | null = null;
-    for (const leaf of candidates) {
-      const score = overlapScore(words(leaf.name), segmentWords);
-      if (score > 0 && (!best || score > best.score)) best = { leaf, score };
-    }
-    if (best && best.score >= 0.5) return best.leaf;
-  }
-  return bestTopFallback;
 }
 
 async function ensureGenericBrand(): Promise<void> {
@@ -439,6 +338,8 @@ async function importVariant(
     visibility: "visible",
     cjProductId: baseProduct.pid,
     cjVariantId: variant.vid,
+    cjCategoryId: category.cjCategoryId,
+    cjCategoryPath: category.name.slice(0, 255),
     cjSourceWarehouse: countryCode,
     cjStockStatus: available > 0 ? "in_stock" : "out_of_stock",
   });
@@ -470,13 +371,19 @@ async function main() {
   const existingCjProductIds = await loadExistingCjProductIds();
   console.log(`${existingCjProductIds.size} CJ products already imported — will be skipped\n`);
   const allLeaves = await loadLeafCategories();
-  const leavesByTopSlug = new Map<string, LeafCategory[]>();
+
+  /**
+   * Our tree mirrors CJ's and records which CJ category each node is, so
+   * filing a product is a lookup rather than a guess. This replaces the
+   * word-overlap matcher that used to live here — the mechanism an audit of
+   * all 11,807 products found had mis-filed 66% of them, putting "Non-slip
+   * Doormat" under Women's Slips because both contained "slip".
+   */
+  const leafByCjId = new Map<string, LeafCategory>();
   for (const leaf of allLeaves) {
-    const bucket = leavesByTopSlug.get(leaf.topSlug) ?? [];
-    bucket.push(leaf);
-    leavesByTopSlug.set(leaf.topSlug, bucket);
+    if (leaf.cjCategoryId) leafByCjId.set(leaf.cjCategoryId, leaf);
   }
-  const ultimateFallback = allLeaves[0];
+  console.log(`${leafByCjId.size} of ${allLeaves.length} leaves are keyed to a CJ category`);
 
   const topCategories = await cjGet<CjCategoryTop[]>("/product/getCategory");
   const leafCategories: { id: string; name: string; path: string }[] = [];
@@ -499,7 +406,16 @@ async function main() {
       if (totalImported >= TOTAL_SAFETY_CAP) break;
       if (doneSet.has(leaf.id)) continue;
 
-      const category = matchCjLeafToOurTree(leaf, leavesByTopSlug, ultimateFallback);
+      /**
+       * A CJ category with no counterpart here is skipped, not forced into
+       * the nearest-looking one — absent from the tree means we chose not to
+       * carry it. 502 leaves is far more than this run needs.
+       */
+      const category = leafByCjId.get(leaf.id);
+      if (!category) {
+        doneSet.add(leaf.id);
+        continue;
+      }
       let productsForLeaf = 0;
       let listingsForLeaf = 0;
 
