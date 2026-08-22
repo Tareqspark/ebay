@@ -213,8 +213,26 @@ function priceForCost(costDollars: number): number {
 }
 
 const usedSlugs = new Set<string>();
+/** products.slug is varchar(191); the suffix budget leaves room for "-999". */
+const SLUG_MAX = 191;
+const SLUG_BASE_MAX = SLUG_MAX - 5;
+
 function uniqueSlug(title: string): string {
-  const base = slugify(title) || newId().toLowerCase();
+  /**
+   * Truncated, because CJ titles routinely exceed the column. A variant name
+   * is appended to an already long product name, so slugs reach 230
+   * characters, and MySQL rejects the row outright rather than trimming it —
+   * 49 products were lost to this before it was caught. Cutting at a hyphen
+   * keeps the tail from ending mid-word.
+   */
+  const raw = slugify(title) || newId().toLowerCase();
+  let base = raw.slice(0, SLUG_BASE_MAX);
+  if (raw.length > SLUG_BASE_MAX) {
+    const lastDash = base.lastIndexOf("-");
+    if (lastDash > SLUG_BASE_MAX * 0.6) base = base.slice(0, lastDash);
+  }
+  base = base.replace(/-+$/, "") || newId().toLowerCase();
+
   let slug = base;
   let n = 2;
   while (usedSlugs.has(slug)) {
