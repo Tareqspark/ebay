@@ -319,13 +319,13 @@ export function ProductsTable({ initialRows, categoryOptions, categoryTree, bran
         }}
         toolbar={() => (
           <>
-            <div className="relative">
+            <div className="relative w-full sm:w-auto">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search products..."
-                className="h-8 w-[220px] pl-8"
+                className="h-8 w-full pl-8 sm:w-[220px]"
               />
             </div>
             <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>

@@ -34,7 +34,7 @@ export default async function AdminDashboardLayout({ children }: { children: Rea
           }}
           announcements={announcements}
         />
-        <main className="min-w-0 flex-1 p-5">{allowed ? children : <AdminAccessDenied />}</main>
+        <main className="min-w-0 flex-1 p-3 sm:p-5">{allowed ? children : <AdminAccessDenied />}</main>
       </div>
       <Toaster position="bottom-right" />
     </div>

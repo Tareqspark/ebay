@@ -308,7 +308,7 @@ function DataTablePagination<TData>({
         Showing <span className="font-medium text-foreground">{from}–{to}</span> of{" "}
         <span className="font-medium text-foreground">{totalRows.toLocaleString()}</span>
       </p>
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-4">
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Rows</span>
           <Select
