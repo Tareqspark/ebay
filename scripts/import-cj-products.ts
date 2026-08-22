@@ -133,7 +133,9 @@ async function getAccessToken(): Promise<string> {
 let lastCallAt = 0;
 let lastPointsLogAt = 0;
 async function throttle(): Promise<void> {
-  const wait = Math.max(0, lastCallAt + 200 - Date.now()); // ~5 req/s — well under the 100 QPS ceiling, polite to a shared third-party API
+  // CJ enforces 1 request/second, not the 100 QPS this once assumed. At 200ms
+  // every run tripped "QPS limit is 1 time/1second" on its first few calls.
+  const wait = Math.max(0, lastCallAt + 1100 - Date.now());
   if (wait) await new Promise((r) => setTimeout(r, wait));
   lastCallAt = Date.now();
 }
@@ -161,10 +163,16 @@ async function cjGet<T>(path: string, params: Record<string, string> = {}): Prom
     // live — the message text itself doesn't contain "quota"/"limit exceeded"
     // at all, so matching on message alone missed this and the script kept
     // retrying every call for the rest of the run instead of stopping).
-    if (body.code === 16900500 || /quota|insufficient.*points|limit exceeded|too many requests/i.test(body.message ?? "")) {
-      throw new QuotaExceededError(body.message);
+    // Only a genuinely exhausted points budget is terminal. Being rate
+    // limited is not: "Too Many Requests, QPS limit is 1 time/1second" used to
+    // match the message test below and abort the whole run on its first
+    // occurrence, which is how a fresh import stopped after zero products.
+    const message = body.message ?? "";
+    const rateLimited = res.status === 429 || /too many requests|qps limit/i.test(message);
+    if (!rateLimited && (body.code === 16900500 || /quota|insufficient.*points|limit exceeded/i.test(message))) {
+      throw new QuotaExceededError(message);
     }
-    if (res.status === 429 || res.status >= 500) {
+    if (rateLimited || res.status >= 500) {
       await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
       continue;
     }
