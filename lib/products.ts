@@ -3,7 +3,12 @@ import { cache } from "react";
 import Fuse from "fuse.js";
 import { eq, inArray, desc, gt, gte, lte, and, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { products as productsTable, orderItems as orderItemsTable, orders as ordersTable } from "@/db/schema";
+import {
+  products as productsTable,
+  productMeta as productMetaTable,
+  orderItems as orderItemsTable,
+  orders as ordersTable,
+} from "@/db/schema";
 import { getAllBrands, getBrandById } from "@/lib/brands";
 import { getActiveBundleProductIds } from "@/lib/bundles";
 import { toDollars } from "@/lib/money";
@@ -15,6 +20,30 @@ export { sortProducts, filterProducts, getPriceBounds, parseExplorerParams };
 export type { SortKey, ProductFilters };
 
 type ProductRow = typeof productsTable.$inferSelect;
+
+/**
+ * Restricts a storefront query to products a customer may actually buy.
+ *
+ * Nothing here filtered on visibility before, so hiding or archiving a
+ * product in admin changed nothing on the site: three CJ-delisted items were
+ * live on department pages and purchasable, and an order for them could never
+ * have been fulfilled.
+ *
+ * Written as EXISTS rather than a join so it can be dropped into an existing
+ * where() without disturbing the shape of any query. It fails closed — a
+ * product with no meta row disappears rather than being sold blind — which is
+ * safe because the two tables are 1:1 and inserted together.
+ *
+ * Deliberately NOT applied to getProductsByIds: cart, checkout and admin all
+ * read through it, and they need to see an archived product to tell someone it
+ * has become unavailable rather than silently dropping the line.
+ */
+const sellable = sql`exists (
+  select 1 from ${productMetaTable}
+  where ${productMetaTable.productId} = ${productsTable.id}
+    and ${productMetaTable.visibility} = 'visible'
+    and ${productMetaTable.status} = 'active'
+)`;
 
 /** Cached per request (via getAllBrands()'s own cache()) — cheap to call from every fetch function below. */
 async function getBrandNameById(): Promise<Map<string, string>> {
@@ -52,14 +81,37 @@ function toProduct(row: ProductRow, brandNameById: Map<string, string>): Product
 
 /** All 2,800+ products, cached once per request — every fetch helper below filters this in memory rather than re-querying, since the whole catalog is a fast, cacheable read compared to the many small selective queries the storefront would otherwise issue per request. */
 export const getAllProducts = cache(async (): Promise<Product[]> => {
-  const [rows, brandNameById] = await Promise.all([db.select().from(productsTable), getBrandNameById()]);
+  const [rows, brandNameById] = await Promise.all([
+    db.select().from(productsTable).where(sellable),
+    getBrandNameById(),
+  ]);
   return rows.map((r) => toProduct(r, brandNameById));
 });
 
 export async function getProductBySlug(slug: string): Promise<Product | undefined> {
-  const [row] = await db.select().from(productsTable).where(eq(productsTable.slug, slug)).limit(1);
+  const [row] = await db
+    .select()
+    .from(productsTable)
+    .where(and(eq(productsTable.slug, slug), sellable))
+    .limit(1);
   if (!row) return undefined;
   return toProduct(row, await getBrandNameById());
+}
+
+/**
+ * Whether a customer may put this product in a basket.
+ *
+ * Separate from the query-level guard because the cart takes a product id
+ * straight from a request: filtering discovery stops an archived product being
+ * found, but not being added by anyone who kept the id.
+ */
+export async function isProductSellable(productId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: productsTable.id })
+    .from(productsTable)
+    .where(and(eq(productsTable.id, productId), sellable))
+    .limit(1);
+  return Boolean(row);
 }
 
 export async function getProductsByIds(ids: string[]): Promise<Product[]> {
@@ -127,7 +179,7 @@ export async function getProductsByCategoryPath(segments: string[]): Promise<Pro
     .map((seg, i) => sql`json_unquote(json_extract(${productsTable.categorySlugPath}, ${`$[${i}]`})) = ${seg}`);
 
   const [rows, brandNameById] = await Promise.all([
-    db.select().from(productsTable).where(and(...conditions)),
+    db.select().from(productsTable).where(and(...conditions, sellable)),
     getBrandNameById(),
   ]);
   return rows.map((r) => toProduct(r, brandNameById));
@@ -135,7 +187,7 @@ export async function getProductsByCategoryPath(segments: string[]): Promise<Pro
 
 export async function getDealsProducts(limit = 12): Promise<Product[]> {
   const [rows, brandNameById] = await Promise.all([
-    db.select().from(productsTable).where(eq(productsTable.isDeal, true)).limit(limit),
+    db.select().from(productsTable).where(and(eq(productsTable.isDeal, true), sellable)).limit(limit),
     getBrandNameById(),
   ]);
   return rows.map((r) => toProduct(r, brandNameById));
@@ -143,7 +195,7 @@ export async function getDealsProducts(limit = 12): Promise<Product[]> {
 
 export async function getFlashSaleProducts(limit = 12): Promise<Product[]> {
   const [rows, brandNameById] = await Promise.all([
-    db.select().from(productsTable).where(eq(productsTable.isFlashSale, true)).limit(limit),
+    db.select().from(productsTable).where(and(eq(productsTable.isFlashSale, true), sellable)).limit(limit),
     getBrandNameById(),
   ]);
   return rows.map((r) => toProduct(r, brandNameById));
@@ -151,7 +203,7 @@ export async function getFlashSaleProducts(limit = 12): Promise<Product[]> {
 
 export async function getTrendingProducts(limit = 12): Promise<Product[]> {
   const [rows, brandNameById] = await Promise.all([
-    db.select().from(productsTable).where(eq(productsTable.isTrending, true)).limit(limit),
+    db.select().from(productsTable).where(and(eq(productsTable.isTrending, true), sellable)).limit(limit),
     getBrandNameById(),
   ]);
   return rows.map((r) => toProduct(r, brandNameById));
@@ -159,7 +211,7 @@ export async function getTrendingProducts(limit = 12): Promise<Product[]> {
 
 export async function getNewArrivalProducts(limit = 12): Promise<Product[]> {
   const [rows, brandNameById] = await Promise.all([
-    db.select().from(productsTable).where(eq(productsTable.isNewArrival, true)).limit(limit),
+    db.select().from(productsTable).where(and(eq(productsTable.isNewArrival, true), sellable)).limit(limit),
     getBrandNameById(),
   ]);
   return rows.map((r) => toProduct(r, brandNameById));
@@ -167,7 +219,7 @@ export async function getNewArrivalProducts(limit = 12): Promise<Product[]> {
 
 export async function getBestSellerProducts(limit = 12): Promise<Product[]> {
   const [rows, brandNameById] = await Promise.all([
-    db.select().from(productsTable).where(eq(productsTable.isBestSeller, true)).limit(limit),
+    db.select().from(productsTable).where(and(eq(productsTable.isBestSeller, true), sellable)).limit(limit),
     getBrandNameById(),
   ]);
   return rows.map((r) => toProduct(r, brandNameById));
@@ -179,7 +231,8 @@ export async function getTopSellingProducts(limit = 12): Promise<Product[]> {
     .select({ productId: orderItemsTable.productId, totalSold: sql<number>`sum(${orderItemsTable.quantity})`.as("total_sold") })
     .from(orderItemsTable)
     .innerJoin(ordersTable, eq(ordersTable.id, orderItemsTable.orderId))
-    .where(eq(ordersTable.paymentStatus, "paid"))
+    .innerJoin(productsTable, eq(productsTable.id, orderItemsTable.productId))
+    .where(and(eq(ordersTable.paymentStatus, "paid"), sellable))
     .groupBy(orderItemsTable.productId)
     .orderBy(desc(sql`total_sold`))
     .limit(limit);
@@ -189,7 +242,12 @@ export async function getTopSellingProducts(limit = 12): Promise<Product[]> {
 /** Ranked by ratingCount — the review-count field already shown on every product card, not the (currently empty) reviews table. */
 export async function getMostReviewedProducts(limit = 12): Promise<Product[]> {
   const [rows, brandNameById] = await Promise.all([
-    db.select().from(productsTable).where(gt(productsTable.ratingCount, 0)).orderBy(desc(productsTable.ratingCount)).limit(limit),
+    db
+      .select()
+      .from(productsTable)
+      .where(and(gt(productsTable.ratingCount, 0), sellable))
+      .orderBy(desc(productsTable.ratingCount))
+      .limit(limit),
     getBrandNameById(),
   ]);
   return rows.map((r) => toProduct(r, brandNameById));
@@ -198,7 +256,7 @@ export async function getMostReviewedProducts(limit = 12): Promise<Product[]> {
 /** Admin-curated (see lib/admin/homepage-deals-actions.ts) — hand-picked, not computed. */
 export async function getFeaturedDealProducts(limit = 12): Promise<Product[]> {
   const [rows, brandNameById] = await Promise.all([
-    db.select().from(productsTable).where(eq(productsTable.isFeaturedDeal, true)).limit(limit),
+    db.select().from(productsTable).where(and(eq(productsTable.isFeaturedDeal, true), sellable)).limit(limit),
     getBrandNameById(),
   ]);
   return rows.map((r) => toProduct(r, brandNameById));
@@ -207,7 +265,7 @@ export async function getFeaturedDealProducts(limit = 12): Promise<Product[]> {
 /** Admin-curated (see lib/admin/homepage-deals-actions.ts) — hand-picked, not computed. */
 export async function getWeeklyTopDealProducts(limit = 12): Promise<Product[]> {
   const [rows, brandNameById] = await Promise.all([
-    db.select().from(productsTable).where(eq(productsTable.isWeeklyTopDeal, true)).limit(limit),
+    db.select().from(productsTable).where(and(eq(productsTable.isWeeklyTopDeal, true), sellable)).limit(limit),
     getBrandNameById(),
   ]);
   return rows.map((r) => toProduct(r, brandNameById));
@@ -233,7 +291,10 @@ async function buildRuleConditions(rule: CollectionRule) {
     const bundledIds = await getActiveBundleProductIds();
     conditions.push(bundledIds.length > 0 ? inArray(productsTable.id, bundledIds) : sql`false`);
   }
-  return conditions;
+  // Appended last and deliberately not counted as a criterion: callers treat
+  // an empty list as "this rule selects nothing", and a collection with no
+  // rule set must keep meaning that rather than suddenly meaning "everything".
+  return conditions.length > 0 ? [...conditions, sellable] : [];
 }
 
 /** Real-time membership for an "automated" collection (see lib/collections.ts) — every condition present is ANDed, so a product added to the catalog tomorrow that matches shows up here without anyone re-curating anything. */
@@ -318,9 +379,15 @@ export interface CategoryBrowseResult {
 export const CATEGORY_PAGE_SIZE = 24;
 
 function categoryPathConditions(segments: string[]) {
-  return segments
-    .slice(0, 3)
-    .map((seg, i) => sql`json_unquote(json_extract(${productsTable.categorySlugPath}, ${`$[${i}]`})) = ${seg}`);
+  // sellable last, so the browse page, its count and its facets all agree on
+  // which products exist. A hidden product must not be paged over, counted,
+  // or contribute a brand to the filter list.
+  return [
+    ...segments
+      .slice(0, 3)
+      .map((seg, i) => sql`json_unquote(json_extract(${productsTable.categorySlugPath}, ${`$[${i}]`})) = ${seg}`),
+    sellable,
+  ];
 }
 
 /**

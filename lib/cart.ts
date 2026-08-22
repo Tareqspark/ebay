@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { carts, cartItems } from "@/db/schema";
 import { newId } from "@/lib/id";
 import { auth } from "@/auth";
-import { getProductsByIds } from "@/lib/products";
+import { getProductsByIds, isProductSellable } from "@/lib/products";
 import type { Product } from "@/lib/types";
 import { revalidatePath } from "next/cache";
 import { computeBundleAdjustedSubtotal } from "@/lib/bundles";
@@ -121,6 +121,14 @@ export async function addToCart(productId: string, quantity = 1): Promise<CartSu
   const cartId = await getOrCreateCartId();
 
   if (!Number.isInteger(quantity) || quantity < 1) {
+    return buildSummary(cartId);
+  }
+
+  // The product id arrives from the request, so a hidden or archived product
+  // can still be named directly even once it is gone from every listing.
+  // Refusing here is what stops an order being taken for something that
+  // cannot be fulfilled.
+  if (!(await isProductSellable(productId))) {
     return buildSummary(cartId);
   }
 
