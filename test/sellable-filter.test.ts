@@ -16,8 +16,8 @@ const cart = readFileSync(join(process.cwd(), "lib/cart.ts"), "utf8");
 describe("storefront sellable filter", () => {
   it("defines the guard against product_meta visibility and status", () => {
     expect(src).toMatch(/const sellable = sql`exists \(/);
-    expect(src).toMatch(/productMetaTable\.visibility.*=.*'visible'/s);
-    expect(src).toMatch(/productMetaTable\.status.*=.*'active'/s);
+    expect(src).toMatch(/productMetaTable\.visibility[\s\S]*?'visible'/);
+    expect(src).toMatch(/productMetaTable\.status[\s\S]*?'active'/);
   });
 
   it("applies it to the root query that feeds search, related and recommended", () => {
