@@ -435,15 +435,35 @@ export async function getHighValueTrendingProducts(limit = 12, excludeIds: strin
       )
     )
     .groupBy(productsTable.id)
-    .orderBy(desc(sql`views`), desc(productsTable.priceCents))
+    /**
+     * Views multiplied by price, not views then price.
+     *
+     * Ranking on views alone filled the rail with cheap popular items — the
+     * viewed set averaged $23 against a high-value pool starting at $80 — and
+     * price as a tiebreak almost never fired, because two products rarely
+     * share an exact view count. Multiplying makes a $60 item seen twice
+     * outrank a $5 item seen five times, which is what "high value trending"
+     * has to mean to be worth a rail.
+     */
+    .orderBy(desc(sql`count(${productViewsTable.id}) * ${productsTable.priceCents}`))
     .limit(limit * 2);
 
+  /**
+   * Trending takes at most half the rail.
+   *
+   * There are only ~23 products with any recent views, so letting them fill
+   * all fourteen slots dragged the tail down to £9 toys — the rail said "high
+   * value" and showed the cheapest thing anyone had clicked. Capping the
+   * trending share keeps the rest for genuinely valuable stock, and the cap
+   * stops mattering on its own as the view log grows.
+   */
+  const trendingSlots = Math.ceil(limit / 2);
   const picked: Product[] = [];
   for (const v of viewed) {
+    if (picked.length >= trendingSlots) break;
     if (excluded.has(v.row.id)) continue;
     picked.push(toProduct(v.row, brandNameById));
     excluded.add(v.row.id);
-    if (picked.length === limit) return picked;
   }
 
   // Top up from the most valuable well-rated stock, windowed by day so the
