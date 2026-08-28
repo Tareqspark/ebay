@@ -1,13 +1,14 @@
 import "server-only";
 import { cache } from "react";
 import Fuse from "fuse.js";
-import { eq, inArray, desc, gt, gte, lte, and, sql } from "drizzle-orm";
+import { eq, inArray, desc, gt, gte, lte, and, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import {
   products as productsTable,
   productMeta as productMetaTable,
   orderItems as orderItemsTable,
   orders as ordersTable,
+  productViews as productViewsTable,
 } from "@/db/schema";
 import { getAllBrands, getBrandById } from "@/lib/brands";
 import { getActiveBundleProductIds } from "@/lib/bundles";
@@ -185,44 +186,118 @@ export async function getProductsByCategoryPath(segments: string[]): Promise<Pro
   return rows.map((r) => toProduct(r, brandNameById));
 }
 
-export async function getDealsProducts(limit = 12): Promise<Product[]> {
-  const [rows, brandNameById] = await Promise.all([
-    db.select().from(productsTable).where(and(eq(productsTable.isDeal, true), sellable)).limit(limit),
-    getBrandNameById(),
-  ]);
+/**
+ * A UTC day number, used to seed the rotating rails.
+ *
+ * Rotation is by day rather than per request so a visitor sees a consistent
+ * homepage while they browse, and the response stays cacheable — but the shop
+ * does not show the same twelve products forever.
+ */
+function dayIndex(): number {
+  return Math.floor(Date.now() / 86_400_000);
+}
+
+/**
+ * A window over a pool of products that advances each day and wraps around.
+ *
+ * Every rail used to be `where(flag).limit(12)` with no ORDER BY, so MySQL
+ * returned the same twelve rows on every request for all time. Ordering by id
+ * makes the window deterministic; offsetting it by the day makes it move.
+ */
+async function rotatingWindow(condition: SQL | undefined, limit: number): Promise<Product[]> {
+  const [countRow] = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(productsTable)
+    .where(condition);
+  const total = Number(countRow?.n ?? 0);
+  if (total === 0) return [];
+
+  const brandNameById = await getBrandNameById();
+  const take = Math.min(limit, total);
+  const offset = total <= take ? 0 : (dayIndex() * take) % total;
+
+  const page = async (off: number, n: number) =>
+    db.select().from(productsTable).where(condition).orderBy(productsTable.id).limit(n).offset(off);
+
+  const rows = await page(offset, take);
+  // The window can run off the end of the pool; wrap rather than return short.
+  if (rows.length < take) rows.push(...(await page(0, take - rows.length)));
   return rows.map((r) => toProduct(r, brandNameById));
+}
+
+/** No real discount data behind is_deal — it was seeded — so this rotates daily rather than pretending to rank. */
+export async function getDealsProducts(limit = 12): Promise<Product[]> {
+  return rotatingWindow(and(eq(productsTable.isDeal, true), sellable), limit);
 }
 
 export async function getFlashSaleProducts(limit = 12): Promise<Product[]> {
-  const [rows, brandNameById] = await Promise.all([
-    db.select().from(productsTable).where(and(eq(productsTable.isFlashSale, true), sellable)).limit(limit),
-    getBrandNameById(),
-  ]);
-  return rows.map((r) => toProduct(r, brandNameById));
+  return rotatingWindow(and(eq(productsTable.isFlashSale, true), sellable), limit);
 }
 
+/**
+ * Ranked by what people actually looked at in the last week.
+ *
+ * product_views is thin so far, so this falls back to the seeded flag when
+ * there is not enough real signal to fill the rail — a half-empty rail of
+ * genuine data plus padding beats a full rail of fiction.
+ */
 export async function getTrendingProducts(limit = 12): Promise<Product[]> {
-  const [rows, brandNameById] = await Promise.all([
-    db.select().from(productsTable).where(and(eq(productsTable.isTrending, true), sellable)).limit(limit),
-    getBrandNameById(),
-  ]);
-  return rows.map((r) => toProduct(r, brandNameById));
+  const viewed = await db
+    .select({ productId: productViewsTable.productId, views: sql<number>`count(*)`.as("views") })
+    .from(productViewsTable)
+    .innerJoin(productsTable, eq(productsTable.id, productViewsTable.productId))
+    .where(and(gte(productViewsTable.viewedAt, sql`now() - interval 7 day`), sellable))
+    .groupBy(productViewsTable.productId)
+    .orderBy(desc(sql`views`))
+    .limit(limit);
+
+  const fromViews = await getProductsByIds(viewed.map((v) => v.productId));
+  if (fromViews.length >= limit) return fromViews;
+
+  const seen = new Set(fromViews.map((p) => p.id));
+  const padding = await rotatingWindow(and(eq(productsTable.isTrending, true), sellable), limit * 2);
+  return [...fromViews, ...padding.filter((p) => !seen.has(p.id))].slice(0, limit);
 }
 
+/**
+ * Genuinely the newest products, not the flag.
+ *
+ * is_new_arrival is true on 29,655 of 29,657 products because the importer
+ * sets it on everything, so filtering on it means "the whole catalogue" — and
+ * with no ORDER BY the rail was showing the twelve *oldest* items. Product ids
+ * are ULIDs, which sort by creation time, so newest-first needs no new column.
+ */
 export async function getNewArrivalProducts(limit = 12): Promise<Product[]> {
   const [rows, brandNameById] = await Promise.all([
-    db.select().from(productsTable).where(and(eq(productsTable.isNewArrival, true), sellable)).limit(limit),
+    db.select().from(productsTable).where(sellable).orderBy(desc(productsTable.id)).limit(limit),
     getBrandNameById(),
   ]);
   return rows.map((r) => toProduct(r, brandNameById));
 }
 
+/**
+ * Real sales where they exist, best-reviewed where they do not.
+ *
+ * The is_best_seller flag was seeded randomly and measures nothing. Until
+ * order history is deep enough to rank on, the honest proxy is the products
+ * customers rated highly and in volume.
+ */
 export async function getBestSellerProducts(limit = 12): Promise<Product[]> {
+  const sold = await getTopSellingProducts(limit);
+  if (sold.length >= limit) return sold;
+
+  const seen = new Set(sold.map((p) => p.id));
   const [rows, brandNameById] = await Promise.all([
-    db.select().from(productsTable).where(and(eq(productsTable.isBestSeller, true), sellable)).limit(limit),
+    db
+      .select()
+      .from(productsTable)
+      .where(and(gt(productsTable.ratingCount, 0), sellable))
+      .orderBy(desc(productsTable.ratingValue), desc(productsTable.ratingCount))
+      .limit(limit * 2),
     getBrandNameById(),
   ]);
-  return rows.map((r) => toProduct(r, brandNameById));
+  const rated = rows.map((r) => toProduct(r, brandNameById)).filter((p) => !seen.has(p.id));
+  return [...sold, ...rated].slice(0, limit);
 }
 
 /** Ranked by real sales — SUM(order_items.quantity) across paid orders, not a seeded flag like the other rails above. Empty until real orders exist. */
@@ -321,10 +396,11 @@ export async function countProductsMatchingRule(rule: CollectionRule): Promise<n
   return count;
 }
 
+/** The signed-out fallback behind getPersonalizedRecommendations — rotates so it is not the same twelve forever. */
 export async function getRecommendedProducts(limit = 12, excludeIds: string[] = []): Promise<Product[]> {
   const excluded = new Set(excludeIds);
-  const all = await getAllProducts();
-  return all.filter((p) => !excluded.has(p.id) && p.review.rating >= 4.2).slice(0, limit);
+  const pool = await rotatingWindow(and(gte(productsTable.ratingValue, "4.2"), sellable), limit + excluded.size);
+  return pool.filter((p) => !excluded.has(p.id)).slice(0, limit);
 }
 
 export async function getRelatedProducts(product: Product, limit = 8): Promise<Product[]> {

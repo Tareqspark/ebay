@@ -28,20 +28,30 @@ describe("storefront sellable filter", () => {
     expect(src).toMatch(/eq\(productsTable\.slug, slug\), sellable/);
   });
 
-  it("applies it to every homepage rail", () => {
-    for (const flag of [
-      "isDeal",
-      "isFlashSale",
-      "isTrending",
-      "isNewArrival",
-      "isBestSeller",
-      "isFeaturedDeal",
-      "isWeeklyTopDeal",
-    ]) {
+  it("applies it to every flag-driven homepage rail", () => {
+    for (const flag of ["isDeal", "isFlashSale", "isTrending", "isFeaturedDeal", "isWeeklyTopDeal"]) {
       expect(src, `${flag} rail must filter`).toContain(
         `and(eq(productsTable.${flag}, true), sellable)`
       );
     }
+  });
+
+  it("applies it to the two rails that no longer read a flag", () => {
+    // New Arrivals sorts the whole catalogue by ULID instead of filtering on
+    // is_new_arrival, and Best Sellers ranks on sales then rating — so neither
+    // matches the pattern above, and both still have to exclude hidden stock.
+    for (const fn of ["getNewArrivalProducts", "getBestSellerProducts"]) {
+      const body = src.slice(src.indexOf(`export async function ${fn}`));
+      expect(body.slice(0, body.indexOf("\n}")), `${fn} must filter`).toContain("sellable");
+    }
+  });
+
+  it("keeps the rotating window sellable-only", () => {
+    const body = src.slice(src.indexOf("async function rotatingWindow"));
+    const fn = body.slice(0, body.indexOf("\n}"));
+    // Every caller passes the guard in its condition; the count and the page
+    // must use the same condition or the window would offset past hidden rows.
+    expect(fn).toContain("where(condition)");
   });
 
   it("applies it to category browsing, so rows, count and facets agree", () => {

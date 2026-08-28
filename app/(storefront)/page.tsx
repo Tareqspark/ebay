@@ -69,7 +69,7 @@ export default async function HomePage() {
       <div id="deals">
         <ProductRail
           title="Today's Deals"
-          subtitle="Limited-time savings across the store"
+          subtitle="A fresh selection every day"
           icon={<Tag className="h-5 w-5" />}
           products={deals}
           viewAllHref="/category/electronics"
@@ -80,7 +80,7 @@ export default async function HomePage() {
 
       <ProductRail
         title="Trending Now"
-        subtitle="What everyone's adding to their cart"
+        subtitle="Most viewed by shoppers this week"
         icon={<TrendingUp className="h-5 w-5" />}
         products={trending}
       />
@@ -124,7 +124,7 @@ export default async function HomePage() {
 
       <ProductRail
         title="Best Sellers"
-        subtitle="Customer favorites, tried and true"
+        subtitle="Top rated by customers"
         icon={<Award className="h-5 w-5" />}
         products={bestSellers}
       />
