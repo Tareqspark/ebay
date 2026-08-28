@@ -2,7 +2,7 @@ import "server-only";
 import { eq, desc } from "drizzle-orm";
 import { db } from "@/db";
 import { orders, orderItems, productViews } from "@/db/schema";
-import { getAllProducts, getRecommendedProducts } from "@/lib/products";
+import { getAllProducts, getHighValueTrendingProducts } from "@/lib/products";
 import type { Product } from "@/lib/types";
 
 // A completed purchase is a much stronger preference signal than a page
@@ -18,16 +18,18 @@ const RECENT_VIEWS_LIMIT = 50;
 
 /**
  * Ranks by a blend of the shopper's purchase-history categories and their
- * recent browsing behavior (lib/product-views.ts) once either exists;
- * falls back to the static top-rated heuristic for guests or first-time
- * visitors with no signal yet.
+ * recent browsing behavior (lib/product-views.ts) once either exists.
+ *
+ * With no signal — a guest, or a first visit — it shows high-value trending
+ * stock instead. That was previously a static top-rated slice, which meant
+ * every visitor saw the same twelve products on every page load.
  */
 export async function getPersonalizedRecommendations(
   userId: string | null,
   limit = 12,
   excludeIds: string[] = []
 ): Promise<Product[]> {
-  if (!userId) return getRecommendedProducts(limit, excludeIds);
+  if (!userId) return getHighValueTrendingProducts(limit, excludeIds);
 
   const [purchasedRows, viewedRows] = await Promise.all([
     db
@@ -43,7 +45,7 @@ export async function getPersonalizedRecommendations(
       .limit(RECENT_VIEWS_LIMIT),
   ]);
 
-  if (purchasedRows.length === 0 && viewedRows.length === 0) return getRecommendedProducts(limit, excludeIds);
+  if (purchasedRows.length === 0 && viewedRows.length === 0) return getHighValueTrendingProducts(limit, excludeIds);
 
   const purchasedIds = new Set(purchasedRows.map((r) => r.productId));
   const viewedIds = new Set(viewedRows.map((r) => r.productId));
@@ -62,12 +64,22 @@ export async function getPersonalizedRecommendations(
   // Recently-viewed items already get their own homepage rail — excluding
   // them here keeps "Recommended For You" from just echoing it back.
   const excluded = new Set([...excludeIds, ...purchasedIds, ...viewedIds]);
+  /**
+   * Affinity decides which categories to draw from; price decides which
+   * products within them. Sorting on affinity alone left ties in
+   * getAllProducts() order, which is insertion order — so a shopper saw the
+   * same items in the same sequence every visit.
+   */
   const pool = all
     .filter((p) => !excluded.has(p.id) && p.review.rating >= 4.0 && categoryScore.has(p.categorySlugPath[0]))
-    .sort((a, b) => (categoryScore.get(b.categorySlugPath[0]) ?? 0) - (categoryScore.get(a.categorySlugPath[0]) ?? 0));
+    .sort((a, b) => {
+      const byAffinity =
+        (categoryScore.get(b.categorySlugPath[0]) ?? 0) - (categoryScore.get(a.categorySlugPath[0]) ?? 0);
+      return byAffinity !== 0 ? byAffinity : b.price - a.price;
+    });
 
   if (pool.length >= limit) return pool.slice(0, limit);
 
-  const fallback = await getRecommendedProducts(limit - pool.length, [...excluded, ...pool.map((p) => p.id)]);
+  const fallback = await getHighValueTrendingProducts(limit - pool.length, [...excluded, ...pool.map((p) => p.id)]);
   return [...pool, ...fallback];
 }

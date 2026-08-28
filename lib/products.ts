@@ -396,11 +396,74 @@ export async function countProductsMatchingRule(rule: CollectionRule): Promise<n
   return count;
 }
 
-/** The signed-out fallback behind getPersonalizedRecommendations — rotates so it is not the same twelve forever. */
-export async function getRecommendedProducts(limit = 12, excludeIds: string[] = []): Promise<Product[]> {
+/** How far back a view still counts as "trending". */
+const TRENDING_WINDOW_DAYS = 30;
+/** The pool the value tier rotates through — deep enough to stay fresh for months. */
+const HIGH_VALUE_POOL = 300;
+/** Junk at any price is still junk; nothing below this gets recommended. */
+const MIN_RECOMMENDABLE_RATING = "4.0";
+
+/**
+ * High-value products that people are actually looking at.
+ *
+ * Two tiers, because the view log is still thin. First, anything genuinely
+ * viewed in the last 30 days, ranked by views and then by price so the more
+ * valuable of two equally popular items wins. Then, to fill the rail, a daily
+ * rotating window over the most expensive well-rated stock.
+ *
+ * Ranked on price rather than margin deliberately: margin would be the sharper
+ * business metric, but cj_shipping_fee_cents is NULL for every CJ product, so
+ * the margin we can compute today is gross and overstates the cheap end. Swap
+ * the ordering here if that gets backfilled.
+ */
+export async function getHighValueTrendingProducts(limit = 12, excludeIds: string[] = []): Promise<Product[]> {
   const excluded = new Set(excludeIds);
-  const pool = await rotatingWindow(and(gte(productsTable.ratingValue, "4.2"), sellable), limit + excluded.size);
-  return pool.filter((p) => !excluded.has(p.id)).slice(0, limit);
+  const brandNameById = await getBrandNameById();
+  const quality = and(gte(productsTable.ratingValue, MIN_RECOMMENDABLE_RATING), sellable);
+
+  const viewed = await db
+    .select({
+      row: productsTable,
+      views: sql<number>`count(${productViewsTable.id})`.as("views"),
+    })
+    .from(productsTable)
+    .innerJoin(productViewsTable, eq(productViewsTable.productId, productsTable.id))
+    .where(
+      and(
+        quality,
+        gte(productViewsTable.viewedAt, sql`now() - interval ${sql.raw(String(TRENDING_WINDOW_DAYS))} day`)
+      )
+    )
+    .groupBy(productsTable.id)
+    .orderBy(desc(sql`views`), desc(productsTable.priceCents))
+    .limit(limit * 2);
+
+  const picked: Product[] = [];
+  for (const v of viewed) {
+    if (excluded.has(v.row.id)) continue;
+    picked.push(toProduct(v.row, brandNameById));
+    excluded.add(v.row.id);
+    if (picked.length === limit) return picked;
+  }
+
+  // Top up from the most valuable well-rated stock, windowed by day so the
+  // rail is not the same twelve items every visit.
+  const pool = await db
+    .select()
+    .from(productsTable)
+    .where(quality)
+    .orderBy(desc(productsTable.priceCents), productsTable.id)
+    .limit(HIGH_VALUE_POOL);
+
+  if (pool.length === 0) return picked;
+  const start = (dayIndex() * limit) % pool.length;
+  for (let i = 0; i < pool.length && picked.length < limit; i++) {
+    const row = pool[(start + i) % pool.length];
+    if (excluded.has(row.id)) continue;
+    picked.push(toProduct(row, brandNameById));
+    excluded.add(row.id);
+  }
+  return picked;
 }
 
 export async function getRelatedProducts(product: Product, limit = 8): Promise<Product[]> {
