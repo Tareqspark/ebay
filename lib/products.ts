@@ -46,6 +46,37 @@ const sellable = sql`exists (
     and ${productMetaTable.status} = 'active'
 )`;
 
+/**
+ * Keeps one product per variant group, cheapest first.
+ *
+ * Category pages collapse in SQL, but search and the homepage rails work from
+ * in-memory lists, and until this existed a search for "pet sweater" returned
+ * twelve products as twenty-four results — half of page one wasted on repeats.
+ *
+ * Cheapest wins so the survivor matches the "from" price a card advertises.
+ * A product with no group id keeps its own identity rather than colliding with
+ * every other ungrouped row.
+ */
+function collapseVariants(products: Product[]): Product[] {
+  const best = new Map<string, Product>();
+  for (const p of products) {
+    const key = p.variantGroupId ?? p.id;
+    const held = best.get(key);
+    if (!held || p.price < held.price) best.set(key, p);
+  }
+  // Map preserves insertion order, so whatever ranking the caller applied —
+  // relevance, views, rating — survives the collapse.
+  const seen = new Set<string>();
+  const out: Product[] = [];
+  for (const p of products) {
+    const key = p.variantGroupId ?? p.id;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(best.get(key)!);
+  }
+  return out;
+}
+
 /** Cached per request (via getAllBrands()'s own cache()) — cheap to call from every fetch function below. */
 async function getBrandNameById(): Promise<Map<string, string>> {
   const brands = await getAllBrands();
@@ -156,9 +187,11 @@ export async function searchProducts(query: string, limit = 24): Promise<Product
   const trimmed = query.trim();
   if (!trimmed) return [];
   const index = await getProductSearchIndex();
-  return index
-    .search(trimmed, { limit })
-    .map((result) => result.item);
+  // Searched wide and cut after collapsing: taking `limit` hits first and
+  // collapsing after would return half a page, because the top results are
+  // usually several variants of the same product.
+  const hits = index.search(trimmed, { limit: limit * 4 }).map((r) => r.item);
+  return collapseVariants(hits).slice(0, limit);
 }
 
 /** Products whose category path starts with the given slug segments. */
@@ -222,10 +255,11 @@ async function rotatingWindow(condition: SQL | undefined, limit: number): Promis
   const page = async (off: number, n: number) =>
     db.select().from(productsTable).where(condition).orderBy(productsTable.id).limit(n).offset(off);
 
-  const rows = await page(offset, take);
-  // The window can run off the end of the pool; wrap rather than return short.
-  if (rows.length < take) rows.push(...(await page(0, take - rows.length)));
-  return rows.map((r) => toProduct(r, brandNameById));
+  // Over-fetched because collapsing removes siblings, and a rail that asked
+  // for fourteen should still show fourteen distinct products.
+  const rows = await page(offset, take * 3);
+  if (rows.length < take) rows.push(...(await page(0, take * 3 - rows.length)));
+  return collapseVariants(rows.map((r) => toProduct(r, brandNameById))).slice(0, take);
 }
 
 /** No real discount data behind is_deal — it was seeded — so this rotates daily rather than pretending to rank. */
@@ -272,10 +306,10 @@ export async function getTrendingProducts(limit = 12): Promise<Product[]> {
  */
 export async function getNewArrivalProducts(limit = 12): Promise<Product[]> {
   const [rows, brandNameById] = await Promise.all([
-    db.select().from(productsTable).where(sellable).orderBy(desc(productsTable.id)).limit(limit),
+    db.select().from(productsTable).where(sellable).orderBy(desc(productsTable.id)).limit(limit * 4),
     getBrandNameById(),
   ]);
-  return rows.map((r) => toProduct(r, brandNameById));
+  return collapseVariants(rows.map((r) => toProduct(r, brandNameById))).slice(0, limit);
 }
 
 /**
@@ -314,7 +348,7 @@ export async function getTopSellingProducts(limit = 12): Promise<Product[]> {
     .groupBy(orderItemsTable.productId)
     .orderBy(desc(sql`total_sold`))
     .limit(limit);
-  return getProductsByIds(rows.map((r) => r.productId));
+  return collapseVariants(await getProductsByIds(rows.map((r) => r.productId))).slice(0, limit);
 }
 
 /** Ranked by ratingCount — the review-count field already shown on every product card, not the (currently empty) reviews table. */
@@ -325,28 +359,28 @@ export async function getMostReviewedProducts(limit = 12): Promise<Product[]> {
       .from(productsTable)
       .where(and(gt(productsTable.ratingCount, 0), sellable))
       .orderBy(desc(productsTable.ratingCount))
-      .limit(limit),
+      .limit(limit * 4),
     getBrandNameById(),
   ]);
-  return rows.map((r) => toProduct(r, brandNameById));
+  return collapseVariants(rows.map((r) => toProduct(r, brandNameById))).slice(0, limit);
 }
 
 /** Admin-curated (see lib/admin/homepage-deals-actions.ts) — hand-picked, not computed. */
 export async function getFeaturedDealProducts(limit = 12): Promise<Product[]> {
   const [rows, brandNameById] = await Promise.all([
-    db.select().from(productsTable).where(and(eq(productsTable.isFeaturedDeal, true), sellable)).limit(limit),
+    db.select().from(productsTable).where(and(eq(productsTable.isFeaturedDeal, true), sellable)).limit(limit * 4),
     getBrandNameById(),
   ]);
-  return rows.map((r) => toProduct(r, brandNameById));
+  return collapseVariants(rows.map((r) => toProduct(r, brandNameById))).slice(0, limit);
 }
 
 /** Admin-curated (see lib/admin/homepage-deals-actions.ts) — hand-picked, not computed. */
 export async function getWeeklyTopDealProducts(limit = 12): Promise<Product[]> {
   const [rows, brandNameById] = await Promise.all([
-    db.select().from(productsTable).where(and(eq(productsTable.isWeeklyTopDeal, true), sellable)).limit(limit),
+    db.select().from(productsTable).where(and(eq(productsTable.isWeeklyTopDeal, true), sellable)).limit(limit * 4),
     getBrandNameById(),
   ]);
-  return rows.map((r) => toProduct(r, brandNameById));
+  return collapseVariants(rows.map((r) => toProduct(r, brandNameById))).slice(0, limit);
 }
 
 export interface CollectionRule {
@@ -381,10 +415,10 @@ export async function getProductsMatchingRule(rule: CollectionRule, limit = 60):
   if (conditions.length === 0) return [];
 
   const [rows, brandNameById] = await Promise.all([
-    db.select().from(productsTable).where(and(...conditions)).limit(limit),
+    db.select().from(productsTable).where(and(...conditions)).limit(limit * 4),
     getBrandNameById(),
   ]);
-  return rows.map((r) => toProduct(r, brandNameById));
+  return collapseVariants(rows.map((r) => toProduct(r, brandNameById))).slice(0, limit);
 }
 
 /** Same conditions as getProductsMatchingRule, but a plain count — powers the admin collections list's "Products" column without fetching/mapping full rows just to count them. */
@@ -393,7 +427,7 @@ export async function countProductsMatchingRule(rule: CollectionRule): Promise<n
   if (conditions.length === 0) return 0;
 
   const [{ count }] = await db
-    .select({ count: sql<number>`count(*)` })
+    .select({ count: sql<number>`count(distinct ${productsTable.variantGroupId})` })
     .from(productsTable)
     .where(and(...conditions));
   return count;
@@ -492,9 +526,15 @@ export async function getHighValueTrendingProducts(limit = 12, excludeIds: strin
 export async function getRelatedProducts(product: Product, limit = 8): Promise<Product[]> {
   const [topSlug, childSlug] = product.categorySlugPath;
   const all = await getAllProducts();
-  return all
-    .filter((p) => p.id !== product.id && p.categorySlugPath[0] === topSlug && p.categorySlugPath[1] === childSlug)
-    .slice(0, limit);
+  // Excluded by group, not by id: the other sizes of the product being viewed
+  // are not "related products", they are the selector on this very page.
+  const related = all.filter(
+    (p) =>
+      (p.variantGroupId ?? p.id) !== (product.variantGroupId ?? product.id) &&
+      p.categorySlugPath[0] === topSlug &&
+      p.categorySlugPath[1] === childSlug
+  );
+  return collapseVariants(related).slice(0, limit);
 }
 
 export async function getBrandsInProducts(products: Product[]): Promise<Brand[]> {

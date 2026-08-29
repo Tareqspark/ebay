@@ -50,7 +50,14 @@ const CJ_BASE = "https://developers.cjdropshipping.com/api2.0/v1";
 // category tree (1,416 leaves vs. CJ's own 540), since matching runs per
 // distinct product title. This pass targets breadth directly.
 const PRODUCTS_PER_LEAF = Number(process.env.CJ_IMPORT_PRODUCTS_PER_LEAF ?? 25);
-const MAX_VARIANTS_PER_PRODUCT = Number(process.env.CJ_IMPORT_MAX_VARIANTS ?? 2);
+/**
+ * Two truncated roughly two thirds of products — a sample of twelve capped at
+ * two turned out to have 84 variants between them at CJ, one with 22. Variants
+ * cost nothing extra: they arrive inside the same /product/query call that is
+ * already being paid for. The cap only exists so a freak product with hundreds
+ * of combinations cannot flood a category.
+ */
+const MAX_VARIANTS_PER_PRODUCT = Number(process.env.CJ_IMPORT_MAX_VARIANTS ?? 24);
 const TOTAL_SAFETY_CAP = Number(process.env.CJ_IMPORT_TARGET ?? 100000); // guards against runaway behavior, not the primary target
 const MAX_PAGES_PER_LEAF = Number(process.env.CJ_IMPORT_MAX_PAGES ?? 4); // 100/page — bounds worst-case work per leaf
 const MAX_LEAVES = Number(process.env.CJ_IMPORT_MAX_LEAVES ?? Infinity); // dev/smoke-test knob
@@ -213,6 +220,21 @@ function priceForCost(costDollars: number): number {
 }
 
 const usedSlugs = new Set<string>();
+
+/**
+ * Seeds the slug set from what is already stored.
+ *
+ * usedSlugs only ever knew about the current run. Now that every variant of a
+ * product shares one title, they all reduce to the same base slug, so a second
+ * import would happily mint a slug an existing product already answers to —
+ * and getProductBySlug takes the first match, so one of them would become
+ * unreachable.
+ */
+async function loadExistingSlugs(): Promise<void> {
+  const rows = await db.select({ slug: schema.products.slug }).from(schema.products);
+  for (const r of rows) usedSlugs.add(r.slug);
+  console.log(`${rows.length} existing slugs loaded — new slugs will not collide with them`);
+}
 /** products.slug is varchar(191); the suffix budget leaves room for "-999". */
 const SLUG_MAX = 191;
 const SLUG_BASE_MAX = SLUG_MAX - 5;
@@ -318,7 +340,22 @@ async function importVariant(
   const available = Math.max(0, Math.floor(stockByVid.get(variant.vid) ?? 0));
   const countryCode: "CN" | "US" = "CN"; // getInventoryByPid's sample data is CN-warehouse-only for every product seen so far
 
-  const title = variant.variantKey && variant.variantKey !== baseProduct.productNameEn ? `${baseProduct.productNameEn} - ${variant.variantKey}` : baseProduct.productNameEn;
+  /**
+   * The variant no longer gets glued onto the title.
+   *
+   * Appending it is what made the shop list one coat five times, and it threw
+   * away the only thing that identified each row: a title of "... - Red Love-S"
+   * cannot be split back into product and variant reliably, because plenty of
+   * product names contain a dash of their own.
+   *
+   * CJ gives no structured colour or size — variantKey is a single flat string
+   * ("Black", "Deep Grey", "Red-XL") and variantProperty comes back null — so
+   * that string is stored verbatim as the label and variantOptions stays empty
+   * rather than being guessed at.
+   */
+  const title = baseProduct.productNameEn;
+  const variantLabel =
+    variant.variantKey && variant.variantKey !== baseProduct.productNameEn ? variant.variantKey : null;
   // Deduplicated — variant.variantImage frequently equals baseProduct.bigImage
   // (a variant with no distinct photo of its own just inherits the product's
   // main image), and that same image often also appears inside
@@ -336,6 +373,10 @@ async function importVariant(
     id: productId,
     slug,
     title,
+    // Siblings share the supplier's product id, which is what collapses them
+    // into one card and one page with a selector.
+    variantGroupId: baseProduct.pid,
+    variantLabel,
     brandId: GENERIC_BRAND_ID,
     priceCents: toCents(sellPrice),
     originalPriceCents: null,
@@ -394,6 +435,7 @@ async function main() {
   console.log(`Starting CJ catalog import — target ${PRODUCTS_PER_LEAF} distinct products per leaf (up to ${MAX_VARIANTS_PER_PRODUCT} variants each)\n`);
 
   await ensureGenericBrand();
+  await loadExistingSlugs();
   const existingCjProductIds = await loadExistingCjProductIds();
   console.log(`${existingCjProductIds.size} CJ products already imported — will be skipped\n`);
   const allLeaves = await loadLeafCategories();
