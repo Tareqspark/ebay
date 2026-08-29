@@ -88,7 +88,11 @@ async function cjGet<T>(path: string, pid: string): Promise<T | null> {
     });
     const body = await res.json();
     if (body.pointsInfo) points = { used: body.pointsInfo.usedToday, total: body.pointsInfo.total };
-    if (body.result) return body.data as T;
+    // Both spellings: /product/query answers with result, but
+    // getInventoryByPid answers with success and leaves result undefined —
+    // checking only result silently returned null and wrote every variant in
+    // at zero stock.
+    if (body.result ?? body.success) return body.data as T;
 
     const message: string = body.message ?? "";
     // Being rate limited is transient; a spent budget and a disabled account
