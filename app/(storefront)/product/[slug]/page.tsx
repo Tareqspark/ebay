@@ -8,13 +8,14 @@ import { PriceDisplay } from "@/components/product/price-display";
 import { ProductBadges } from "@/components/product/product-badges";
 import { AddToCart } from "@/components/product/add-to-cart";
 import { WishlistButton } from "@/components/product/wishlist-button";
+import { VariantSelector } from "@/components/product/variant-selector";
 import { RecordRecentlyViewed } from "@/components/product/record-recently-viewed";
 import { ProductRail } from "@/components/product/product-rail";
 import { ReviewsSection } from "@/components/product/reviews-section";
 import { BundlePromo } from "@/components/product/bundle-promo";
 import { BannerSlot } from "@/components/storefront/banner-slot";
 import { auth } from "@/auth";
-import { getProductBySlug, getRelatedProducts, getProductsByIds } from "@/lib/products";
+import { getProductBySlug, getRelatedProducts, getProductsByIds, getVariantSiblings } from "@/lib/products";
 import { resolveCategoryPath } from "@/lib/category-utils";
 import { recordProductView } from "@/lib/product-views";
 import { getActiveBundlesForProduct } from "@/lib/bundles";
@@ -39,9 +40,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
   if (!product) notFound();
 
   const session = await auth();
-  const [resolved, related] = await Promise.all([
+  const [resolved, related, siblings] = await Promise.all([
     resolveCategoryPath(product.categorySlugPath),
     getRelatedProducts(product, 12),
+    getVariantSiblings(product),
   ]);
   if (session?.user?.id) {
     await recordProductView(session.user.id, product.id, product.categorySlugPath[0]);
@@ -103,6 +105,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
               )}
             </span>
           </div>
+
+          <VariantSelector current={product} siblings={siblings} />
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <AddToCart productId={product.id} inStock={product.stock > 0} />

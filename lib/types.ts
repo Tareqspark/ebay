@@ -51,6 +51,8 @@ export interface Product {
   variantGroupId?: string;
   /** What the selector shows for this row — "Red", "Blue-XL". Null when the group has one member. */
   variantLabel?: string;
+  /** Structured attributes, {"colour":"Red","size":"S"} — populated by import, absent on older rows. */
+  variantOptions?: Record<string, string>;
   /** How many buyable variants the group has, including this one. */
   variantCount?: number;
   /** Cheapest and dearest in the group, so a card can say "from $12.99". */

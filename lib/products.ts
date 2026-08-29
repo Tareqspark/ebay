@@ -77,6 +77,9 @@ function toProduct(row: ProductRow, brandNameById: Map<string, string>): Product
     stock: row.stock,
     description: row.description,
     features: row.features,
+    variantGroupId: row.variantGroupId ?? undefined,
+    variantLabel: row.variantLabel ?? undefined,
+    variantOptions: row.variantOptions ?? undefined,
   };
 }
 
@@ -774,4 +777,31 @@ export function toExplorerState(
     sort: params.sort ?? "relevance",
     page: result.page,
   };
+}
+
+/**
+ * The other variants of a product, for the selector on its page.
+ *
+ * Each variant keeps its own URL, so the selector is a set of links rather
+ * than client state: the page stays server-rendered, every colour and size is
+ * separately indexable, and add-to-cart needs no changes because the page you
+ * are on already is the variant you would buy.
+ *
+ * Returns an empty array for a product with no siblings, so callers can render
+ * nothing without a special case.
+ */
+export async function getVariantSiblings(product: Product): Promise<Product[]> {
+  if (!product.variantGroupId) return [];
+
+  const [rows, brandNameById] = await Promise.all([
+    db
+      .select()
+      .from(productsTable)
+      .where(and(eq(productsTable.variantGroupId, product.variantGroupId), sellable))
+      .orderBy(productsTable.priceCents, productsTable.id),
+    getBrandNameById(),
+  ]);
+
+  if (rows.length < 2) return [];
+  return rows.map((r) => toProduct(r, brandNameById));
 }
