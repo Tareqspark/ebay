@@ -406,11 +406,40 @@ export const products = mysqlTable(
     heightIn: decimal("height_in", { precision: 6, scale: 2 }).notNull().default("0"),
     description: text("description").notNull(),
     features: json("features").$type<string[]>().notNull().default([]),
+    /**
+     * Variants.
+     *
+     * A supplier product that comes in eleven colours and ten sizes arrives as
+     * one row per combination, because stock, price and fulfilment are all
+     * per-combination and always were — cart_items, order_items and inventory
+     * every one key on a product id. What was missing is that nothing tied the
+     * rows together, so the shop listed the same coat five times.
+     *
+     * variantGroupId is that tie. Rows sharing it are one product to a
+     * shopper: one card in a listing, one page, a selector to choose between
+     * them. A product with no siblings simply has a group of one.
+     *
+     * variantLabel is what the selector shows — "Red-S", "Green". It comes
+     * from the supplier's own variant name rather than being parsed out of the
+     * title, because only about a quarter of those names carry a recognisable
+     * size and the rest are free text ("Play disc", "7tablets").
+     *
+     * variantOptions is the structured form, {"colour":"Red","size":"S"},
+     * for real dropdowns rather than one flat list. It stays null until an
+     * import captures it — the attributes were never stored, so there is
+     * nothing on disk to back-fill from.
+     */
+    variantGroupId: varchar("variant_group_id", { length: 191 }),
+    variantLabel: varchar("variant_label", { length: 191 }),
+    variantOptions: json("variant_options").$type<Record<string, string>>(),
   },
   (table) => [
     index("products_slug_idx").on(table.slug),
     index("products_brand_id_idx").on(table.brandId),
     index("products_category_id_idx").on(table.categoryId),
+    // Every listing query groups on this now, so it carries the same weight
+    // as the category index above.
+    index("products_variant_group_idx").on(table.variantGroupId),
   ]
 );
 
