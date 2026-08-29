@@ -1,6 +1,4 @@
 import "server-only";
-import { cache } from "react";
-import Fuse from "fuse.js";
 import { eq, inArray, desc, gt, gte, lte, and, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import {
@@ -114,14 +112,6 @@ function toProduct(row: ProductRow, brandNameById: Map<string, string>): Product
   };
 }
 
-/** All 2,800+ products, cached once per request — every fetch helper below filters this in memory rather than re-querying, since the whole catalog is a fast, cacheable read compared to the many small selective queries the storefront would otherwise issue per request. */
-export const getAllProducts = cache(async (): Promise<Product[]> => {
-  const [rows, brandNameById] = await Promise.all([
-    db.select().from(productsTable).where(sellable),
-    getBrandNameById(),
-  ]);
-  return rows.map((r) => toProduct(r, brandNameById));
-});
 
 export async function getProductBySlug(slug: string): Promise<Product | undefined> {
   const [row] = await db
@@ -160,38 +150,55 @@ export async function getProductsByIds(ids: string[]): Promise<Product[]> {
 }
 
 /**
- * Typo-tolerant, ranked full-text search over the whole catalog — an
- * in-process Fuse.js index built fresh from getAllProducts() on each call
- * (that call is itself request-cached, so this is one extra pass over an
- * already-cheap in-memory array, not a new DB round trip). Field weights
- * mean a title match always outranks a description-only match; the
- * threshold is loose enough to survive a one- or two-character typo
- * without turning into a fuzzy-anything-goes match.
+ * Full-text search, run by the database.
+ *
+ * This used to load every product into memory and build a Fuse.js index over
+ * the lot on each cache miss. At ~19,600 products that was crashing the app
+ * thirteen times in three days with "JavaScript heap out of memory", and it
+ * put a hard ceiling on the catalogue: the index cost grows with every import.
+ *
+ * MySQL's own full-text index does the same job without moving the catalogue
+ * into Node. It ranks by relevance across title and description, and the query
+ * costs milliseconds against an index rather than megabytes of heap.
+ *
+ * The trade is typo tolerance: Fuse forgave a mistyped character, full-text
+ * does not. Words shorter than innodb_ft_min_token_size (3 here) are also not
+ * indexed, so a short query falls back to a prefix match — otherwise searching
+ * "TV" would silently return nothing.
  */
-const getProductSearchIndex = cache(async (): Promise<Fuse<Product>> => {
-  const products = await getAllProducts();
-  return new Fuse(products, {
-    keys: [
-      { name: "title", weight: 0.5 },
-      { name: "brandName", weight: 0.25 },
-      { name: "description", weight: 0.15 },
-      { name: "features", weight: 0.1 },
-    ],
-    threshold: 0.35,
-    ignoreLocation: true,
-    minMatchCharLength: 2,
-  });
-});
-
 export async function searchProducts(query: string, limit = 24): Promise<Product[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
-  const index = await getProductSearchIndex();
-  // Searched wide and cut after collapsing: taking `limit` hits first and
-  // collapsing after would return half a page, because the top results are
-  // usually several variants of the same product.
-  const hits = index.search(trimmed, { limit: limit * 4 }).map((r) => r.item);
-  return collapseVariants(hits).slice(0, limit);
+
+  // Over-fetched, because collapsing variants removes rows and a page of
+  // results should still be full.
+  const wide = limit * 4;
+  const brandNameById = await getBrandNameById();
+
+  const shortest = Math.min(...trimmed.split(/\s+/).map((w) => w.length));
+  const rows =
+    shortest >= 3
+      ? await db
+          .select()
+          .from(productsTable)
+          .where(
+            and(
+              sql`match(${productsTable.title}, ${productsTable.description}) against (${trimmed} in natural language mode)`,
+              sellable
+            )
+          )
+          .orderBy(
+            desc(sql`match(${productsTable.title}, ${productsTable.description}) against (${trimmed} in natural language mode)`)
+          )
+          .limit(wide)
+      : await db
+          .select()
+          .from(productsTable)
+          .where(and(sql`${productsTable.title} like ${trimmed + "%"}`, sellable))
+          .orderBy(desc(productsTable.ratingCount))
+          .limit(wide);
+
+  return collapseVariants(rows.map((r) => toProduct(r, brandNameById))).slice(0, limit);
 }
 
 /** Products whose category path starts with the given slug segments. */
@@ -209,7 +216,9 @@ export async function searchProducts(query: string, limit = 24): Promise<Product
  * rules.
  */
 export async function getProductsByCategoryPath(segments: string[]): Promise<Product[]> {
-  if (segments.length === 0) return getAllProducts();
+  // No segments means no category, and returning the entire catalogue here was
+  // another way the whole table ended up in memory.
+  if (segments.length === 0) return [];
 
   const conditions = segments
     .slice(0, 3)
@@ -523,9 +532,30 @@ export async function getHighValueTrendingProducts(limit = 12, excludeIds: strin
   return picked;
 }
 
+/** Products sharing a department and section, capped — for "related" rails. */
+async function siblingsInSection(topSlug: string, childSlug: string, cap: number): Promise<Product[]> {
+  const [rows, brandNameById] = await Promise.all([
+    db
+      .select()
+      .from(productsTable)
+      .where(
+        and(
+          sql`json_unquote(json_extract(${productsTable.categorySlugPath}, '$[0]')) = ${topSlug}`,
+          sql`json_unquote(json_extract(${productsTable.categorySlugPath}, '$[1]')) = ${childSlug}`,
+          sellable
+        )
+      )
+      .limit(cap),
+    getBrandNameById(),
+  ]);
+  return rows.map((r) => toProduct(r, brandNameById));
+}
+
 export async function getRelatedProducts(product: Product, limit = 8): Promise<Product[]> {
   const [topSlug, childSlug] = product.categorySlugPath;
-  const all = await getAllProducts();
+  // Narrowed by the database. This used to scan every product in the shop to
+  // find a dozen siblings in the same section.
+  const all = await siblingsInSection(topSlug, childSlug, limit * 8);
   // Excluded by group, not by id: the other sizes of the product being viewed
   // are not "related products", they are the selector on this very page.
   const related = all.filter(
@@ -844,4 +874,30 @@ export async function getVariantSiblings(product: Product): Promise<Product[]> {
 
   if (rows.length < 2) return [];
   return rows.map((r) => toProduct(r, brandNameById));
+}
+
+/**
+ * Best-rated products in one department, for affinity-based recommendations.
+ *
+ * Personalisation used to scan the entire catalogue in memory to find products
+ * in the few departments a shopper favours. Fetching those departments
+ * directly does the same work against an index.
+ */
+export async function getTopRatedInDepartment(topSlug: string, limit: number): Promise<Product[]> {
+  const [rows, brandNameById] = await Promise.all([
+    db
+      .select()
+      .from(productsTable)
+      .where(
+        and(
+          sql`json_unquote(json_extract(${productsTable.categorySlugPath}, '$[0]')) = ${topSlug}`,
+          gte(productsTable.ratingValue, "4.0"),
+          sellable
+        )
+      )
+      .orderBy(desc(productsTable.priceCents))
+      .limit(limit),
+    getBrandNameById(),
+  ]);
+  return collapseVariants(rows.map((r) => toProduct(r, brandNameById)));
 }

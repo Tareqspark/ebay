@@ -2,7 +2,7 @@ import "server-only";
 import { eq, desc } from "drizzle-orm";
 import { db } from "@/db";
 import { orders, orderItems, productViews } from "@/db/schema";
-import { getAllProducts, getHighValueTrendingProducts } from "@/lib/products";
+import { getProductsByIds, getTopRatedInDepartment, getHighValueTrendingProducts } from "@/lib/products";
 import type { Product } from "@/lib/types";
 
 // A completed purchase is a much stronger preference signal than a page
@@ -49,12 +49,15 @@ export async function getPersonalizedRecommendations(
 
   const purchasedIds = new Set(purchasedRows.map((r) => r.productId));
   const viewedIds = new Set(viewedRows.map((r) => r.productId));
-  const all = await getAllProducts();
-  const productById = new Map(all.map((p) => [p.id, p]));
+
+  // Only the shopper's own purchases are fetched, not the catalogue. This
+  // loaded every product in the shop to look up a handful of category slugs,
+  // which is part of what was exhausting the heap.
+  const purchased = await getProductsByIds([...purchasedIds]);
 
   const categoryScore = new Map<string, number>();
-  for (const id of purchasedIds) {
-    const topSlug = productById.get(id)?.categorySlugPath[0];
+  for (const p of purchased) {
+    const topSlug = p.categorySlugPath[0];
     if (topSlug) categoryScore.set(topSlug, (categoryScore.get(topSlug) ?? 0) + PURCHASE_WEIGHT);
   }
   for (const row of viewedRows) {
@@ -67,11 +70,18 @@ export async function getPersonalizedRecommendations(
   /**
    * Affinity decides which categories to draw from; price decides which
    * products within them. Sorting on affinity alone left ties in
-   * getAllProducts() order, which is insertion order — so a shopper saw the
-   * same items in the same sequence every visit.
+   * insertion order — so a shopper saw the same items in the same sequence
+   * every visit.
    */
-  const pool = all
-    .filter((p) => !excluded.has(p.id) && p.review.rating >= 4.0 && categoryScore.has(p.categorySlugPath[0]))
+  // Candidates come from the affinity categories only, fetched per category
+  // rather than by scanning everything.
+  const ranked = [...categoryScore.entries()].sort((a, b) => b[1] - a[1]);
+  const candidates = (
+    await Promise.all(ranked.slice(0, 4).map(([slug]) => getTopRatedInDepartment(slug, limit * 3)))
+  ).flat();
+
+  const pool = candidates
+    .filter((p) => !excluded.has(p.id))
     .sort((a, b) => {
       const byAffinity =
         (categoryScore.get(b.categorySlugPath[0]) ?? 0) - (categoryScore.get(a.categorySlugPath[0]) ?? 0);
