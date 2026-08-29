@@ -42,7 +42,22 @@ export function ProductCard({ product, className, priority }: ProductCardProps) 
         <h3 className="line-clamp-2 text-sm font-medium text-foreground">{product.title}</h3>
         <RatingStars rating={product.review.rating} count={product.review.count} />
         <div className="mt-auto pt-1">
-          <PriceDisplay price={product.price} originalPrice={product.originalPrice} size="sm" />
+          {/* A group whose members differ in price is quoted from its cheapest,
+              because the card stands for all of them now, not just the one row
+              that happened to represent it. */}
+          {product.variantCount && product.variantCount > 1 && product.priceFrom !== product.priceTo ? (
+            <div className="flex items-baseline gap-1">
+              <span className="text-xs text-muted-foreground">from</span>
+              <PriceDisplay price={product.priceFrom ?? product.price} size="sm" />
+            </div>
+          ) : (
+            <PriceDisplay price={product.price} originalPrice={product.originalPrice} size="sm" />
+          )}
+          {product.variantCount && product.variantCount > 1 && (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {product.variantCount} options
+            </p>
+          )}
           {product.freeShipping && (
             <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
               <Truck className="h-3.5 w-3.5" />

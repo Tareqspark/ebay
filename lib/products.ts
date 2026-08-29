@@ -560,6 +560,60 @@ function categoryPathConditions(segments: string[]) {
  * client they would only ever see the current page, so "under $20" would
  * quietly mean "under $20 among these 24".
  */
+/** One row per variant group, cheapest member representing it, with the group's own aggregates. */
+interface GroupRow {
+  row: typeof productsTable.$inferSelect;
+  variantCount: number;
+  priceFrom: number;
+  priceTo: number;
+}
+
+/**
+ * A page of variant groups rather than a page of rows.
+ *
+ * MySQL has no "pick a whole row per group", so the group query returns each
+ * group's aggregates plus the id of its cheapest member — GROUP_CONCAT ordered
+ * by price, first element — and the full rows are then fetched by those ids and
+ * put back into the group order. Two indexed queries rather than one, which is
+ * still far less work than shipping every variant to the browser.
+ */
+async function pageOfGroups(
+  where: SQL | undefined,
+  order: SQL[],
+  limit: number,
+  offset: number
+): Promise<GroupRow[]> {
+  const groups = await db
+    .select({
+      gid: productsTable.variantGroupId,
+      repId: sql<string>`substring_index(group_concat(${productsTable.id} order by ${productsTable.priceCents} asc, ${productsTable.id} asc), ',', 1)`,
+      variantCount: sql<number>`count(*)`,
+      priceFrom: sql<number>`min(${productsTable.priceCents})`,
+      priceTo: sql<number>`max(${productsTable.priceCents})`,
+    })
+    .from(productsTable)
+    .where(where)
+    .groupBy(productsTable.variantGroupId)
+    .orderBy(...order)
+    .limit(limit)
+    .offset(offset);
+
+  if (groups.length === 0) return [];
+
+  const repIds = groups.map((g) => g.repId);
+  const rows = await db.select().from(productsTable).where(inArray(productsTable.id, repIds));
+  const byId = new Map(rows.map((r) => [r.id, r]));
+
+  return groups
+    .map((g) => {
+      const row = byId.get(g.repId);
+      return row
+        ? { row, variantCount: Number(g.variantCount), priceFrom: Number(g.priceFrom), priceTo: Number(g.priceTo) }
+        : null;
+    })
+    .filter((g): g is GroupRow => g !== null);
+}
+
 export async function browseCategory(
   segments: string[],
   params: CategoryBrowseParams = {}
@@ -575,21 +629,36 @@ export async function browseCategory(
     filters.push(gte(productsTable.ratingValue, String(params.minRating)));
   }
 
-  // Every ordering ends in id so OFFSET paging is stable. Without a unique
-  // tiebreaker MySQL may return rows in a different order between pages,
-  // which silently duplicates some products and skips others.
+  /**
+   * Ordering has to be aggregate-only.
+   *
+   * The query groups by variant_group_id, and MySQL runs with
+   * ONLY_FULL_GROUP_BY, so sorting on a bare column is rejected outright —
+   * "price_cents is not in GROUP BY". Each sort therefore picks the aggregate
+   * that means the right thing for a group: cheapest ascending, dearest
+   * descending, best rating, newest member.
+   *
+   * Every ordering ends in the group id. Without a unique tiebreaker MySQL may
+   * order equal values differently between pages, which silently repeats some
+   * products and skips others across OFFSET boundaries.
+   */
   const order = (() => {
+    const tiebreak = sql`${productsTable.variantGroupId} asc`;
     switch (params.sort) {
-      case "price-asc": return [productsTable.priceCents, productsTable.id];
-      case "price-desc": return [desc(productsTable.priceCents), productsTable.id];
-      case "rating": return [desc(productsTable.ratingValue), productsTable.id];
-      case "newest": return [desc(productsTable.isNewArrival), productsTable.id];
-      default: return [productsTable.id];
+      case "price-asc": return [sql`min(${productsTable.priceCents}) asc`, tiebreak];
+      case "price-desc": return [sql`max(${productsTable.priceCents}) desc`, tiebreak];
+      case "rating": return [sql`max(${productsTable.ratingValue}) desc`, tiebreak];
+      // Product ids are ULIDs, so the highest id in a group is its newest row.
+      case "newest": return [sql`max(${productsTable.id}) desc`, tiebreak];
+      default: return [tiebreak];
     }
   })();
 
+  // Counted and paged by group, not by row: a coat in five sizes is one
+  // product to a shopper, and paging by row put the same card on screen five
+  // times and made the result count meaningless.
   const [countRow] = await db
-    .select({ n: sql<number>`count(*)` })
+    .select({ n: sql<number>`count(distinct ${productsTable.variantGroupId})` })
     .from(productsTable)
     .where(and(...filters));
   const total = Number(countRow?.n ?? 0);
@@ -598,17 +667,11 @@ export async function browseCategory(
   const page = Math.min(Math.max(1, params.page ?? 1), pageCount);
 
   const [rows, brandNameById, facets] = await Promise.all([
-    db
-      .select()
-      .from(productsTable)
-      .where(and(...filters))
-      .orderBy(...order)
-      .limit(pageSize)
-      .offset((page - 1) * pageSize),
+    pageOfGroups(and(...filters), order, pageSize, (page - 1) * pageSize),
     getBrandNameById(),
     db
       .select({
-        n: sql<number>`count(*)`,
+        n: sql<number>`count(distinct ${productsTable.variantGroupId})`,
         min: sql<number>`min(${productsTable.priceCents})`,
         max: sql<number>`max(${productsTable.priceCents})`,
       })
@@ -635,7 +698,12 @@ export async function browseCategory(
     : [];
 
   return {
-    products: rows.map((r) => toProduct(r, brandNameById)),
+    products: rows.map((g) => ({
+      ...toProduct(g.row, brandNameById),
+      variantCount: g.variantCount,
+      priceFrom: toDollars(g.priceFrom),
+      priceTo: toDollars(g.priceTo),
+    })),
     total,
     totalInCategory,
     page,

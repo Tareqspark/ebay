@@ -40,4 +40,20 @@ export interface Product {
   stock: number;
   description: string;
   features: string[];
+  /**
+   * Variants.
+   *
+   * Every product belongs to a group, usually of one. Where a group has
+   * siblings, listings show a single card for the whole group and the product
+   * page offers a selector; these fields carry what the card needs to say so
+   * it does not have to fetch the siblings to render.
+   */
+  variantGroupId?: string;
+  /** What the selector shows for this row — "Red", "Blue-XL". Null when the group has one member. */
+  variantLabel?: string;
+  /** How many buyable variants the group has, including this one. */
+  variantCount?: number;
+  /** Cheapest and dearest in the group, so a card can say "from $12.99". */
+  priceFrom?: number;
+  priceTo?: number;
 }
