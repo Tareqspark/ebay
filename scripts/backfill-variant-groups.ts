@@ -16,15 +16,15 @@
  *   everything else, so every product belongs to a group even if it is a group
  *   of one and listing code never needs a special case.
  *
- *   variantLabel — what a selector shows. Taken as whatever follows the longest
- *   title prefix the group shares, rather than by splitting on " - ", because
- *   plenty of titles contain a dash that has nothing to do with variants
- *   ("Pet Supplies - Solid Wood Stand").
+ *   variantLabel — what a selector shows. A label the supplier already gave us
+ *   is kept as it is; only a row without one has it derived, from whatever
+ *   follows the longest title prefix its group shares. Deriving is a fallback,
+ *   not the rule: the import now records CJ's own variantKey directly.
  *
- * Titles are shortened to that shared prefix, so the collapsed card reads "Pet
- * Dog Clothes Autumn And Winter Warm" instead of repeating the suffix. Slugs
- * are left alone — they are live URLs — and past orders keep their own title
- * copy, so nothing already sold changes.
+ * Titles and slugs are both left alone. Slugs are live URLs, and rewriting
+ * titles is a separate job with its own risks — 77,700 rows whose correct new
+ * name can only come from CJ, and groups of one with no sibling to compare
+ * against. Past orders keep their own title copy regardless.
  *
  * Dry run by default; --apply writes.
  */
@@ -60,6 +60,7 @@ async function main() {
     .select({
       id: schema.products.id,
       title: schema.products.title,
+      storedLabel: schema.products.variantLabel,
       cjProductId: schema.productMeta.cjProductId,
       source: schema.productMeta.source,
     })
@@ -68,11 +69,11 @@ async function main() {
 
   // Supplier stock groups on the supplier's product id; anything else is its
   // own group, so downstream code can always group by the one column.
-  const groups = new Map<string, { id: string; title: string }[]>();
+  const groups = new Map<string, { id: string; title: string; storedLabel: string | null }[]>();
   for (const r of rows) {
     const key = r.source === "cj" && r.cjProductId ? r.cjProductId : r.id;
     const list = groups.get(key) ?? [];
-    list.push({ id: r.id, title: r.title });
+    list.push({ id: r.id, title: r.title, storedLabel: r.storedLabel });
     groups.set(key, list);
   }
 
@@ -85,32 +86,57 @@ async function main() {
     const base = sharedPrefix(members.map((m) => m.title));
 
     for (const m of members) {
-      let label: string | null = null;
-      if (members.length > 1) {
+      /**
+       * A label the supplier gave us always wins.
+       *
+       * This script originally derived every label from the title, because at
+       * the time the title was the only place a variant was recorded. The
+       * import now writes CJ's own variantKey to variant_label and leaves the
+       * title alone, so within a group the titles are identical — and deriving
+       * from them would produce an empty string for every row and replace
+       * 121,033 real labels ("Pink-XL", "Emerald Green-S") with "Option 1",
+       * "Option 2". Re-running this as written would have destroyed them.
+       */
+      let label: string | null = m.storedLabel;
+
+      if (!label && members.length > 1) {
         label = m.title.slice(base.length).replace(/^[\s\-–—,:]+/, "").trim() || null;
         // Siblings whose titles are identical give nothing to choose between.
         // A positional label is honest about that and still lets the selector
-        // work; the real attributes arrive with a variant re-import.
+        // work.
         if (!label) {
           unlabelled++;
           label = `Option ${members.indexOf(m) + 1}`;
         }
       }
-      updates.push({ id: m.id, groupId, label, title: base || m.title });
+
+      /**
+       * Titles are left exactly as they are.
+       *
+       * Rewriting them is a separate, riskier job: 77,700 rows across 7,777
+       * groups, where the only correct new title comes from CJ rather than
+       * from anything derivable locally, and where a group of one has no
+       * sibling to compare against. It needs its own backup, dry run and
+       * rollback file — not a side effect of fixing labels.
+       */
+      updates.push({ id: m.id, groupId, label, title: m.title });
     }
   }
 
   console.log(`${rows.length} products in ${groups.size} groups`);
   console.log(`  groups with more than one variant: ${multi}`);
   console.log(`  variants with no distinguishing text: ${unlabelled}`);
+  const kept = updates.filter((u) => u.label !== null).length;
+  console.log(`  labels preserved from the supplier or derived: ${kept}`);
 
   const sample = [...groups.values()].filter((g) => g.length > 2)[0];
   if (sample) {
     const base = sharedPrefix(sample.map((m) => m.title));
     console.log(`\nexample group of ${sample.length}:`);
-    console.log(`  base title : ${base}`);
+    console.log(`  title      : ${sample[0].title}`);
     for (const m of sample.slice(0, 5)) {
-      console.log(`  label      : ${m.title.slice(base.length).replace(/^[\s\-–—,:]+/, "").trim() || "(none)"}`);
+      const derived = m.title.slice(base.length).replace(/^[\s\-–—,:]+/, "").trim();
+      console.log(`  label      : ${m.storedLabel ?? derived ?? "(none)"}${m.storedLabel ? "  (from supplier)" : "  (derived)"}`);
     }
   }
 
