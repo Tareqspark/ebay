@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, like, or, sql, type SQL } from "drizzle-orm";
+import { and, eq, inArray, like, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { products, productMeta, brands, suppliers } from "@/db/schema";
 import { toDollars } from "@/lib/money";
@@ -71,27 +71,41 @@ function buildConditions(q: ProductQuery): SQL[] {
   return conditions;
 }
 
-function orderBy(sort: string | undefined, dir: "asc" | "desc") {
-  const d = dir === "asc" ? asc : desc;
+/**
+ * Ordering for the grouped query, which must be aggregate-only.
+ *
+ * MySQL runs with ONLY_FULL_GROUP_BY, so a bare column in ORDER BY beside a
+ * GROUP BY is rejected outright — every sort here has to pick the aggregate
+ * that means the right thing for a whole product rather than for one of its
+ * colours. Cheapest ascending, dearest descending, stock summed across the
+ * group, and newest by the highest id, product ids being ULIDs.
+ *
+ * Every ordering ends in the group id. Without a unique tiebreaker MySQL can
+ * order equal values differently between pages, which silently repeats some
+ * products and skips others across OFFSET boundaries.
+ */
+function groupedOrderBy(sort: string | undefined, dir: "asc" | "desc") {
+  const tiebreak = sql`${products.variantGroupId} asc`;
+  const d = (expr: SQL) => (dir === "asc" ? sql`${expr} asc` : sql`${expr} desc`);
   switch (sort) {
     case "name":
-      return d(products.title);
+      return [d(sql`min(${products.title})`), tiebreak];
     case "price":
-      return d(products.priceCents);
+      return [dir === "asc" ? sql`min(${products.priceCents}) asc` : sql`max(${products.priceCents}) desc`, tiebreak];
     case "cost":
-      return d(productMeta.costCents);
+      return [d(sql`min(${productMeta.costCents})`), tiebreak];
     case "inventory":
-      return d(products.stock);
+      return [d(sql`sum(${products.stock})`), tiebreak];
     case "margin":
-      return dir === "asc" ? asc(marginFraction) : desc(marginFraction);
+      return [d(sql`min(${marginFraction})`), tiebreak];
     case "updated":
-      return d(productMeta.lastUpdatedAt);
+      return [d(sql`max(${productMeta.lastUpdatedAt})`), tiebreak];
     default:
-      // Newest first, matching what the unpaginated table settled on: a
-      // product created a minute ago must not land on page 400.
-      return desc(productMeta.importedAt);
+      return [sql`max(${products.id}) desc`, tiebreak];
   }
 }
+
+
 
 export async function queryAdminProducts(q: ProductQuery): Promise<ProductQueryResult> {
   // Capped generously rather than tightly: the CSV export legitimately asks
@@ -101,15 +115,66 @@ export async function queryAdminProducts(q: ProductQuery): Promise<ProductQueryR
   const conditions = buildConditions(q);
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const [countRow] = await db
-    .select({ count: sql<number>`count(*)` })
+  /**
+   * The rollup only joins when a filter actually needs the joined table.
+   *
+   * Grouping 148,039 rows costs about 300ms off a covering index and about
+   * 4 seconds once product_meta is joined in. The default admin view filters on
+   * neither table, so paying for those joins on every page load bought nothing.
+   */
+  const needsMeta =
+    (q.status != null && q.status !== "all") ||
+    (q.visibility != null && q.visibility !== "all") ||
+    (q.source != null && q.source !== "all") ||
+    q.savedView === "needs-review" ||
+    q.savedView === "active-visible" ||
+    q.savedView === "low-margin";
+  const needsBrands = Boolean(q.search?.trim());
+
+  // Counted by product, not by row. A jacket in twelve colours is one thing to
+  // manage, and counting rows made the header read 148,039 when the catalogue
+  // holds 19,615 products.
+  const countQuery = db
+    .select({ count: sql<number>`count(distinct ${products.variantGroupId})` })
     .from(products)
-    .innerJoin(productMeta, eq(productMeta.productId, products.id))
-    .leftJoin(brands, eq(brands.id, products.brandId))
-    .where(where);
+    .$dynamic();
+  if (needsMeta) countQuery.innerJoin(productMeta, eq(productMeta.productId, products.id));
+  if (needsBrands) countQuery.leftJoin(brands, eq(brands.id, products.brandId));
+  const [countRow] = await countQuery.where(where);
   const total = Number(countRow?.count ?? 0);
 
-  const rows = await db
+  /**
+   * One page of variant groups.
+   *
+   * MySQL cannot hand back a whole row per group, so this asks for each group's
+   * aggregates plus the id of its cheapest member, then fetches those rows in
+   * full. Two indexed queries instead of one, and far less work than loading
+   * every variant to display a summary of it.
+   */
+  const groupQuery = db
+    .select({
+      gid: products.variantGroupId,
+      repId: sql<string>`substring_index(group_concat(${products.id} order by ${products.priceCents} asc, ${products.id} asc), ',', 1)`,
+      variantCount: sql<number>`count(*)`,
+      priceFrom: sql<number>`min(${products.priceCents})`,
+      priceTo: sql<number>`max(${products.priceCents})`,
+      totalStock: sql<number>`sum(${products.stock})`,
+    })
+    .from(products)
+    .$dynamic();
+  if (needsMeta) groupQuery.innerJoin(productMeta, eq(productMeta.productId, products.id));
+  if (needsBrands) groupQuery.leftJoin(brands, eq(brands.id, products.brandId));
+  const groupRows = await groupQuery
+    .where(where)
+    .groupBy(products.variantGroupId)
+    .orderBy(...groupedOrderBy(q.sort, q.dir ?? "desc"))
+    .limit(pageSize)
+    .offset((page - 1) * pageSize);
+
+  const rollupById = new Map(groupRows.map((g) => [g.repId, g]));
+  const repIds = groupRows.map((g) => g.repId);
+
+  const unordered = repIds.length === 0 ? [] : await db
     .select({
       id: products.id,
       slug: products.slug,
@@ -134,15 +199,38 @@ export async function queryAdminProducts(q: ProductQuery): Promise<ProductQueryR
       supplierName: suppliers.name,
       cjShippingFeeCents: productMeta.cjShippingFeeCents,
       cjProductId: productMeta.cjProductId,
+      variantGroupId: products.variantGroupId,
     })
     .from(products)
     .innerJoin(productMeta, eq(productMeta.productId, products.id))
     .leftJoin(brands, eq(brands.id, products.brandId))
     .leftJoin(suppliers, eq(suppliers.id, productMeta.supplierId))
-    .where(where)
-    .orderBy(orderBy(q.sort, q.dir ?? "desc"))
-    .limit(pageSize)
-    .offset((page - 1) * pageSize);
+    .where(inArray(products.id, repIds));
+
+  // Fetching by id loses the grouped ordering, so it is restored here.
+  const byId = new Map(unordered.map((r) => [r.id, r]));
+  const rows = repIds.map((id) => byId.get(id)).filter((r): r is (typeof unordered)[number] => Boolean(r));
+
+  /**
+   * Whether each group's variants disagree about status or visibility.
+   *
+   * Scoped to the groups on screen. Computing it in the rollup would force the
+   * product_meta join on every page load, which is the expensive half.
+   */
+  const gids = groupRows.map((g) => g.gid).filter((g): g is string => Boolean(g));
+  const mixedRows = gids.length === 0 ? [] : await db
+    .select({
+      gid: products.variantGroupId,
+      statuses: sql<number>`count(distinct ${productMeta.status})`,
+      visibilities: sql<number>`count(distinct ${productMeta.visibility})`,
+    })
+    .from(products)
+    .innerJoin(productMeta, eq(productMeta.productId, products.id))
+    .where(inArray(products.variantGroupId, gids))
+    .groupBy(products.variantGroupId);
+  const mixedByGroup = new Map(
+    mixedRows.map((m) => [m.gid ?? "", { status: Number(m.statuses) > 1, visibility: Number(m.visibilities) > 1 }])
+  );
 
   return {
     rows: rows.map((r) => {
@@ -193,6 +281,14 @@ export async function queryAdminProducts(q: ProductQuery): Promise<ProductQueryR
         categoryName: r.categorySlugPath[0] ?? "",
         margin,
         marginPercent: price > 0 ? Math.round((margin / price) * 1000) / 10 : 0,
+        variantCount: Number(rollupById.get(r.id)?.variantCount ?? 1),
+        priceFrom: toDollars(Number(rollupById.get(r.id)?.priceFrom ?? r.priceCents)),
+        priceTo: toDollars(Number(rollupById.get(r.id)?.priceTo ?? r.priceCents)),
+        totalStock: Number(rollupById.get(r.id)?.totalStock ?? r.stock),
+        // Asked only for the 25 groups on screen, so it costs an indexed lookup
+        // rather than a second pass over the whole table.
+        mixedStatus: mixedByGroup.get(r.variantGroupId ?? "")?.status ?? false,
+        mixedVisibility: mixedByGroup.get(r.variantGroupId ?? "")?.visibility ?? false,
       } as AdminProductRow;
     }),
     total,

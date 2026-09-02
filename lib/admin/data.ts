@@ -203,6 +203,25 @@ export interface AdminProductRow {
   categoryName: string;
   margin: number;
   marginPercent: number;
+  /**
+   * Variant rollup.
+   *
+   * The list shows one row per product, not per colour and size — 19,615 rows
+   * rather than 148,039, which is what a person managing the catalogue is
+   * actually looking for. These fields summarise the variants folded into the
+   * row so the summary never has to be inferred from the representative alone:
+   * its own stock is not the group's stock, and its price is only the cheapest.
+   *
+   * Absent on rows that did not come from the grouped query.
+   */
+  variantCount?: number;
+  priceFrom?: number;
+  priceTo?: number;
+  /** Stock across every variant, not just the one representing the group. */
+  totalStock?: number;
+  /** True when the variants disagree, so the row shows "mixed" rather than picking one. */
+  mixedStatus?: boolean;
+  mixedVisibility?: boolean;
 }
 
 export const getAdminProductRows = cache(async (): Promise<AdminProductRow[]> => {
