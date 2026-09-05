@@ -258,14 +258,28 @@ async function main() {
   let imported = cp.imported;
   let skippedCategory = 0;
   let skippedExisting = 0;
+  let failedPages = 0;
+  // Counted so a shortfall is visible in the summary rather than having to be
+  // inferred from arithmetic afterwards.
+  let noDetail = 0;
+  let noVariants = 0;
 
   try {
     for (const pageNum of order) {
       if (imported >= TARGET) break;
 
       const page = await cjGet<{ list: CjListItem[] }>(`/product/list?pageSize=${PAGE_SIZE}&pageNum=${pageNum}&${FILTERS}`);
+      /**
+       * Only a page that actually came back counts as visited.
+       *
+       * This marked the page seen before checking the fetch, so a page that
+       * failed — rate limited past its retries, or a response CJ would not
+       * give — was recorded as done and never revisited. Roughly 31,100
+       * products were skipped that way and the checkpoint made it permanent.
+       */
+      if (!page) { failedPages++; continue; }
       seen.add(pageNum);
-      if (!page?.list?.length) continue;
+      if (!page.list?.length) continue;
 
       for (const item of page.list) {
         if (imported >= TARGET) break;
@@ -276,10 +290,10 @@ async function main() {
 
         const detail = await cjGet<CjDetail>(`/product/query?pid=${item.pid}`);
         existing.add(item.pid);
-        if (!detail) continue;
+        if (!detail) { noDetail++; continue; }
 
         const variants = (detail.variants ?? []).slice(0, MAX_VARIANTS);
-        if (variants.length === 0) continue;
+        if (variants.length === 0) { noVariants++; continue; }
 
         const description = stripHtml(detail.description).slice(0, 2000) || (detail.productNameEn ?? "");
         const title = detail.productNameEn ?? item.productNameEn ?? "";
@@ -372,6 +386,9 @@ async function main() {
   console.log(`\nimported ${imported.toLocaleString()} products`);
   console.log(`  skipped, already held        : ${skippedExisting.toLocaleString()}`);
   console.log(`  skipped, category not stocked: ${skippedCategory.toLocaleString()}`);
+  console.log(`  skipped, no detail from CJ   : ${noDetail.toLocaleString()}`);
+  console.log(`  skipped, no variants         : ${noVariants.toLocaleString()}`);
+  console.log(`  pages that failed to fetch   : ${failedPages.toLocaleString()} (will be retried)`);
   console.log(`  points used                  : ${points.used}/${points.total}`);
   await pool.end();
 }
