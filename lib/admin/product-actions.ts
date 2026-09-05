@@ -28,6 +28,28 @@ export interface ProductDetailsInput {
 }
 
 /**
+ * "Top > Child > Leaf" for a leaf category id.
+ *
+ * Three lookups rather than one `in (...)` on the slug path, because slugs
+ * repeat across branches (14 of 595 categories share one) and matching on them
+ * can name a category from the wrong branch. Returns null if the chain is
+ * broken, which reads in a log as "no previous category" rather than inventing
+ * a partial path.
+ */
+async function categoryPathName(leafId: string | null): Promise<string | null> {
+  if (!leafId) return null;
+  const [leaf] = await db.select().from(categories).where(eq(categories.id, leafId)).limit(1);
+  if (!leaf) return null;
+  const [child] = leaf.parentId
+    ? await db.select().from(categories).where(eq(categories.id, leaf.parentId)).limit(1)
+    : [undefined];
+  const [top] = child?.parentId
+    ? await db.select().from(categories).where(eq(categories.id, child.parentId)).limit(1)
+    : [undefined];
+  return [top?.name, child?.name, leaf.name].filter(Boolean).join(" > ") || null;
+}
+
+/**
  * Edits the fields an admin can change from the product panel.
  *
  * The panel previously showed Title as an input, Description as read-only
@@ -58,9 +80,12 @@ export async function updateProductDetailsAction(
 
   const [existing] = await db.select().from(products).where(eq(products.id, productId)).limit(1);
   if (!existing) return { error: "Product not found" };
-  // Named, not id'd: an id in the log tells a reader nothing, and the slug
-  // path is already carried on the row so this costs no extra query.
-  const existingCategoryPath = (existing.categorySlugPath ?? []).join(" > ");
+  // Resolved to names rather than taken from the row's categorySlugPath,
+  // which holds slugs. Using it made a category move log its two sides in
+  // different vocabularies — from "home-garden-and-furniture > home-storage"
+  // to "Bags & Shoes > Men's Luggage & Bags" — which is not a diff a reader
+  // can compare. Walked up by id because 14 category slugs are not unique.
+  const existingCategoryPath = await categoryPathName(existing.categoryId);
 
   // Only a leaf is a valid destination — a product's categorySlugPath has
   // three segments, so filing it under a top or child category yields a path
