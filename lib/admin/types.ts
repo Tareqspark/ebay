@@ -246,12 +246,32 @@ export interface SupplierLog {
 
 export type ActivityType = "order" | "payment" | "import" | "product" | "customer" | "system";
 
+/** Before and after for one field. Mirrors FieldChanges in lib/admin/activity. */
+export interface FieldChange {
+  from: string | null;
+  to: string | null;
+}
+
 export interface ActivityEvent {
   id: string;
   type: ActivityType;
   message: string;
   actor: string;
   createdAt: string;
+  /**
+   * The row this event is about, so a product's history survives a rename.
+   *
+   * Optional because the generated demo events in app/data/admin/activity.ts
+   * predate the audit columns and carry neither field. Everything read from
+   * the database sets both explicitly.
+   */
+  entityId?: string | null;
+  /**
+   * What each changed field went from and to. Absent on events that record an
+   * occurrence rather than an edit (an order placed, an import finishing), and
+   * on bulk edits above BULK_DETAIL_LIMIT, which log one summary instead.
+   */
+  changes?: Record<string, FieldChange> | null;
 }
 
 export type AnnouncementLevel = "info" | "success" | "warning";

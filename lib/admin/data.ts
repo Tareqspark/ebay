@@ -627,10 +627,42 @@ export const getSupplierLogs = cache(async (): Promise<AdminSupplierLogRow[]> =>
 // Dashboard
 // ---------------------------------------------------------------------------
 
+function toActivityEvent(a: typeof activityEventsTable.$inferSelect): ActivityEvent {
+  return {
+    id: a.id,
+    type: a.type,
+    message: a.message,
+    actor: a.actor,
+    createdAt: a.createdAt.toISOString(),
+    entityId: a.entityId,
+    changes: a.changes ?? null,
+  };
+}
+
 export const getActivity = cache(async (): Promise<ActivityEvent[]> => {
   const rows = await db.select().from(activityEventsTable).orderBy(desc(activityEventsTable.createdAt));
-  return rows.map((a) => ({ id: a.id, type: a.type, message: a.message, actor: a.actor, createdAt: a.createdAt.toISOString() }));
+  return rows.map(toActivityEvent);
 });
+
+/**
+ * One product's edit history, newest first.
+ *
+ * Read when a product's detail panel opens rather than joined into the products
+ * table, which holds the whole catalogue in memory and would carry an audit
+ * trail nobody has asked to see. Indexed on entity_id.
+ *
+ * Deliberately not `cache()`d: the panel is opened to check what just changed,
+ * so a stale answer is worse than a second query.
+ */
+export async function getProductHistory(productId: string, limit = 100): Promise<ActivityEvent[]> {
+  const rows = await db
+    .select()
+    .from(activityEventsTable)
+    .where(eq(activityEventsTable.entityId, productId))
+    .orderBy(desc(activityEventsTable.createdAt))
+    .limit(limit);
+  return rows.map(toActivityEvent);
+}
 
 export const getAnnouncements = cache(async (): Promise<Announcement[]> => {
   const rows = await db.select().from(announcementsTable).orderBy(desc(announcementsTable.createdAt));
