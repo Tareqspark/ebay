@@ -19,6 +19,13 @@
  * catalogue with whatever CJ happens to sort first, which clusters by supplier
  * and category; a shuffle spreads the intake across the whole result set.
  *
+ * The list is queried in price bands, not as one filter. CJ will not serve any
+ * page past offset 6,000, so a single query matching 37,132 products yields the
+ * first 6,000 and refuses the rest — which is exactly where the first attempt
+ * stopped, at 6,383 products, re-requesting 311 impossible pages twice a day.
+ * The ceiling applies per result set, so nine narrower price windows reach
+ * ~36,700 where one wide one reached 6,000. See discoverBands.
+ *
  * Resumable: pages already consumed are checkpointed, so a quota stop or a
  * dropped connection just means running it again.
  */
@@ -33,6 +40,10 @@ const pool = mysql.createPool({ uri: process.env.DATABASE_URL, connectionLimit: 
 const db = drizzle(pool, { schema, mode: "default" });
 
 const APPLY = process.argv.includes("--apply");
+/** Re-probe the price bands instead of reusing the cached ones. CJ's totals
+ *  drift as stock moves, so a band balanced months ago can outgrow the
+ *  ceiling; this is the way to rebalance without hand-editing a checkpoint. */
+const REDISCOVER = process.argv.includes("--rediscover");
 const CJ_BASE = "https://developers.cjdropshipping.com/api2.0/v1";
 const MIN_CALL_GAP_MS = Number(process.env.CJ_GAP_MS ?? 1500);
 const TARGET = Number(process.env.CJ_US_TARGET ?? 30000);
@@ -51,7 +62,31 @@ const MAX_VARIANTS = Number(process.env.CJ_US_MAX_VARIANTS ?? 3);
  */
 const NOMINAL_STOCK = 10;
 const PAGE_SIZE = 100;
-const FILTERS = `countryCode=US&startInventory=10&minPrice=${process.env.CJ_US_MIN_PRICE ?? 20}&maxPrice=${process.env.CJ_US_MAX_PRICE ?? 200}`;
+/**
+ * CJ refuses any page past offset 6,000 — `code 1600300, "the max offset is
+ * 6000"`. It is not documented in the response until you hit it, and it is a
+ * property of the *result set*, not the account, so it applies afresh to every
+ * distinct filter combination.
+ *
+ * This is what stalled the first attempt. A single query matching 37,132
+ * products could only ever yield the first 6,000 of them; the remaining 311 of
+ * 372 pages returned 1600300 on every run, at the full 50 points each, and the
+ * importer sat at 6,383 products burning ~31,100 points a day against a 50,000
+ * budget. The answer is not to ask for deeper pages but to ask narrower
+ * questions — see discoverBands.
+ */
+const MAX_OFFSET = 6000;
+const MAX_PAGES_PER_BAND = MAX_OFFSET / PAGE_SIZE;
+/**
+ * Bands are split until they fit under this rather than under MAX_OFFSET. CJ's
+ * totals drift as stock moves, and a band discovered at 5,999 today would start
+ * losing its tail tomorrow.
+ */
+const SAFE_BAND_TOTAL = 5500;
+const BASE_FILTERS = "countryCode=US&startInventory=10";
+const MIN_PRICE = Number(process.env.CJ_US_MIN_PRICE ?? 10);
+const MAX_PRICE = Number(process.env.CJ_US_MAX_PRICE ?? 500);
+const priceFilter = (lo: number, hi: number) => `${BASE_FILTERS}&minPrice=${lo}&maxPrice=${hi}`;
 const CHECKPOINT = new URL("./.cj-us-import.json", import.meta.url);
 const GENERIC_BRAND_ID = "cj-marketplace";
 
@@ -97,8 +132,15 @@ async function getToken(): Promise<string> {
 
 let lastCallAt = 0;
 let points = { used: 0, total: 0 };
+/**
+ * Set by cjGet when the last call failed in a way that will never succeed, so
+ * a caller can tell "try again later" from "stop asking". Read immediately
+ * after the call that set it; every call resets it.
+ */
+let lastCallWasRefused = false;
 
 async function cjGet<T>(path: string): Promise<T | null> {
+  lastCallWasRefused = false;
   for (let attempt = 0; attempt < 4; attempt++) {
     const wait = Math.max(0, lastCallAt + MIN_CALL_GAP_MS - Date.now());
     if (wait) await new Promise((r) => setTimeout(r, wait));
@@ -134,6 +176,13 @@ async function cjGet<T>(path: string): Promise<T | null> {
       await new Promise((r) => setTimeout(r, 2500 * (attempt + 1)));
       continue;
     }
+    /**
+     * 1600300 is the offset ceiling, and no amount of retrying changes it.
+     * Flagged rather than merely returned null so the caller can record the
+     * page as done instead of queueing it again on the next run — the loop
+     * that re-requested 311 impossible pages twice a day.
+     */
+    if (body.code === 1600300 || /max offset/i.test(message)) lastCallWasRefused = true;
     return null;
   }
   return null;
@@ -182,15 +231,79 @@ interface LeafCategory {
   cjCategoryId: string;
 }
 
-interface Checkpoint { pages: number[]; imported: number }
+/** A price window narrow enough that all of its results are reachable. */
+interface Band { lo: number; hi: number; total: number }
+
+interface Checkpoint {
+  /** Pages already consumed, as "lo-hi:page" — a page number alone is ambiguous once there are bands. */
+  visited: string[];
+  imported: number;
+  /** Cached so band discovery, which costs 50 points a probe, is paid once. */
+  bands?: Band[];
+}
+
 const loadCheckpoint = (): Checkpoint => {
-  try { return JSON.parse(fs.readFileSync(CHECKPOINT, "utf8")); } catch { return { pages: [], imported: 0 }; }
+  try {
+    const raw = JSON.parse(fs.readFileSync(CHECKPOINT, "utf8"));
+    /**
+     * The old format recorded bare page numbers against one unpartitioned
+     * query. Those numbers mean nothing under banding — page 7 of $20-200 is
+     * not page 7 of $30-40 — so they are dropped while the import tally is
+     * kept. Re-reading a page is cheap and idempotent; the pid check skips
+     * everything already held before any detail call is paid for.
+     */
+    if (Array.isArray(raw.pages) && !raw.visited) {
+      return { visited: [], imported: Number(raw.imported ?? 0) };
+    }
+    return { visited: raw.visited ?? [], imported: Number(raw.imported ?? 0), bands: raw.bands };
+  } catch {
+    return { visited: [], imported: 0 };
+  }
 };
 const saveCheckpoint = (cp: Checkpoint) => fs.writeFileSync(CHECKPOINT, JSON.stringify(cp, null, 2));
 
+/** How many products match a price window; null if CJ would not say. */
+async function bandTotal(lo: number, hi: number): Promise<number | null> {
+  const res = await cjGet<{ total: number }>(`/product/list?pageSize=1&pageNum=1&${priceFilter(lo, hi)}`);
+  return res ? Number(res.total ?? 0) : null;
+}
+
+/**
+ * Splits a price range into windows that each fit under the offset ceiling.
+ *
+ * Every band is a separate result set with its own 6,000-row window, so nine
+ * bands reach ~36,700 products where the single query they replace reached
+ * 6,000. Bisected rather than hardcoded because the boundaries that balance
+ * today will not balance once stock moves.
+ *
+ * Costs 50 points per probe, roughly twice the number of bands it returns, and
+ * is cached in the checkpoint afterwards.
+ */
+async function discoverBands(lo: number, hi: number, depth = 0): Promise<Band[]> {
+  const total = await bandTotal(lo, hi);
+  if (total === null) {
+    console.log(`  $${lo}-${hi}: could not read a total, skipped`);
+    return [];
+  }
+  if (total === 0) return [];
+
+  // A band already small enough, or one that cannot be split any finer.
+  if (total <= SAFE_BAND_TOTAL || hi - lo <= 1 || depth >= 8) {
+    if (total > MAX_OFFSET) {
+      // A single dollar of price range holding more than the ceiling. Nothing
+      // here can fix that, so say what will be lost rather than lose it quietly.
+      console.log(`  $${lo}-${hi}: ${total.toLocaleString()} products but only ${MAX_OFFSET.toLocaleString()} reachable — ${(total - MAX_OFFSET).toLocaleString()} unreachable`);
+    }
+    return [{ lo, hi, total }];
+  }
+
+  const mid = Math.round((lo + hi) / 2);
+  return [...(await discoverBands(lo, mid, depth + 1)), ...(await discoverBands(mid, hi, depth + 1))];
+}
+
 /** Deterministic shuffle, so a resumed run visits pages in the same order. */
-function shuffled(n: number, seed: number): number[] {
-  const a = Array.from({ length: n }, (_, i) => i + 1);
+function shuffled<T>(items: T[], seed: number): T[] {
+  const a = [...items];
   let s = seed;
   for (let i = a.length - 1; i > 0; i--) {
     s = (s * 1103515245 + 12345) & 0x7fffffff;
@@ -202,7 +315,7 @@ function shuffled(n: number, seed: number): number[] {
 
 async function main() {
   console.log(APPLY ? "APPLYING\n" : "DRY RUN — nothing will be written\n");
-  console.log(`filters: ${FILTERS}`);
+  console.log(`filters: ${BASE_FILTERS}, price $${MIN_PRICE}-${MAX_PRICE}`);
   console.log(`target : ${TARGET.toLocaleString()} products, up to ${MAX_VARIANTS} variants each\n`);
 
   // Only leaves our tree already carries, keyed on CJ's own id. A product in a
@@ -237,17 +350,41 @@ async function main() {
   console.log(`${existing.size.toLocaleString()} products already imported — they will be skipped`);
   console.log(`${usedSlugs.size.toLocaleString()} slugs already taken\n`);
 
-  const first = await cjGet<{ total: number; list: CjListItem[] }>(`/product/list?pageSize=1&pageNum=1&${FILTERS}`);
-  if (!first) { console.log("could not read the product list"); await pool.end(); return; }
-  const totalAvailable = Number(first.total ?? 0);
-  const pageCount = Math.ceil(totalAvailable / PAGE_SIZE);
-  console.log(`${totalAvailable.toLocaleString()} products match; ${pageCount.toLocaleString()} pages of ${PAGE_SIZE}`);
-
   const cp = loadCheckpoint();
-  const seen = new Set(cp.pages);
-  const order = shuffled(pageCount, 20260903).filter((p) => !seen.has(p));
-  console.log(`${cp.imported.toLocaleString()} imported so far, ${order.length.toLocaleString()} pages left to visit`);
-  console.log(`estimated ${((TARGET - cp.imported) * 10 + order.length * 50).toLocaleString()} points remaining\n`);
+
+  let bands = REDISCOVER ? undefined : cp.bands;
+  if (!bands?.length) {
+    console.log(`discovering price bands under the ${MAX_OFFSET.toLocaleString()}-row offset ceiling...`);
+    bands = await discoverBands(MIN_PRICE, MAX_PRICE);
+    if (!bands.length) { console.log("could not read the product list"); await pool.end(); return; }
+    cp.bands = bands;
+    saveCheckpoint(cp);
+  }
+
+  const matched = bands.reduce((n, b) => n + b.total, 0);
+  const reachable = bands.reduce((n, b) => n + Math.min(b.total, MAX_OFFSET), 0);
+  for (const b of bands) {
+    console.log(`  $${String(b.lo).padStart(3)}-${String(b.hi).padEnd(3)} ${b.total.toLocaleString().padStart(6)} products`);
+  }
+  const overflowing = bands.filter((b) => b.total > MAX_OFFSET);
+  if (overflowing.length) {
+    console.log(`  ${overflowing.length} band(s) exceed the ceiling — re-run with --rediscover to rebalance`);
+  }
+  console.log(`${bands.length} bands · ${matched.toLocaleString()} products match, ${reachable.toLocaleString()} reachable`);
+  console.log(`(one unpartitioned query would reach ${MAX_OFFSET.toLocaleString()})`);
+
+  // Every page of every band, shuffled together rather than band by band, so
+  // an interrupted run still leaves the intake spread across the price range
+  // instead of complete at the cheap end and empty at the dear one.
+  const allPages: { band: Band; page: number }[] = [];
+  for (const band of bands) {
+    const pages = Math.min(Math.ceil(band.total / PAGE_SIZE), MAX_PAGES_PER_BAND);
+    for (let page = 1; page <= pages; page++) allPages.push({ band, page });
+  }
+  const seen = new Set(cp.visited);
+  const order = shuffled(allPages, 20260903).filter((p) => !seen.has(`${p.band.lo}-${p.band.hi}:${p.page}`));
+  console.log(`\n${cp.imported.toLocaleString()} imported so far, ${order.length.toLocaleString()} of ${allPages.length.toLocaleString()} pages left to visit`);
+  console.log(`estimated ${(Math.max(0, TARGET - cp.imported) * 10 + order.length * 50).toLocaleString()} points remaining\n`);
 
   if (!APPLY) {
     console.log("Re-run with --apply to write.");
@@ -259,26 +396,37 @@ async function main() {
   let skippedCategory = 0;
   let skippedExisting = 0;
   let failedPages = 0;
+  // Refused for good (the offset ceiling), as against failed and worth retrying.
+  let refusedPages = 0;
   // Counted so a shortfall is visible in the summary rather than having to be
   // inferred from arithmetic afterwards.
   let noDetail = 0;
   let noVariants = 0;
 
   try {
-    for (const pageNum of order) {
+    for (const { band, page: pageNum } of order) {
       if (imported >= TARGET) break;
+      const key = `${band.lo}-${band.hi}:${pageNum}`;
 
-      const page = await cjGet<{ list: CjListItem[] }>(`/product/list?pageSize=${PAGE_SIZE}&pageNum=${pageNum}&${FILTERS}`);
+      const page = await cjGet<{ list: CjListItem[] }>(
+        `/product/list?pageSize=${PAGE_SIZE}&pageNum=${pageNum}&${priceFilter(band.lo, band.hi)}`
+      );
       /**
-       * Only a page that actually came back counts as visited.
+       * Only a page that actually came back counts as visited — unless CJ
+       * refused it outright.
        *
-       * This marked the page seen before checking the fetch, so a page that
-       * failed — rate limited past its retries, or a response CJ would not
-       * give — was recorded as done and never revisited. Roughly 31,100
-       * products were skipped that way and the checkpoint made it permanent.
+       * Marking a page seen before checking the fetch meant a page that failed
+       * transiently was recorded as done and never revisited. Marking a refused
+       * page unseen is the opposite mistake: pages past the offset ceiling were
+       * re-requested on every run, at 50 points each, for a result that cannot
+       * change. Banding should mean this never fires; it is here so that if the
+       * ceiling moves, the run costs one wasted page rather than one a day.
        */
-      if (!page) { failedPages++; continue; }
-      seen.add(pageNum);
+      if (!page) {
+        if (lastCallWasRefused) { refusedPages++; seen.add(key); } else { failedPages++; }
+        continue;
+      }
+      seen.add(key);
       if (!page.list?.length) continue;
 
       for (const item of page.list) {
@@ -365,14 +513,14 @@ async function main() {
 
         if (wroteAny) imported++;
         if (imported % 100 === 0 && wroteAny) {
-          saveCheckpoint({ pages: [...seen], imported });
+          saveCheckpoint({ visited: [...seen], imported, bands });
           console.log(`  ${imported.toLocaleString()}/${TARGET.toLocaleString()} products · points ${points.used}/${points.total}`);
         }
       }
-      saveCheckpoint({ pages: [...seen], imported });
+      saveCheckpoint({ visited: [...seen], imported, bands });
     }
   } catch (err) {
-    saveCheckpoint({ pages: [...seen], imported });
+    saveCheckpoint({ visited: [...seen], imported, bands });
     if (err instanceof QuotaExceededError) {
       console.log(`\nStopped: ${err.message}`);
       console.log("Progress is checkpointed — re-run to continue.");
@@ -382,13 +530,14 @@ async function main() {
     throw err;
   }
 
-  saveCheckpoint({ pages: [...seen], imported });
+  saveCheckpoint({ visited: [...seen], imported, bands });
   console.log(`\nimported ${imported.toLocaleString()} products`);
   console.log(`  skipped, already held        : ${skippedExisting.toLocaleString()}`);
   console.log(`  skipped, category not stocked: ${skippedCategory.toLocaleString()}`);
   console.log(`  skipped, no detail from CJ   : ${noDetail.toLocaleString()}`);
   console.log(`  skipped, no variants         : ${noVariants.toLocaleString()}`);
   console.log(`  pages that failed to fetch   : ${failedPages.toLocaleString()} (will be retried)`);
+  console.log(`  pages refused past the cap   : ${refusedPages.toLocaleString()} (will not be retried)`);
   console.log(`  points used                  : ${points.used}/${points.total}`);
   await pool.end();
 }
