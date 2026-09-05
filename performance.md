@@ -183,3 +183,88 @@ is why the figures above vary between runs.
 - **Layout instability.** CLS 0.
 - **Network, DNS, TLS.** Under 1 s combined, measured client-side.
 - **Next.js or nginx overhead.** A trivial route answers in 10 ms.
+
+---
+
+# Re-measured 6 September 2026, after the droplet resize
+
+The droplet went from 1 vCPU / 2 GB to **2 vCPU / 4 GB**, and
+`innodb_buffer_pool_size` from 128 MB to **1024 MB** (online, `SET PERSIST`, no
+restart). That was items 3 and 4 of the plan above. The result invalidates item 1.
+
+## What the resize actually fixed
+
+| Query | 2 Sep | 6 Sep |
+| --- | ---: | ---: |
+| New arrivals (`select *`, the app's own query) | 5,389 ms | **22 ms** |
+| Most reviewed | 2,230 ms → 18 ms | **25 ms** |
+| Best sellers | 2,102 ms → 14 ms | **15 ms** |
+| Flash sale | 1,640 ms → 8 ms | **15 ms** |
+| Trending | — | **17 ms** |
+
+Buffer pool hit rate is **99.71%**; the 418 MB database now sits entirely in the
+1 GB pool.
+
+## Item 1 (denormalise sellability) is no longer the priority
+
+The 5,389 ms was never really the plan — it was the plan *plus a cold cache*.
+MySQL was re-reading a 418 MB database through a 128 MB window, so the
+optimiser's choice to drive from `product_meta` meant thousands of disk reads.
+With the working set resident, the same query on the same plan is 22 ms.
+
+Denormalising touches five write sites, needs a 148,039-row backfill, and
+introduces duplicated state that can drift. That was worth it for a 5.3 s win.
+It is not worth it for a 12 ms one.
+
+**Tripwire, not cancellation.** The fix works because the database fits in the
+pool, with roughly 2.4× headroom (418 MB of 1024 MB). If the catalogue grows past
+that — the 50,000-unique-product target would do it — the plan becomes
+pathological again. Re-measure when `products` passes ~700 MB, and revisit this
+item then rather than treating it as closed.
+
+## The bottleneck is now the application, not the database
+
+| | |
+| --- | ---: |
+| Homepage, server-side (`localhost:3000`, no network or TLS) | **1.65–2.28 s** |
+| Ten rail queries, summed | ~200 ms |
+| Trivial route (`/robots.txt`) | 8.8 ms |
+
+Roughly **1.5 s per request is application work**: React rendering,
+`collapseVariants` over-fetching 4× on every rail, and `getBrandNameById` being
+resolved once per rail rather than once per request.
+
+Public TTFB measures ~2.6–3.5 s from a client 277 ms away, of which ~0.7 s is
+connection setup and TLS. That part is distance, not the server, and a CDN in
+front of the HTML would remove it.
+
+## Revised order of work
+
+1. **Cache the homepage** — was item 2, now the top item and by a wide margin.
+   Ten rails, identical for every visitor for 24 hours, recomputed per request.
+   `unstable_cache` with a daily revalidate removes essentially all 1.5 s.
+2. **Hoist `getBrandNameById`** out of the per-rail path — it is resolved ten
+   times per homepage to produce the same map.
+3. **Trim the 4× over-fetch** in `collapseVariants` (old item 5).
+4. ~~Denormalise sellability~~ — deferred against the tripwire above.
+5. ~~Raise the buffer pool~~ — done, 128 MB → 1024 MB.
+6. ~~Capacity~~ — done, 2 vCPU / 4 GB.
+
+## Also worth recording: the build no longer fits on a 2 GB box
+
+Three consecutive deploys failed with
+`FATAL ERROR: Reached heap limit — JavaScript heap out of memory`, aborting at
+static page 61 of 82 and leaving a partial `.next` (a `BUILD_ID` but no
+`prerender-manifest.json`), which crash-looped the service 87 times.
+
+`BUILD_ID` is written early in the build, so it is **not** a completion signal.
+Gate a deploy on the build process exiting, and on `prerender-manifest.json`
+existing — not on `BUILD_ID`.
+
+Node derives its default heap cap from total RAM: 1,008 MB on the 2 GB box,
+2,006 MB on the 4 GB one. Passing `NODE_OPTIONS=--max-old-space-size=2048` on the
+old box did not help, as Next's spawned build workers did not inherit it. The
+resize fixed this without any override.
+
+That a build of 82 static pages needs more than 1 GB of heap is itself worth
+investigating, but it is no longer blocking.
