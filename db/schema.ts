@@ -605,13 +605,45 @@ export const supplierLogs = mysqlTable("supplier_logs", {
 
 export const activityType = ["order", "payment", "import", "product", "customer", "system"] as const;
 
-export const activityEvents = mysqlTable("activity_events", {
-  id: varchar("id", { length: 191 }).primaryKey(),
-  type: mysqlEnum("type", activityType).notNull(),
-  message: text("message").notNull(),
-  actor: varchar("actor", { length: 191 }).notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+export const activityEvents = mysqlTable(
+  "activity_events",
+  {
+    id: varchar("id", { length: 191 }).primaryKey(),
+    type: mysqlEnum("type", activityType).notNull(),
+    message: text("message").notNull(),
+    actor: varchar("actor", { length: 191 }).notNull(),
+    /**
+     * What the event is about, so a history can be assembled.
+     *
+     * The message names its subject in prose, and for a product that prose is
+     * the title — which is one of the things an edit changes. After a rename
+     * nothing tied the old event to the new one, so "every change to this
+     * product" was unanswerable. This is the stable handle the message cannot
+     * be.
+     *
+     * Nullable: events written before this existed have none, and some events
+     * (a login, a settings change) are not about a single row.
+     */
+    entityId: varchar("entity_id", { length: 191 }),
+    /**
+     * The before and after of each field the action changed:
+     *
+     *   {"title":    {"from": "…", "to": "…"},
+     *    "category": {"from": "Garden Tools", "to": "Trampolines"}}
+     *
+     * The feed still renders `message`; this is what makes the log queryable —
+     * every category move one person made, everything touched on a given day.
+     * Long values are truncated at the call site rather than stored twice in
+     * full, so a 2,000-character description does not double the table.
+     */
+    changes: json("changes").$type<Record<string, { from: string | null; to: string | null }>>(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("activity_events_entity_id_idx").on(table.entityId),
+    index("activity_events_created_at_idx").on(table.createdAt),
+  ]
+);
 
 // ---------------------------------------------------------------------------
 // Error tracking — a real internal error log rather than a third-party APM

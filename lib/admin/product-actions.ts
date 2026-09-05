@@ -8,7 +8,7 @@ import { toCents } from "@/lib/money";
 import { newId } from "@/lib/id";
 import { checkPlainText } from "@/lib/sanitize";
 import { getAdminActorName } from "@/lib/admin/auth";
-import { logActivity } from "@/lib/admin/activity";
+import { logActivity, diffFields, describeChanges } from "@/lib/admin/activity";
 import { requirePermission } from "@/lib/admin/permissions";
 import type { ProductStatus, ProductVisibility } from "@/lib/admin/types";
 
@@ -58,6 +58,9 @@ export async function updateProductDetailsAction(
 
   const [existing] = await db.select().from(products).where(eq(products.id, productId)).limit(1);
   if (!existing) return { error: "Product not found" };
+  // Named, not id'd: an id in the log tells a reader nothing, and the slug
+  // path is already carried on the row so this costs no extra query.
+  const existingCategoryPath = (existing.categorySlugPath ?? []).join(" > ");
 
   // Only a leaf is a valid destination — a product's categorySlugPath has
   // three segments, so filing it under a top or child category yields a path
@@ -78,11 +81,26 @@ export async function updateProductDetailsAction(
     })
     .where(eq(products.id, productId));
 
+  /**
+   * The old values are read from the row fetched before the update, so the
+   * log records what a field was as well as what it became. The message alone
+   * never could: it named the product by a title the edit may have changed.
+   */
+  const changes = diffFields(
+    { title: existing.title, description: existing.description, category: existingCategoryPath },
+    { title, description, category: `${top.name} > ${child.name} > ${leaf.name}` }
+  );
   const moved = existing.categoryId !== leaf.id;
   await logActivity(
     "product",
-    moved ? `Product "${title}" moved to ${top.name} > ${child.name} > ${leaf.name}` : `Product "${title}" updated`,
-    await getAdminActorName()
+    Object.keys(changes).length === 0
+      ? `Product "${title}" saved with no changes`
+      : moved
+        ? `Product "${title}" moved to ${top.name} > ${child.name} > ${leaf.name}`
+        : `Product "${title}": ${describeChanges(changes)} changed`,
+    await getAdminActorName(),
+    productId,
+    changes
   );
 
   revalidateProductViews();
@@ -98,7 +116,20 @@ export async function updateProductPriceAction(productId: string, price: number)
   if (guard) return guard;
 
   if (!Number.isFinite(price) || price < 0) return { error: "Price can't be negative" };
+  // Price and cost edits were not logged at all before, so a margin could move
+  // with nothing recording who moved it.
+  const [before] = await db.select({ title: products.title, priceCents: products.priceCents })
+    .from(products).where(eq(products.id, productId)).limit(1);
   await db.update(products).set({ priceCents: toCents(price) }).where(eq(products.id, productId));
+
+  const changes = diffFields(
+    { price: before ? (before.priceCents / 100).toFixed(2) : null },
+    { price: price.toFixed(2) }
+  );
+  if (Object.keys(changes).length > 0) {
+    await logActivity("product", `Product "${before?.title ?? productId}" price changed`,
+      await getAdminActorName(), productId, changes);
+  }
   revalidateProductViews();
   return {};
 }
@@ -108,26 +139,58 @@ export async function updateProductCostAction(productId: string, cost: number): 
   if (guard) return guard;
 
   if (!Number.isFinite(cost) || cost < 0) return { error: "Cost can't be negative" };
+  const [before] = await db
+    .select({ title: products.title, costCents: productMeta.costCents })
+    .from(productMeta)
+    .innerJoin(products, eq(products.id, productMeta.productId))
+    .where(eq(productMeta.productId, productId))
+    .limit(1);
   await db.update(productMeta).set({ costCents: toCents(cost) }).where(eq(productMeta.productId, productId));
+
+  const changes = diffFields(
+    { cost: before ? (before.costCents / 100).toFixed(2) : null },
+    { cost: cost.toFixed(2) }
+  );
+  if (Object.keys(changes).length > 0) {
+    await logActivity("product", `Product "${before?.title ?? productId}" cost changed`,
+      await getAdminActorName(), productId, changes);
+  }
   revalidateProductViews();
   return {};
 }
+
+/**
+ * A bulk action writes one event per product, up to a point.
+ *
+ * Per-product is what an audit needs — "who hid this item" has to be
+ * answerable for each one. But a 20,000-row bulk update would write 20,000
+ * events, so past BULK_DETAIL_LIMIT it falls back to a single summary. The
+ * threshold is where a person could plausibly review the list by hand.
+ */
+const BULK_DETAIL_LIMIT = 50;
 
 export async function setProductStatusAction(productIds: string[], status: ProductStatus): Promise<ProductActionResult> {
   const guard = await requirePermission("products");
   if (guard) return guard;
 
   if (productIds.length === 0) return {};
+  const previous = await db
+    .select({ id: productMeta.productId, title: products.title, status: productMeta.status })
+    .from(productMeta)
+    .innerJoin(products, eq(products.id, productMeta.productId))
+    .where(inArray(productMeta.productId, productIds));
   await db.update(productMeta).set({ status }).where(inArray(productMeta.productId, productIds));
 
   const actor = await getAdminActorName();
-  await logActivity(
-    "product",
-    productIds.length === 1
-      ? `Product status set to ${status}`
-      : `${productIds.length} products set to ${status}`,
-    actor
-  );
+  if (previous.length <= BULK_DETAIL_LIMIT) {
+    for (const row of previous) {
+      const changes = diffFields({ status: row.status }, { status });
+      if (Object.keys(changes).length === 0) continue;
+      await logActivity("product", `Product "${row.title}" status set to ${status}`, actor, row.id, changes);
+    }
+  } else {
+    await logActivity("product", `${productIds.length} products set to ${status}`, actor);
+  }
   revalidateProductViews();
   return {};
 }
@@ -140,16 +203,23 @@ export async function setProductVisibilityAction(
   if (guard) return guard;
 
   if (productIds.length === 0) return {};
+  const previous = await db
+    .select({ id: productMeta.productId, title: products.title, visibility: productMeta.visibility })
+    .from(productMeta)
+    .innerJoin(products, eq(products.id, productMeta.productId))
+    .where(inArray(productMeta.productId, productIds));
   await db.update(productMeta).set({ visibility }).where(inArray(productMeta.productId, productIds));
 
   const actor = await getAdminActorName();
-  await logActivity(
-    "product",
-    productIds.length === 1
-      ? `Product visibility set to ${visibility}`
-      : `${productIds.length} products set to ${visibility}`,
-    actor
-  );
+  if (previous.length <= BULK_DETAIL_LIMIT) {
+    for (const row of previous) {
+      const changes = diffFields({ visibility: row.visibility }, { visibility });
+      if (Object.keys(changes).length === 0) continue;
+      await logActivity("product", `Product "${row.title}" set to ${visibility}`, actor, row.id, changes);
+    }
+  } else {
+    await logActivity("product", `${productIds.length} products set to ${visibility}`, actor);
+  }
   revalidateProductViews();
   return {};
 }
@@ -166,16 +236,32 @@ export async function deleteProductsAction(productIds: string[]): Promise<Produc
   if (guard) return guard;
 
   if (productIds.length === 0) return {};
+  /**
+   * Read before the delete, because afterwards there is nothing to read. A
+   * deletion is the one change where the log is the only surviving record of
+   * what the row held.
+   */
+  const doomed = await db
+    .select({ id: products.id, title: products.title, slug: products.slug, priceCents: products.priceCents })
+    .from(products)
+    .where(inArray(products.id, productIds));
+
   await db.delete(inventory).where(inArray(inventory.productId, productIds));
   await db.delete(productMeta).where(inArray(productMeta.productId, productIds));
   await db.delete(products).where(inArray(products.id, productIds));
 
   const actor = await getAdminActorName();
-  await logActivity(
-    "product",
-    productIds.length === 1 ? "Product deleted" : `${productIds.length} products deleted`,
-    actor
-  );
+  if (doomed.length <= BULK_DETAIL_LIMIT) {
+    for (const row of doomed) {
+      await logActivity("product", `Product "${row.title}" deleted`, actor, row.id, {
+        title: { from: row.title, to: null },
+        slug: { from: row.slug, to: null },
+        price: { from: (row.priceCents / 100).toFixed(2), to: null },
+      });
+    }
+  } else {
+    await logActivity("product", `${doomed.length} products deleted`, actor);
+  }
   revalidateProductViews();
   revalidatePath("/admin/inventory");
   return {};
